@@ -1,0 +1,89 @@
+/* Not Found Page Styles */
+.not-found-page {
+  min-height: calc(100vh - 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+}
+
+.content {
+  max-width: 500px;
+}
+
+.not-found-page h1 {
+  font-size: 8rem;
+  font-weight: 700;
+  color: #2563eb;
+  line-height: 1;
+  margin-bottom: 1rem;
+}
+
+.not-found-page h2 {
+  font-size: 1.5rem;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.not-found-page p {
+  color: #6b7280;
+  margin-bottom: 2rem;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.back-btn,
+.home-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.back-btn {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.back-btn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.home-btn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+}
+
+.home-btn:hover {
+  background: #1d4ed8;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .not-found-page h1 {
+    font-size: 5rem;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .back-btn,
+  .home-btn {
+    justify-content: center;
+  }
+}
