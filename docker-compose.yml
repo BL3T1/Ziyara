@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # =============================================================================
   # DATABASE SERVICE - PostgreSQL
@@ -14,7 +12,7 @@ services:
     environment:
       POSTGRES_DB: ziyarah
       POSTGRES_USER: ziyarah_user
-      POSTGRES_PASSWORD: ziyarah_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
@@ -34,7 +32,7 @@ services:
   # =============================================================================
   backend:
     build:
-      context: ./backend
+      context: ./core
       dockerfile: Dockerfile
     image: ziyarah-backend:latest
     container_name: ziyarah-backend
@@ -43,35 +41,40 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ziyarah
       SPRING_DATASOURCE_USERNAME: ziyarah_user
-      SPRING_DATASOURCE_PASSWORD: ziyarah_password
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       SPRING_DATASOURCE_DRIVER-CLASS-NAME: org.postgresql.Driver
-      SPRING_JPA_HIBERNATE_DDL-AUTO: validate
+      SPRING_JPA_HIBERNATE_DDL-AUTO: update
       SPRING_JPA_SHOW-SQL: "false"
-      JWT_SECRET: your-256-bit-secret-key-for-jwt-token-generation-please-change-in-production
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      APP_DEMO_PASSWORD: ${APP_DEMO_PASSWORD:-Demo123!}
       JWT_EXPIRATION: 86400000
       SERVER_PORT: 8080
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics
-      MANAGEMENT_ENDPOINT_HEALTH_SHOW-DETAILS: when-authorized
+      # Use underscores; hyphens break relaxed binding for show-details
+      MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: when_authorized
+      APP_MEDIA_STORAGE_ROOT: /data/media
     ports:
       - "8080:8080"
+    volumes:
+      - media_data:/data/media
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_started
     networks:
       - ziyarah-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 30s
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/actuator/health"]
+      interval: 15s
       timeout: 10s
-      retries: 3
-      start_period: 60s
+      retries: 10
+      start_period: 120s
 
   # =============================================================================
-  # FRONTEND SERVICE - React Application
+  # FRONTEND (CRA) - Legacy React app on port 80 (optional: build may need node/package fix)
   # =============================================================================
   frontend:
+    profiles:
+      - full
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -95,34 +98,158 @@ services:
       start_period: 10s
 
   # =============================================================================
-  # REDIS CACHE - Session Management
+  # DASHBOARD (Vite) — legacy local port :3000 (opt-in profile only; not used for prod-like tests)
   # =============================================================================
-  redis:
-    image: redis:7-alpine
-    container_name: ziyarah-redis
+  dashboard:
+    profiles:
+      - legacy
+    build:
+      context: ./front/my-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_APP_SURFACE: company
+    image: ziyarah-dashboard:latest
+    container_name: ziyarah-dashboard
     restart: unless-stopped
-    command: redis-server --appendonly yes
     ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
     networks:
       - ziyarah-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
+      # 127.0.0.1 avoids IPv6 localhost (::1) failing when nginx is IPv4-only
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 15s
+      timeout: 10s
       retries: 5
+      start_period: 40s
 
   # =============================================================================
-  # ADMINER - Database Management UI (Optional)
+  # MULTI-DOMAIN (profile: multidomain) — edge proxy + company / provider / landing bundles
   # =============================================================================
-  adminer:
-    image: adminer:latest
-    container_name: ziyarah-adminer
+  dashboard-company:
+    profiles:
+      - multidomain
+    build:
+      context: ./front/my-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_APP_SURFACE: company
+    image: ziyarah-dashboard-company:latest
+    container_name: ziyarah-dashboard-company
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  dashboard-provider:
+    profiles:
+      - multidomain
+    build:
+      context: ./front/my-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_APP_SURFACE: provider
+    image: ziyarah-dashboard-provider:latest
+    container_name: ziyarah-dashboard-provider
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  landing:
+    profiles:
+      - multidomain
+    build:
+      context: ./front/my-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_APP_SURFACE: landing
+        VITE_COMPANY_APP_URL: http://app.local
+        VITE_PROVIDER_APP_URL: http://partners.local
+    image: ziyarah-landing:latest
+    container_name: ziyarah-landing
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  proxy:
+    profiles:
+      - multidomain
+    image: nginx:1.28.2-alpine
+    container_name: ziyarah-proxy
     restart: unless-stopped
     ports:
-      - "8081:8080"
+      - "80:80"
+    volumes:
+      - ./infra/nginx/multi-domain.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      dashboard-company:
+        condition: service_healthy
+      dashboard-provider:
+        condition: service_healthy
+      landing:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+
+  # =============================================================================
+  # PGADMIN - PostgreSQL admin UI (optional: docker compose up ... pgadmin)
+  # Login: PGADMIN_DEFAULT_EMAIL / PGADMIN_DEFAULT_PASSWORD (defaults below).
+  # Add server: Host=postgres, Port=5432, DB=ziyarah, User=ziyarah_user, Password=${POSTGRES_PASSWORD}
+  # =============================================================================
+  pgadmin:
+    image: dpage/pgadmin4:9
+    container_name: ziyarah-pgadmin
+    restart: unless-stopped
+    environment:
+      # pgAdmin 9+ rejects .local as invalid (reserved TLD); use a normal domain for the default login email.
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?PGADMIN_DEFAULT_PASSWORD must be set}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,7 +262,9 @@ services:
 volumes:
   postgres_data:
     driver: local
-  redis_data:
+  media_data:
+    driver: local
+  pgadmin_data:
     driver: local
 
 # =============================================================================

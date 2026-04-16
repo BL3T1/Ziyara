@@ -1,0 +1,146 @@
+spring:
+  application:
+    name: ziyarah-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ziyarah
+    username: ziyarah_user
+    password: ziyarah_password
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: public
+    open-in-view: false
+
+  jackson:
+    # write-dates-as-timestamps removed: not present in Jackson 3 (Spring Boot 4)
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+    time-zone: UTC
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  mail:
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:1025}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:false}
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api/v1
+  error:
+    include-message: always
+    include-binding-errors: always
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-key-for-jwt-token-generation-please-change-in-production}
+  expiration: ${JWT_EXPIRATION:86400000}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+  header: Authorization
+  prefix: "Bearer "
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.ziyara.backend: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    mail:
+      # Avoid backend healthcheck failures when SMTP is not provisioned (common in local/docker).
+      enabled: ${MANAGEMENT_HEALTH_MAIL_ENABLED:false}
+
+# Application-specific Configuration
+app:
+  payment:
+    gateway:
+      enabled: ${PAYMENT_GATEWAY_ENABLED:true}
+      provider: ${PAYMENT_GATEWAY_PROVIDER:stub}
+      api-key: ${PAYMENT_GATEWAY_API_KEY:}
+      api-base-url: ${PAYMENT_GATEWAY_BASE_URL:https://api.stripe.com}
+      webhook-secret: ${PAYMENT_WEBHOOK_SECRET:whsec_change_me}
+      # Header used for webhook signature (e.g. Stripe-Signature, X-Webhook-Signature)
+      webhook-signature-header: ${PAYMENT_WEBHOOK_SIGNATURE_HEADER:X-Webhook-Signature}
+  demo:
+    # Super admin account (super_admin@ziyarah.com / Demo123!) is ensured on every startup.
+    # Set to false in production (e.g. application-prod.yml) to disable.
+    super-admin:
+      enabled: true
+  booking:
+    payment-timeout-minutes: 15
+    commission-rate: 10.0
+    cancellation:
+      before-start-refund: 100
+      during-service-refund: 95
+  
+  security:
+    max-login-attempts: 5
+    lockout-duration-minutes: 30
+    session-timeout-minutes: 30
+    remember-me-days: 7
+  
+  discount:
+    sales-rep-max: 20
+    finance-max: 50
+
+  media:
+    # Local uploads (POST .../images/upload); served at {context-path}/media/**
+    storage-root: ${APP_MEDIA_STORAGE_ROOT:./data/media}
+    # Optional full public base for stored URLs (e.g. https://cdn.example.com/api/v1). Empty = use context-path + /media
+    public-base-url: ${APP_MEDIA_PUBLIC_BASE_URL:}
+
+  notifications:
+    email:
+      # Keep disabled by default to avoid SMTP dependency in local/dev.
+      enabled: ${APP_NOTIFICATIONS_EMAIL_ENABLED:false}
+      from: ${APP_NOTIFICATIONS_EMAIL_FROM:no-reply@ziyara.local}
+      # Comma-separated list for submit-for-approval notifications.
+      provider-approver-recipients: ${APP_PROVIDER_APPROVER_RECIPIENTS:}
+
+# SpringDoc OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true

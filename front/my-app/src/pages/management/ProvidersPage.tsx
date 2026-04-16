@@ -1,0 +1,404 @@
+/**
+ * Management > Providers – group-first list view.
+ * Step 1: Status or vertical cards. Step 2: Table with commission override, Approve, Suspend.
+ */
+
+import { useEffect, useState } from 'react'
+import { CreateProviderModal } from '../../components/CreateProviderModal'
+import { useAuth } from '../../context/AuthContext'
+import { useLanguage } from '../../context/LanguageContext'
+import { providersAPI } from '../../services/api'
+import { getApiErrorMessage } from '../../services/api'
+import type { PageDto, ServiceProviderDto } from '../../types/api'
+import {
+  canApproveRejectProvider,
+  canCreateProvider,
+  canViewProviderCommission,
+} from '../../types/auth'
+
+function asPage<T>(data: unknown): PageDto<T> | null {
+  if (data && typeof data === 'object' && Array.isArray((data as PageDto<T>).content)) {
+    return data as PageDto<T>
+  }
+  return null
+}
+
+const PAGE_SIZE = 20
+
+const STATUS_FILTERS = [
+  { id: 'ACTIVE', labelKey: 'providersPage.statusActive' },
+  { id: 'PENDING_APPROVAL', labelKey: 'providersPage.statusPendingApproval' },
+  { id: 'SUSPENDED', labelKey: 'providersPage.statusSuspended' },
+  { id: 'INACTIVE', labelKey: 'providersPage.statusInactive' },
+] as const
+
+export function ProvidersPage() {
+  const { t } = useLanguage()
+  const { user } = useAuth()
+  const showCommission = user?.role ? canViewProviderCommission(user.role) : false
+  const showCreate = user?.role ? canCreateProvider(user.role) : false
+  const showApproveReject = user?.role ? canApproveRejectProvider(user.role) : false
+  const [createOpen, setCreateOpen] = useState(false)
+  const [providers, setProviders] = useState<ServiceProviderDto[]>([])
+  const [filter, setFilter] = useState<string | null>(null)
+  const [page, setPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [commissionRate, setCommissionRate] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [viewProviderId, setViewProviderId] = useState<string | null>(null)
+  const [viewProvider, setViewProvider] = useState<ServiceProviderDto | null>(null)
+  const [viewLoading, setViewLoading] = useState(false)
+
+  const load = () => {
+    setLoading(true)
+    providersAPI
+      .list({
+        page,
+        size: PAGE_SIZE,
+        status: filter ?? undefined,
+      })
+      .then((res) => {
+        const p = asPage<ServiceProviderDto>(res.data)
+        setProviders(p?.content ?? [])
+        setTotalPages(p?.totalPages ?? 0)
+      })
+      .catch(() => {
+        setProviders([])
+        setTotalPages(0)
+      })
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    load()
+  }, [filter, page])
+
+  const handleApprove = async (id: string) => {
+    setError(null)
+    try {
+      await providersAPI.approve(id)
+      setProviders((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status: 'ACTIVE' } : p))
+      )
+      load()
+    } catch (e) {
+      setError(getApiErrorMessage(e))
+    }
+  }
+
+  const handleReject = async (id: string) => {
+    setError(null)
+    try {
+      await providersAPI.reject(id)
+      setProviders((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status: 'INACTIVE' } : p))
+      )
+      load()
+    } catch (e) {
+      setError(getApiErrorMessage(e))
+    }
+  }
+
+  const handleSuspend = async (id: string) => {
+    setError(null)
+    try {
+      await providersAPI.suspend(id)
+      setProviders((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status: 'SUSPENDED' } : p))
+      )
+    } catch (e) {
+      setError(getApiErrorMessage(e))
+    }
+  }
+
+  useEffect(() => {
+    if (!viewProviderId) {
+      setViewProvider(null)
+      return
+    }
+    setViewLoading(true)
+    providersAPI
+      .get(viewProviderId)
+      .then((res) => setViewProvider((res.data as ServiceProviderDto) ?? null))
+      .catch(() => setViewProvider(null))
+      .finally(() => setViewLoading(false))
+  }, [viewProviderId])
+
+  const handleSaveCommission = async () => {
+    if (!editingId || commissionRate === '') return
+    const rate = parseFloat(commissionRate)
+    if (Number.isNaN(rate) || rate < 0 || rate > 100) return
+    try {
+      await providersAPI.updateCommission(editingId, { commissionRate: rate })
+      setProviders((prev) =>
+        prev.map((p) => (p.id === editingId ? { ...p, commissionRate: rate } : p))
+      )
+      setEditingId(null)
+      setCommissionRate('')
+    } catch (e) {
+      setError(getApiErrorMessage(e))
+    }
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('providersPage.title')}</h1>
+        </div>
+        {showCreate && (
+          <button type="button" onClick={() => setCreateOpen(true)} className="dashboard-btn-primary shrink-0">
+            {t('providersPage.createProvider')}
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+          {error}
+        </div>
+      )}
+
+      <div className="mt-6 flex flex-wrap gap-4">
+        <button
+          type="button"
+          onClick={() => {
+            setFilter(null)
+            setPage(0)
+          }}
+          className={filter === null ? 'dashboard-pill dashboard-pill--active' : 'dashboard-pill'}
+        >
+          {t('ui.all')}
+        </button>
+        {STATUS_FILTERS.map((card) => (
+          <button
+            key={card.id}
+            type="button"
+            onClick={() => {
+              setFilter(card.id)
+              setPage(0)
+            }}
+            className={filter === card.id ? 'dashboard-pill dashboard-pill--active' : 'dashboard-pill'}
+          >
+            {t(card.labelKey)}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-6 table-shell">
+        {loading ? (
+          <div className="p-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
+        ) : providers.length === 0 ? (
+          <div className="p-8 text-center text-slate-500 dark:text-slate-400">{t('providersPage.noProviders')}</div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th className="px-4 py-3.5">{t('providersPage.colName')}</th>
+                <th className="px-4 py-3.5">{t('providersPage.colType')}</th>
+                <th className="px-4 py-3.5">{t('providersPage.colStatus')}</th>
+                {showCommission && <th className="px-4 py-3.5">{t('providersPage.colCommission')}</th>}
+                <th className="px-4 py-3.5">{t('providersPage.colActions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {providers.map((p) => (
+                <tr key={p.id}>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-900 dark:text-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setViewProviderId(p.id)}
+                      className="text-primary hover:underline"
+                    >
+                      {p.name}
+                    </button>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{p.type ?? t('ui.emDash')}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{String(p.status ?? t('ui.emDash'))}</td>
+                  {showCommission && (
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                      {editingId === p.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.5"
+                            value={commissionRate}
+                            onChange={(e) => setCommissionRate(e.target.value)}
+                            className="w-20 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                          />
+                          <button type="button" onClick={handleSaveCommission} className="text-primary text-sm hover:underline">{t('providersPage.save')}</button>
+                          <button type="button" onClick={() => { setEditingId(null); setCommissionRate(''); }} className="text-slate-500 text-sm hover:underline">{t('ui.cancel')}</button>
+                        </div>
+                      ) : (
+                        <span>{p.commissionRate != null ? `${Number(p.commissionRate)}%` : t('ui.emDash')}</span>
+                      )}
+                    </td>
+                  )}
+                  <td className="whitespace-nowrap px-4 py-3 text-sm">
+                    {editingId !== p.id && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setViewProviderId(p.id)}
+                          className="text-slate-600 hover:underline dark:text-slate-300"
+                        >
+                          View
+                        </button>
+                        {showCommission && (
+                          <>
+                            <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+                            <button
+                              type="button"
+                              onClick={() => { setEditingId(p.id); setCommissionRate(String(p.commissionRate ?? '')); }}
+                              className="text-primary hover:underline"
+                            >
+                              Edit commission
+                            </button>
+                          </>
+                        )}
+                        {(p.status ?? '').toUpperCase() === 'PENDING_APPROVAL' && showApproveReject && (
+                          <>
+                            <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(p.id)}
+                              className="text-green-600 hover:underline dark:text-green-400"
+                            >
+                              {t('providersPage.approve')}
+                            </button>
+                            <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+                            <button
+                              type="button"
+                              onClick={() => handleReject(p.id)}
+                              className="text-red-600 hover:underline dark:text-red-400"
+                            >
+                              {t('providersPage.reject')}
+                            </button>
+                          </>
+                        )}
+                        {(p.status ?? '').toUpperCase() === 'ACTIVE' && (
+                          <>
+                            <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+                            <button
+                              type="button"
+                              onClick={() => handleSuspend(p.id)}
+                              className="text-amber-600 hover:underline dark:text-amber-400"
+                            >
+                              {t('providersPage.suspend')}
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            disabled={page <= 0 || loading}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-600"
+          >
+            {t('ui.previous')}
+          </button>
+          <span className="text-sm text-slate-600 dark:text-slate-400">
+            {t('ui.pageOf', { current: page + 1, total: totalPages })}
+          </span>
+          <button
+            type="button"
+            disabled={page >= totalPages - 1 || loading}
+            onClick={() => setPage((p) => p + 1)}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-600"
+          >
+            {t('ui.next')}
+          </button>
+        </div>
+      )}
+
+      {viewProviderId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setViewProviderId(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('providersPage.providerDetail')}</h3>
+            {viewLoading ? (
+              <div className="mt-4 py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
+            ) : viewProvider ? (
+              <dl className="mt-4 space-y-2 text-sm">
+                <div>
+                  <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.colName')}</dt>
+                  <dd className="font-medium text-slate-900 dark:text-slate-100">{viewProvider.name}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.colEmail')}</dt>
+                  <dd className="text-slate-900 dark:text-slate-100">{viewProvider.email ?? t('ui.emDash')}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.colPhone')}</dt>
+                  <dd className="text-slate-900 dark:text-slate-100">{viewProvider.phone ?? t('ui.emDash')}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.addressLabel')}</dt>
+                  <dd className="text-slate-900 dark:text-slate-100">{viewProvider.address ?? t('ui.emDash')}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.colStatus')}</dt>
+                  <dd className="text-slate-900 dark:text-slate-100">{viewProvider.status ?? t('ui.emDash')}</dd>
+                </div>
+                {showCommission && (
+                  <div>
+                    <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.colCommission')}</dt>
+                    <dd className="text-slate-900 dark:text-slate-100">
+                      {viewProvider.commissionRate != null ? `${Number(viewProvider.commissionRate)}%` : t('ui.emDash')}
+                    </dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.colType')}</dt>
+                  <dd className="text-slate-900 dark:text-slate-100">{viewProvider.type ?? t('ui.emDash')}</dd>
+                </div>
+                {viewProvider.rating != null && (
+                  <div>
+                    <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.ratingLabel')}</dt>
+                    <dd className="text-slate-900 dark:text-slate-100">{viewProvider.rating}</dd>
+                  </div>
+                )}
+              </dl>
+            ) : null}
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setViewProviderId(null)}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                {t('providersPage.close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <CreateProviderModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        variant="management"
+        onCreated={() => load()}
+      />
+    </>
+  )
+}

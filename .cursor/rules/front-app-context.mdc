@@ -1,0 +1,9 @@
+---
+description: Project context for front/my-app - read when continuing development
+globs: front/my-app/**/*
+alwaysApply: false
+---
+
+# Ziyara Front App Context
+
+When working in `front/my-app/`, read [front/my-app/PROJECT_CONTEXT.md](front/my-app/PROJECT_CONTEXT.md) for full project state, components, auth, design tokens, and next steps. Use it to continue from where the previous session left off.

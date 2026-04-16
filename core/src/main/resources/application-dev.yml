@@ -1,0 +1,15 @@
+# Dev profile: Hibernate creates/updates schema so tables exist without full Flyway migrations.
+# To run without Docker, add: spring.docker.compose.enabled=false (requires Postgres on localhost)
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+  flyway:
+    # Run first; Hibernate update will add any missing tables from entities
+    enabled: true
+
+# Align with default application.yml and Vite proxy (/api -> :8080): API lives under /api/v1.
+server:
+  servlet:
+    context-path: /api/v1
+

@@ -1,0 +1,342 @@
+@import "tailwindcss";
+
+/* Manual theme: dark:* utilities follow <html class="dark"> (not only prefers-color-scheme) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Global styles – whole page follows theme: light = white bg + black text, dark = dark bg + light text */
+@layer base {
+  html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    font-family: Inter, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    @apply bg-white text-black transition-colors duration-300 ease-out;
+  }
+
+  .dark body {
+    @apply bg-slate-900 text-slate-100;
+  }
+
+  ::selection {
+    background-color: rgb(30 77 107 / 0.22);
+    color: #0f172a;
+  }
+
+  .dark ::selection {
+    background-color: rgb(30 77 107 / 0.4);
+    color: #f8fafc;
+  }
+}
+
+/* Dashboard main: soft wash + optional orbs (used by MainLayout / ClientPortalLayout) */
+@layer components {
+  .layout-main-surface {
+    @apply relative flex-1 overflow-x-hidden bg-slate-50 px-4 py-8 transition-colors duration-300 sm:px-6 sm:py-10 lg:px-10 lg:py-12 dark:bg-slate-950;
+  }
+
+  .layout-main-surface__glow {
+    @apply pointer-events-none absolute inset-0 overflow-hidden;
+  }
+
+  .layout-main-surface__content {
+    @apply relative z-[1] mx-auto w-full max-w-7xl;
+  }
+
+  .layout-page-enter {
+    animation: layout-page-enter 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  /** Company + provider dashboards: vertical rhythm between top-level route sections */
+  .app-page-stack {
+    @apply flex flex-col gap-6 sm:gap-8;
+  }
+
+  /** In-page hero title (complements sticky DashboardHeader); DM Sans matches landing/marketing */
+  .app-page-title {
+    font-family: "DM Sans", Inter, sans-serif;
+    @apply text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-slate-50;
+  }
+
+  .app-page-lead {
+    @apply mt-2 max-w-3xl text-base leading-relaxed text-slate-600 dark:text-slate-300;
+  }
+
+  /** Shared dashboard pages: section + card headings */
+  .dashboard-section-title {
+    @apply text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100;
+  }
+
+  .dashboard-card-title {
+    @apply text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100;
+  }
+
+  /** Toolbar strip (filters, date range, table actions) */
+  .dashboard-toolbar-surface {
+    @apply flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-slate-50/80 px-4 py-4 dark:border-slate-700/80 dark:bg-slate-900/40 sm:flex-row sm:items-center sm:justify-between;
+  }
+
+  /**
+   * Primary / secondary actions — use consistently on Dashboard, Sales, Analytics.
+   * Use hex here (not theme `primary`): @tailwindcss/vite does not resolve custom theme colors inside @apply in this file.
+   * Keep aligned with tailwind.config.ts theme.extend.colors.primary (#1e4d6b).
+   */
+  .dashboard-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-[#163d56] bg-[#1e4d6b] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-slate-900/20 transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-[#2a5f82] dark:shadow-black/30 dark:focus-visible:ring-offset-slate-900;
+  }
+
+  .dashboard-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border-2 border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/25 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900;
+  }
+
+  .dashboard-btn-secondary:disabled {
+    @apply cursor-not-allowed opacity-50 hover:border-slate-300 hover:bg-white dark:hover:border-slate-600 dark:hover:bg-slate-800/60;
+  }
+
+  /** Filter / tab pills (light: strong border + text so edges and labels stay visible on slate-50 surfaces) */
+  .dashboard-pill {
+    @apply rounded-xl border-2 border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm transition-colors hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-800/90;
+  }
+
+  .dashboard-pill--active {
+    @apply border-[#1e4d6b] bg-[#1e4d6b] text-white shadow-md shadow-slate-900/15 hover:opacity-95 dark:border-[#1e4d6b] dark:bg-[#1e4d6b] dark:text-white;
+  }
+
+  /** Text-style navigation actions at card footers (optional) */
+  .dashboard-btn-text {
+    @apply inline-flex items-center justify-center rounded-lg px-2 py-1.5 text-sm font-semibold text-[#1e4d6b] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/30;
+  }
+
+  .dashboard-card-actions {
+    @apply mt-4 flex flex-wrap gap-2 border-t border-slate-200/80 pt-4 dark:border-slate-700/60;
+  }
+
+  .dashboard-date-input {
+    @apply rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition-colors focus:border-[#1e4d6b] focus:outline-none focus:ring-2 focus:ring-[#1e4d6b]/20 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-100 dark:focus:ring-[#1e4d6b]/25;
+  }
+}
+
+/* Dashboard data tables: wrap with .table-shell, or add class="data-table" on <table> inside cards */
+@layer components {
+  .table-shell {
+    @apply overflow-x-auto rounded-2xl border border-slate-200/90 bg-white/95 shadow-md shadow-slate-900/[0.045] ring-1 ring-slate-900/[0.03] backdrop-blur-[2px] dark:border-slate-700/80 dark:bg-slate-900/55 dark:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.45)] dark:ring-white/[0.06];
+  }
+
+  .table-shell table,
+  table.data-table {
+    @apply min-w-full border-collapse text-sm;
+  }
+
+  .table-shell thead tr,
+  table.data-table thead tr {
+    @apply border-b border-slate-200/90 bg-gradient-to-b from-slate-100 via-slate-50/95 to-white dark:border-slate-600/70 dark:from-slate-800 dark:via-slate-800/95 dark:to-slate-900/70;
+  }
+
+  .table-shell thead th,
+  table.data-table thead th {
+    @apply text-start text-[0.65rem] font-bold uppercase tracking-[0.09em] text-slate-500 dark:text-slate-400;
+  }
+
+  .table-shell tbody tr,
+  table.data-table tbody tr {
+    @apply border-b border-slate-100/90 transition-colors duration-150 dark:border-slate-700/35;
+  }
+
+  .table-shell tbody tr:last-child,
+  table.data-table tbody tr:last-child {
+    @apply border-b-0;
+  }
+
+  .table-shell tbody tr:hover,
+  table.data-table tbody tr:hover {
+    @apply bg-slate-50/95 dark:bg-slate-800/45;
+  }
+
+  .table-shell tbody td,
+  table.data-table tbody td {
+    @apply text-slate-700 dark:text-slate-200;
+  }
+}
+
+/* Sidebar nav scrollbar */
+.sidebar-nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(71 85 105) transparent;
+}
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background-color: rgb(71 85 105);
+  border-radius: 3px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(100 116 139);
+}
+
+@keyframes landing-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+@keyframes landing-fade-up {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes landing-orbit {
+  0% {
+    transform: rotate(0deg) translateX(10px) rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg) translateX(10px) rotate(-360deg);
+  }
+}
+
+@keyframes landing-aurora {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.65;
+  }
+  50% {
+    transform: translate3d(10px, -8px, 0) scale(1.06);
+    opacity: 0.95;
+  }
+}
+
+@keyframes layout-page-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@layer components {
+  .landing-parallax-root {
+    --landing-mx: 0;
+    --landing-my: 0;
+    --landing-scroll: 0;
+  }
+
+  .landing-fade-up {
+    animation: landing-fade-up 640ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .landing-fade-up-delay-1 {
+    animation-delay: 120ms;
+  }
+
+  .landing-fade-up-delay-2 {
+    animation-delay: 220ms;
+  }
+
+  .landing-fade-up-delay-3 {
+    animation-delay: 320ms;
+  }
+
+  .landing-float {
+    animation: landing-float 5.5s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .landing-float-slow {
+    animation-duration: 8s;
+  }
+
+  .landing-orbit {
+    animation: landing-orbit 7s linear infinite;
+    transform-origin: center;
+  }
+
+  .landing-aurora {
+    animation: landing-aurora 8s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .landing-3d-stage {
+    perspective: 1200px;
+    transform-style: preserve-3d;
+  }
+
+  .landing-3d-card {
+    transform-style: preserve-3d;
+    transition: transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 360ms ease;
+    will-change: transform;
+  }
+
+  .landing-3d-card:hover {
+    transform: rotateX(7deg) rotateY(-8deg) translate3d(0, -8px, 0);
+  }
+
+  .landing-parallax-soft {
+    transform: translate3d(calc(var(--landing-mx, 0) * 14px), calc(var(--landing-my, 0) * 14px), 0);
+    transition: transform 280ms ease-out;
+    will-change: transform;
+  }
+
+  .landing-parallax-strong {
+    transform: translate3d(calc(var(--landing-mx, 0) * 24px), calc(var(--landing-my, 0) * 20px), 0);
+    transition: transform 280ms ease-out;
+    will-change: transform;
+  }
+
+  .landing-scroll-parallax {
+    transform: translate3d(0, calc(var(--landing-scroll, 0) * -30px), 0);
+    transition: transform 320ms ease-out;
+    will-change: transform;
+  }
+
+  .landing-mouse-tilt {
+    transform-style: preserve-3d;
+    transform: rotateX(calc(var(--landing-my, 0) * -9deg)) rotateY(calc(var(--landing-mx, 0) * 11deg));
+    transition: transform 240ms ease-out;
+    will-change: transform;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-fade-up,
+  .landing-float,
+  .landing-orbit,
+  .landing-aurora,
+  .landing-3d-card,
+  .landing-parallax-soft,
+  .landing-parallax-strong,
+  .landing-scroll-parallax,
+  .landing-mouse-tilt,
+  .layout-page-enter {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

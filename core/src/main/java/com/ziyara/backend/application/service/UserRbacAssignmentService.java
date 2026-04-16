@@ -1,0 +1,69 @@
+package com.ziyara.backend.application.service;
+
+import com.ziyara.backend.domain.entity.User;
+import com.ziyara.backend.domain.repository.RoleRepository;
+import com.ziyara.backend.domain.repository.UserRepository;
+import com.ziyara.backend.domain.repository.UserRoleAssignmentRepository;
+import com.ziyara.backend.presentation.exception.BusinessException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class UserRbacAssignmentService {
+
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final UserRoleAssignmentRepository userRoleAssignmentRepository;
+
+    @Transactional
+    public void assignOrClearPrimaryRbacRole(UUID targetUserId, UUID roleIdOrNull) {
+        User user = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new BusinessException("User not found"));
+        if (!user.getRole().isCompanyDirectoryUser()) {
+            throw new IllegalArgumentException("RBAC sidebar assignment applies to company staff only");
+        }
+        if (roleIdOrNull == null) {
+            userRoleAssignmentRepository.clearAssignmentsForUser(targetUserId);
+            return;
+        }
+        if (!roleRepository.findById(roleIdOrNull).isPresent()) {
+            throw new BusinessException("Role not found");
+        }
+        userRoleAssignmentRepository.setPrimaryRoleForUser(targetUserId, roleIdOrNull);
+    }
+
+    /**
+     * Sets the user's single primary {@code sys_user_roles} row to the system {@code sys_roles} row whose
+     * {@code code} matches {@code userRole}, copying {@code group_id} onto the assignment for group-based summaries.
+     * <p>
+     * Called after company-dashboard user create and after {@code sys_users.role} is changed by an admin.
+     * If an admin had assigned a <em>custom</em> RBAC role for sidebar overrides, that row is replaced —
+     * they must re-assign the custom role if still required.
+     */
+    @Transactional
+    public void autoAssignPrimaryRoleByUserRole(UUID userId, com.ziyara.backend.domain.enums.UserRole userRole) {
+        if (userRole == null) {
+            return;
+        }
+        roleRepository.findByCode(userRole.name())
+                .ifPresent(role -> userRoleAssignmentRepository.setPrimaryRoleForUser(userId, role.getId()));
+    }
+
+    /**
+     * Sets primary {@code sys_user_roles} row to the given {@code sys_roles} id (used after user create with unified picklist).
+     */
+    @Transactional
+    public void assignPrimaryRoleByRoleId(UUID userId, UUID rbacRoleId) {
+        if (rbacRoleId == null) {
+            return;
+        }
+        if (roleRepository.findById(rbacRoleId).isEmpty()) {
+            throw new BusinessException("Role not found");
+        }
+        userRoleAssignmentRepository.setPrimaryRoleForUser(userId, rbacRoleId);
+    }
+}

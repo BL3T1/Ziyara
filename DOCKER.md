@@ -4,10 +4,6 @@ This document describes how to build and run the Ziyarah platform using Docker c
 
 ## Architecture
 
-
-figma token: figd_CtG6Xwqfdbq5Ar5FhdbKsdNGUpK00Zjnr8B9CbwP
-
-
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Docker Network (ziyarah-network)            │
@@ -16,12 +12,7 @@ figma token: figd_CtG6Xwqfdbq5Ar5FhdbKsdNGUpK00Zjnr8B9CbwP
 │  │  Frontend   │───▶│   Backend   │───▶│  PostgreSQL │        │
 │  │   (Nginx)   │    │(Spring Boot)│    │   (Port 5432)│        │
 │  │  Port: 80   │    │  Port: 8080 │    │             │        │
-│  └─────────────┘    └──────┬──────┘    └─────────────┘        │
-│                            │                                    │
-│                     ┌──────▼──────┐                            │
-│                     │    Redis    │                            │
-│                     │ Port: 6379  │                            │
-│                     └─────────────┘                            │
+│  └─────────────┘    └──────────────┘    └─────────────┘        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -53,7 +44,7 @@ docker-compose logs -f
 | Frontend | http://localhost | React web application |
 | Backend API | http://localhost:8080 | Spring Boot REST API |
 | API Docs | http://localhost:8080/swagger-ui.html | Swagger UI |
-| Adminer | http://localhost:8081 | Database management UI |
+| pgAdmin | http://localhost:5050 | PostgreSQL admin UI (start with `docker compose up ... pgadmin`; login defaults in `docker-compose.yml`) |
 
 ## Individual Service Commands
 
@@ -105,7 +96,6 @@ All containers are connected via the `ziyarah-network` bridge network:
 
 - **Frontend** communicates with Backend via `http://backend:8080`
 - **Backend** communicates with PostgreSQL via `postgres:5432`
-- **Backend** communicates with Redis via `redis:6379`
 
 ## Environment Variables
 
@@ -148,7 +138,39 @@ curl http://localhost/health
 | Volume | Purpose |
 |--------|---------|
 | postgres_data | PostgreSQL data persistence |
-| redis_data | Redis data persistence |
+
+## Database migrations and seed (roles, permissions, demo data)
+
+The **postgres** image runs scripts from `database/Dockerfile` in order: `schema.sql`, migrations `001`–`015`, `seed.sql`, then `018`–`022` (including **`022_rbac_permission_catalogue.sql`** — full RBAC permission catalogue). This only runs when the data directory is **empty** (first start).
+
+### Fresh database (recommended after schema/seed changes)
+
+From the repo root, set `POSTGRES_PASSWORD` and `JWT_SECRET` (for example in a `.env` file next to `docker-compose.yml`). Then:
+
+```bash
+# Windows PowerShell
+docker compose down -v
+docker compose up -d --build postgres backend
+```
+
+`down -v` removes the `postgres_data` volume so PostgreSQL re-runs **all** init scripts, including the updated seed and migration `022`.
+
+### Keep existing data (upgrade in place)
+
+Init scripts do **not** run again if the volume already exists. Apply new SQL manually, for example migration `022`:
+
+```bash
+# Windows PowerShell (repo root)
+Get-Content database/migrations/022_rbac_permission_catalogue.sql | docker compose exec -T postgres psql -U ziyarah_user -d ziyarah
+```
+
+To re-apply the full **seed** only (merges via `ON CONFLICT`), after backup:
+
+```bash
+Get-Content database/seed.sql | docker compose exec -T postgres psql -U ziyarah_user -d ziyarah
+```
+
+Alternatively, from the host with `psql` and ports published: `cd database; .\apply-all.ps1` (see script header for `PGPASSWORD`).
 
 ## Troubleshooting
 
@@ -201,8 +223,6 @@ docker-compose exec postgres psql -U ziyarah_user -d ziyarah
 3. **Configure SSL/TLS** for production deployments
 4. **Set up proper backup** for PostgreSQL volumes
 5. **Configure resource limits** in docker-compose.yml
-6. **Use external Redis** for production if needed
-
 ## Resource Limits (Optional)
 
 Add to docker-compose.yml for production:

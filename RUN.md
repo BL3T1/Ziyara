@@ -25,7 +25,6 @@ This document provides comprehensive instructions for running the Ziyarah bookin
 - **Maven** 3.9+
 - **Node.js** 20+ and **npm**
 - **PostgreSQL** 15+
-- **Redis** 7+ (optional, for session management)
 
 ---
 
@@ -38,8 +37,6 @@ The easiest way to run the entire platform is using Docker Compose, which orches
 ```
 Frontend (React/Nginx)  --->  Backend (Spring Boot)  --->  PostgreSQL
         :80                      :8080                       :5432
-                                    |
-                                    +---> Redis :6379
 ```
 
 ### Quick Start
@@ -65,8 +62,7 @@ Frontend (React/Nginx)  --->  Backend (Spring Boot)  --->  PostgreSQL
    ziyarah-backend   healthy         0.0.0.0:8080->8080/tcp
    ziyarah-db        healthy         0.0.0.0:5432->5432/tcp
    ziyarah-frontend  healthy         0.0.0.0:80->80/tcp
-   ziyarah-redis     healthy         0.0.0.0:6379->6379/tcp
-   ziyarah-adminer   healthy         0.0.0.0:8081->8080/tcp
+   ziyarah-pgadmin   running         0.0.0.0:5050->80/tcp
    ```
 
 4. **View logs (optional):**
@@ -123,23 +119,7 @@ This section covers running each service individually without Docker, useful for
    psql -U ziyarah_user -d ziyarah -f database\schema.sql
    ```
 
-### Step 2: Redis Setup (Optional)
-
-Redis is used for session management and caching.
-
-1. **Install Redis** (or run via Docker):
-   ```bash
-   # Using Docker for Redis only
-   docker run -d --name ziyarah-redis -p 6379:6379 redis:7-alpine
-   ```
-
-2. **Verify Redis is running:**
-   ```bash
-   redis-cli ping
-   # Expected output: PONG
-   ```
-
-### Step 3: Running the Backend (Spring Boot)
+### Step 2: Running the Backend (Spring Boot)
 
 1. **Navigate to the backend directory:**
    ```bash
@@ -150,7 +130,6 @@ Redis is used for session management and caching.
 
    The default configuration in [`application.yml`](backend/src/main/resources/application.yml) uses:
    - Database: `localhost:5432/ziyarah`
-   - Redis: `localhost:6379`
 
    You can override these via environment variables:
    ```bash
@@ -194,7 +173,7 @@ Redis is used for session management and caching.
    {"status":"UP"}
    ```
 
-### Step 4: Running the Frontend (React)
+### Step 3: Running the Frontend (React)
 
 1. **Navigate to the frontend directory:**
    ```bash
@@ -234,7 +213,7 @@ Redis is used for session management and caching.
 | **Backend API** | http://localhost:8080/api/v1 | Spring Boot REST API |
 | **Swagger UI** | http://localhost:8080/api/v1/swagger-ui.html | API documentation |
 | **API Docs** | http://localhost:8080/api/v1/api-docs | OpenAPI JSON spec |
-| **Adminer** | http://localhost:8081 | Database management UI (Docker only) |
+| **pgAdmin** | http://localhost:5050 | PostgreSQL admin UI (Docker only; register server host `postgres`) |
 
 ### Default Credentials
 
@@ -245,12 +224,9 @@ Redis is used for session management and caching.
 - Username: `ziyarah_user`
 - Password: `ziyarah_password`
 
-**Adminer (Database UI):**
-- System: PostgreSQL
-- Server: `postgres` (Docker) or `localhost` (Local)
-- Username: `ziyarah_user`
-- Password: `ziyarah_password`
-- Database: `ziyarah`
+**pgAdmin (Database UI, Docker):**
+- Open http://localhost:5050 and sign in (see `docker-compose.yml` `PGADMIN_DEFAULT_*` defaults).
+- Register a server: Host `postgres`, Port `5432`, Database `ziyarah`, Username `ziyarah_user`, Password `ziyarah_password`.
 
 ---
 
@@ -373,9 +349,6 @@ curl http://localhost:8080/api/v1/actuator/health
 # Database health (Docker)
 docker-compose exec postgres pg_isready -U ziyarah_user -d ziyarah
 
-# Redis health
-redis-cli ping
-
 # All container health (Docker)
 docker-compose ps
 ```
@@ -425,6 +398,10 @@ mvn test
 cd frontend
 npm test
 ```
+
+### Database query plans (staging)
+
+After Flyway migrations apply (including dashboard-related indexes under `core/src/main/resources/db/migration/`), run `EXPLAIN ANALYZE` on representative queries against `bkg_bookings` (date and status filters) and `sys_audit_logs` (order by `created_at` desc) to confirm the planner uses the expected indexes.
 
 ---
 

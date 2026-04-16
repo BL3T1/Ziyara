@@ -1,0 +1,32 @@
+spring:
+  docker:
+    compose:
+      enabled: false
+
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: true
+
+  # Datasource is provided by Testcontainers via @ServiceConnection
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+
+  flyway:
+    enabled: true
+
+server:
+  servlet:
+    context-path: /api/v1
+
+springdoc:
+  api-docs:
+    path: /api-docs
+
+app:
+  demo:
+    super-admin:
+      enabled: false

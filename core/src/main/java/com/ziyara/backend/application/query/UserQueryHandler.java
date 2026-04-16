@@ -1,0 +1,149 @@
+package com.ziyara.backend.application.query;
+
+import com.ziyara.backend.application.dto.UserResponse;
+import com.ziyara.backend.application.dto.response.LoginHistoryEntryResponse;
+import com.ziyara.backend.application.query.dto.UserListQuery;
+import com.ziyara.backend.domain.enums.UserRole;
+import com.ziyara.backend.domain.enums.UserStatus;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.jooq.DSLContext;
+import org.jooq.Field;
+import org.jooq.Record;
+import org.jooq.impl.DSL;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Query handler for user reads (CQRS query side, jOOQ).
+ * Used for GET /users and GET /users/{id} to avoid loading JPA entities.
+ * Table name must match {@link com.ziyara.backend.infrastructure.persistence.entity.UserJpaEntity} ({@code sys_users}).
+ */
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class UserQueryHandler {
+
+    private static final String USERS = "sys_users";
+    private static final Field<UUID> F_ID = DSL.field(DSL.name(USERS, "id"), UUID.class);
+    private static final Field<String> F_EMAIL = DSL.field(DSL.name(USERS, "email"), String.class);
+    private static final Field<String> F_PHONE = DSL.field(DSL.name(USERS, "phone"), String.class);
+    private static final Field<String> F_ROLE = DSL.field(DSL.name(USERS, "role"), String.class);
+    private static final Field<String> F_STATUS = DSL.field(DSL.name(USERS, "status"), String.class);
+    private static final Field<Boolean> F_EMAIL_VERIFIED = DSL.field(DSL.name(USERS, "email_verified"), Boolean.class);
+    private static final Field<Boolean> F_PHONE_VERIFIED = DSL.field(DSL.name(USERS, "phone_verified"), Boolean.class);
+    private static final Field<LocalDateTime> F_LAST_LOGIN_AT = DSL.field(DSL.name(USERS, "last_login_at"), LocalDateTime.class);
+    private static final Field<String> F_LAST_LOGIN_IP = DSL.field(DSL.name(USERS, "last_login_ip"), String.class);
+    private static final Field<LocalDateTime> F_CREATED_AT = DSL.field(DSL.name(USERS, "created_at"), LocalDateTime.class);
+
+    private final DSLContext dsl;
+
+    /**
+     * Returns login history for the user. Uses last_login_at on sys_users (single most recent login).
+     * Only selects last_login_at to avoid 500 when last_login_ip column is missing in DB.
+     * Returns empty list on any error.
+     */
+    public List<LoginHistoryEntryResponse> getLoginHistory(UUID userId) {
+        try {
+            var record = dsl.select(F_LAST_LOGIN_AT)
+                    .from(DSL.table(DSL.name(USERS)))
+                    .where(F_ID.eq(userId))
+                    .fetchOne();
+            if (record == null || record.get(F_LAST_LOGIN_AT) == null) {
+                return List.of();
+            }
+            return List.of(LoginHistoryEntryResponse.builder()
+                    .loginAt(record.get(F_LAST_LOGIN_AT))
+                    .ipAddress(null)
+                    .build());
+        } catch (Throwable e) {
+            log.warn("getLoginHistory failed for user {}: {}", userId, e.getMessage());
+            return List.of();
+        }
+    }
+
+    public Optional<UserResponse> findById(UUID id) {
+        var record = dsl.select(F_ID, F_EMAIL, F_PHONE, F_ROLE, F_STATUS, F_EMAIL_VERIFIED, F_PHONE_VERIFIED, F_LAST_LOGIN_AT, F_CREATED_AT)
+                .from(DSL.table(DSL.name(USERS)))
+                .where(F_ID.eq(id))
+                .fetchOne();
+
+        return Optional.ofNullable(record).map(this::toUserResponse);
+    }
+
+    public org.springframework.data.domain.Page<UserResponse> findPage(UserListQuery query) {
+        int page = Math.max(0, query.getPage());
+        int size = query.getSize() <= 0 ? 20 : query.getSize();
+        int offset = page * size;
+
+        var table = DSL.table(DSL.name(USERS));
+        var condition = DSL.noCondition();
+        if (query.getStatus() != null) {
+            condition = condition.and(DSL.field(DSL.name(USERS, "status")).eq(query.getStatus().name()));
+        }
+        if (query.getRole() != null) {
+            condition = condition.and(DSL.field(DSL.name(USERS, "role")).eq(query.getRole().name()));
+        }
+        // Company directory: hide customers and provider-side accounts
+        condition = condition.and(DSL.field(DSL.name(USERS, "role")).notIn(UserRole.companyDirectoryExcludedRoleNames()));
+        condition = condition.and(DSL.field(DSL.name(USERS, "deleted_at")).isNull());
+
+        long total = dsl.fetchCount(DSL.selectFrom(table).where(condition));
+
+        var orderByCreated = DSL.field(DSL.name(USERS, "created_at")).desc();
+        List<UserResponse> content = dsl.select(F_ID, F_EMAIL, F_PHONE, F_ROLE, F_STATUS, F_EMAIL_VERIFIED, F_PHONE_VERIFIED, F_LAST_LOGIN_AT, F_CREATED_AT)
+                .from(table)
+                .where(condition)
+                .orderBy(orderByCreated)
+                .limit(size)
+                .offset(offset)
+                .fetch()
+                .map(this::toUserResponse);
+
+        return new org.springframework.data.domain.PageImpl<>(
+                content,
+                org.springframework.data.domain.PageRequest.of(page, size),
+                total
+        );
+    }
+
+    private UserResponse toUserResponse(Record r) {
+        return UserResponse.builder()
+                .id(r.get(F_ID))
+                .email(r.get(F_EMAIL))
+                .phone(r.get(F_PHONE))
+                .role(parseRole(r.get(F_ROLE)))
+                .status(parseStatus(r.get(F_STATUS)))
+                .emailVerified(r.get(F_EMAIL_VERIFIED) != null && Boolean.TRUE.equals(r.get(F_EMAIL_VERIFIED)))
+                .phoneVerified(r.get(F_PHONE_VERIFIED) != null && Boolean.TRUE.equals(r.get(F_PHONE_VERIFIED)))
+                .lastLoginAt(r.get(F_LAST_LOGIN_AT))
+                .createdAt(r.get(F_CREATED_AT))
+                .build();
+    }
+
+    private static UserRole parseRole(Object v) {
+        if (v == null) return null;
+        String s = v.toString().trim();
+        if (s.isEmpty()) return null;
+        try {
+            return UserRole.valueOf(s);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static UserStatus parseStatus(Object v) {
+        if (v == null) return null;
+        String s = v.toString().trim();
+        if (s.isEmpty()) return null;
+        try {
+            return UserStatus.valueOf(s);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+}

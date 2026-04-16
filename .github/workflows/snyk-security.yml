@@ -1,0 +1,53 @@
+name: Security Scans (Snyk)
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  snyk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: front/my-app
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: front/my-app
+        run: npm run build
+
+      - name: Run backend unit tests
+        working-directory: core
+        run: ./gradlew test
+
+      - name: Install Snyk CLI
+        run: npm install -g snyk@latest
+
+      - name: Snyk SCA (dependencies)
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk test --all-projects --severity-threshold=high --fail-on=all
+
+      - name: Snyk Code (SAST)
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk code test --all-projects --severity-threshold=high --fail-on=all
+

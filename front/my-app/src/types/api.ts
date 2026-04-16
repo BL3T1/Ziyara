@@ -1,0 +1,658 @@
+/**
+ * API response and DTO types matching backend.
+ * Backend envelope: { success, message?, data, timestamp? }
+ */
+
+// Auth
+export interface AuthResponseDto {
+  accessToken: string
+  refreshToken: string
+  tokenType: string
+  expiresIn?: number
+  userId: string
+  email: string
+  role: string  // Backend UserRole enum
+  fullName: string
+}
+
+// Dashboard
+export interface DashboardKpiDto {
+  totalRevenue: number
+  revenueCurrency: string
+  activeBookings: number
+  totalBookings: number
+  totalProviders: number
+  pendingComplaints: number
+  openTickets: number
+}
+
+/** GET /portal/dashboard */
+export interface PortalDashboardDto {
+  serviceCount: number
+  totalBookings: number
+  activeBookings: number
+  totalRevenue: number
+  revenueCurrency: string
+}
+
+/** GET /portal/earnings */
+export interface PortalEarningsDto {
+  start?: string
+  end?: string
+  totalEarnings: number
+  currency: string
+}
+
+export interface ActivityFeedItemDto {
+  id?: string
+  type?: string
+  title?: string
+  /** Backend audit action */
+  action?: string
+  entityType?: string
+  description?: string
+  timestamp?: string
+  userId?: string
+  userDisplay?: string
+  changeSummary?: string
+  metadata?: Record<string, unknown>
+}
+
+/** GET /dashboard/bootstrap */
+export interface DashboardBootstrapDto {
+  kpis: DashboardKpiDto
+  activity: ActivityFeedItemDto[]
+  serviceHealth: ServiceHealthDto
+  commissionAnalysis: CommissionAnalysisDto
+  payouts: PayoutsResponseDto
+}
+
+/** GET /dashboard/live (polling: KPIs + activity + health only) */
+export interface DashboardLiveDto {
+  kpis: DashboardKpiDto
+  activity: ActivityFeedItemDto[]
+  serviceHealth: ServiceHealthDto
+}
+
+export interface ServiceHealthDto {
+  serviceCountByType: Record<string, number>
+  activeBookingCountByType: Record<string, number>
+}
+
+export interface CommissionAnalysisDto {
+  start?: string
+  end?: string
+  totalBaseAmount?: number
+  totalCommissionAmount?: number
+  currency?: string
+}
+
+export interface PayoutDto {
+  providerId?: string
+  providerName?: string
+  amount?: number
+  currency?: string
+  periodStart?: string
+  periodEnd?: string
+}
+
+export interface PayoutsResponseDto {
+  start?: string
+  end?: string
+  payouts?: PayoutDto[]
+}
+
+// Users (paginated)
+export interface UserDto {
+  id: string
+  email: string
+  phone?: string
+  role: string
+  status?: string
+  fullName?: string
+  firstName?: string
+  lastName?: string
+  createdAt?: string
+  lastLoginAt?: string
+  emailVerified?: boolean
+  phoneVerified?: boolean
+}
+
+/** GET /users/staff-role-options — built-in + custom RBAC; submit rbacRoleId as primaryRbacRoleId or legacy role code */
+export interface StaffDirectoryRoleOptionDto {
+  source?: 'SYSTEM' | 'CUSTOM'
+  /** sys_roles.id — preferred submit as primaryRbacRoleId on POST /users */
+  rbacRoleId?: string | null
+  /** Stored on user + JWT when this option is chosen (CUSTOM roles map from RoleLevel) */
+  securityUserRole?: string | null
+  code: string
+  displayName: string
+  groupId?: string | null
+  groupName?: string | null
+  groupCode?: string | null
+}
+
+export interface PageDto<T> {
+  content: T[]
+  totalElements: number
+  totalPages: number
+  number: number
+  size: number
+}
+
+// Roles & groups
+export interface RoleDto {
+  id: string
+  name: string
+  code?: string
+  level?: string
+  groupId?: string
+  userCount?: number
+  permissions?: string[]
+  permissionIds?: string[]
+  description?: string
+  systemRole?: boolean
+  /** Custom role dashboard sidebar (ordered); empty/absent = use assignee UserRole default */
+  navigationItemIds?: string[] | null
+}
+
+export interface UserNavigationDto {
+  visibleItemIds: string[]
+  source: string
+  rbacRoleId?: string
+  rbacRoleCode?: string
+  userRole?: string
+}
+
+/** GET /users/rbac/custom-roles */
+export interface RbacRoleOptionDto {
+  id: string
+  code?: string
+  name?: string
+}
+
+/** GET /users/{id}/rbac-role or GET /users/by-email/{email}/rbac-role */
+export interface UserRbacAssignmentDto {
+  roleId?: string
+  roleCode?: string
+  roleName?: string
+}
+
+/** Admin review moderation list row (GET /reviews) */
+export interface ReviewAdminRowDto {
+  id: string
+  bookingId?: string
+  userId?: string
+  userName?: string
+  serviceId?: string
+  serviceName?: string
+  rating?: number
+  comment?: string
+  response?: string
+  status?: string
+  createdAt?: string
+}
+
+export interface ExchangeRateRowDto {
+  id: string
+  fromCurrency?: string
+  toCurrency?: string
+  rate?: number | string
+  effectiveDate?: string
+}
+
+export interface GroupDto {
+  id: string
+  name: string
+  code?: string
+  description?: string
+}
+
+/** Organizational group with aggregates (GET /roles/groups/summary) */
+export interface GroupSummaryDto {
+  id: string
+  name: string
+  code?: string
+  description?: string
+  roleCount: number
+  userCount: number
+}
+
+export interface PermissionCatalogueItemDto {
+  id: string
+  code: string
+  name: string
+  resource?: string
+  action?: string
+  locked?: boolean
+}
+
+// Services (bookable) — values match backend {@code ServiceType} enum names
+export type ServiceTypeDto = 'HOTEL' | 'RESORT' | 'RESTAURANT' | 'TAXI' | 'TRIP'
+
+/** Partner / listing types allowed when creating a provider (DB stores enum name). */
+export const PARTNER_SERVICE_TYPE_VALUES: readonly ServiceTypeDto[] = [
+  'HOTEL',
+  'RESORT',
+  'RESTAURANT',
+  'TAXI',
+  'TRIP',
+] as const
+
+export interface ServiceDto {
+  id: string
+  providerId?: string
+  type: ServiceTypeDto
+  name: string
+  description?: string
+  location?: string
+  address?: string
+  city?: string
+  country?: string
+  basePrice?: number
+  currency?: string
+  status?: string
+  starRating?: number
+  totalRooms?: number
+  availableRooms?: number
+  maxGuests?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type ServiceImageCategoryDto = 'PROPERTY' | 'ROOM' | 'TRIP' | 'OTHER'
+
+export interface ServiceImageDto {
+  id: string
+  serviceId: string
+  url: string
+  altText?: string
+  primary: boolean
+  displayOrder: number
+  category: ServiceImageCategoryDto
+  contextKey?: string
+}
+
+export interface RestaurantMenuItemDto {
+  id: string
+  sectionId: string
+  name: string
+  description?: string
+  price?: number
+  currency?: string
+  imageUrl?: string
+  sortOrder: number
+}
+
+export interface RestaurantMenuSectionDto {
+  id: string
+  serviceId: string
+  title: string
+  sortOrder: number
+  items: RestaurantMenuItemDto[]
+}
+
+export interface RestaurantMenuDto {
+  serviceId: string
+  sections: RestaurantMenuSectionDto[]
+}
+
+/** POST /services/{id}/images */
+export interface CreateServiceImagePayload {
+  url: string
+  altText?: string
+  category?: ServiceImageCategoryDto
+  contextKey?: string
+  primary?: boolean
+  displayOrder?: number
+}
+
+/** PUT /services/{id}/images/{imageId} — null/omit fields unchanged (send only what you edit) */
+export interface UpdateServiceImagePayload {
+  url?: string
+  altText?: string
+  category?: ServiceImageCategoryDto
+  contextKey?: string
+  primary?: boolean
+  displayOrder?: number
+}
+
+export interface CreateMenuSectionPayload {
+  title: string
+  sortOrder?: number
+}
+
+export interface UpdateMenuSectionPayload {
+  title?: string
+  sortOrder?: number
+}
+
+export interface CreateMenuItemPayload {
+  name: string
+  description?: string
+  price?: number
+  currency?: string
+  imageUrl?: string
+  sortOrder?: number
+}
+
+export interface UpdateMenuItemPayload {
+  name?: string
+  description?: string
+  price?: number
+  currency?: string
+  imageUrl?: string
+  sortOrder?: number
+}
+
+// Providers
+export interface ServiceProviderDto {
+  id: string
+  userId?: string
+  name: string
+  phone?: string
+  email?: string
+  address?: string
+  rating?: number
+  status: string
+  verified?: boolean
+  commissionRate?: number
+  type?: string
+  registrationNumber?: string
+  reviewCount?: number
+  createdAt?: string
+  approvedBy?: string
+  approvedAt?: string
+}
+
+/** POST /providers */
+export interface CreateServiceProviderPayload {
+  name: string
+  phone: string
+  address: string
+  email?: string
+  type?: string
+  registrationNumber?: string
+  description?: string
+  managerEmail?: string
+  managerPassword?: string
+  managerPhone?: string
+}
+
+/** PUT /providers/me (partial update; null/omit = unchanged on server) */
+export interface UpdateProviderMePayload {
+  name?: string
+  phone?: string
+  email?: string
+  address?: string
+  description?: string
+  website?: string
+  logoUrl?: string
+}
+
+/** POST /portal/services */
+export interface CreatePortalServicePayload {
+  providerId: string
+  type: ServiceTypeDto
+  name: string
+  description?: string
+  city?: string
+  country?: string
+  address?: string
+  basePrice: number
+  currency?: string
+  maxGuests?: number
+  totalRooms?: number
+  availableRooms?: number
+  starRating?: number
+}
+
+export type ServiceStatusDto =
+  | 'ACTIVE'
+  | 'INACTIVE'
+  | 'SUSPENDED'
+  | 'PENDING_APPROVAL'
+  | 'AVAILABLE'
+  | 'UNAVAILABLE'
+  | 'MAINTENANCE'
+  | 'DISCONTINUED'
+  | 'HIDDEN'
+
+/** PUT /portal/services/{id} */
+export interface UpdatePortalServicePayload {
+  name?: string
+  description?: string
+  city?: string
+  country?: string
+  address?: string
+  basePrice?: number
+  status?: ServiceStatusDto
+  maxGuests?: number
+  totalRooms?: number
+  availableRooms?: number
+  starRating?: number
+}
+
+// Bookings
+export interface BookingDto {
+  id: string
+  bookingReference: string
+  customerId: string
+  customerEmail?: string
+  customerName?: string
+  serviceId: string
+  serviceName?: string
+  serviceType?: string
+  checkInDate?: string
+  checkOutDate?: string
+  guests?: number
+  rooms?: number
+  baseAmount?: number
+  totalAmount?: number
+  currency?: string
+  status: string
+  createdAt?: string
+}
+
+// Payments
+export interface PaymentDto {
+  id: string
+  bookingId?: string
+  /** Human booking reference when provided by API */
+  bookingReference?: string
+  amount: number
+  currency: string
+  method: string
+  status: string
+  transactionReference?: string
+  processedAt?: string
+  gatewayReference?: string
+  threeDsStatus?: string
+}
+
+// Tickets
+export interface TicketDto {
+  id: string
+  ticketNumber: string
+  type?: string
+  subject: string
+  priority: string
+  status: string
+  createdAt?: string
+  reporterId?: string
+  assignedToId?: string
+}
+
+// Complaints
+/** GET /portal/staff — team row */
+export interface PortalStaffMemberDto {
+  staffLinkId?: string | null
+  userId: string
+  email?: string
+  phone?: string
+  role?: string
+  title?: string | null
+  owner?: boolean
+  createdAt?: string
+}
+
+/** GET/POST /portal/support-requests */
+export interface PortalSupportRequestDto {
+  id: string
+  subject: string
+  body: string
+  userId?: string | null
+  createdAt?: string
+}
+
+export interface ComplaintDto {
+  id: string
+  ticketNumber?: string
+  customerId?: string
+  bookingId?: string
+  bookingReference?: string
+  subject: string
+  description?: string
+  category?: string
+  priority: string
+  status: string
+  assignedAgentId?: string
+  createdAt?: string
+  updatedAt?: string
+  resolutionNotes?: string
+}
+
+// Discounts
+export interface DiscountDto {
+  id: string
+  code: string
+  description?: string
+  type: string
+  value: number
+  minBookingAmount?: number
+  maxDiscountAmount?: number
+  startDate?: string
+  endDate?: string
+  usageLimit?: number
+  usageCount?: number
+  status: string
+  /** COMPANY | PROVIDER | BOTH */
+  sponsor?: string
+  createdAt?: string
+  updatedAt?: string
+  /** Scope: null = any provider */
+  providerId?: string
+  applicableServiceIds?: string[]
+  applicableMenuSectionIds?: string[]
+  applicableMenuItemIds?: string[]
+  applicableRoomTypeIds?: string[]
+}
+
+// Notifications
+export interface NotificationDto {
+  id: string
+  userId?: string
+  type?: string
+  channel?: string
+  status?: string
+  title?: string
+  message?: string
+  sentAt?: string
+  readAt?: string | null
+  createdAt?: string
+}
+
+export interface NotificationInboxDto {
+  notifications: PageDto<NotificationDto>
+  unreadCount: number
+}
+
+export interface ContentPageDto {
+  slug: string
+  content: Record<string, unknown>
+  published: boolean
+  updatedAt?: string
+}
+
+export interface UpsertContentPagePayload {
+  contentEn: Record<string, unknown>
+  contentAr: Record<string, unknown>
+  published?: boolean
+}
+
+/** GET /admin/settings */
+export interface SystemSettingsDto {
+  companyDisplayName: string
+  defaultCurrency: string
+  maintenanceMode: boolean
+}
+
+/** PUT /admin/settings */
+export interface UpdateSystemSettingsPayload {
+  companyDisplayName?: string
+  defaultCurrency?: string
+  maintenanceMode?: boolean
+}
+
+/** GET /admin/feature-flags */
+export interface FeatureFlagDto {
+  id?: string
+  flagKey: string
+  enabled: boolean
+  description?: string | null
+  updatedAt?: string
+  updatedBy?: string | null
+}
+
+/** GET /admin/integration-api-keys */
+export interface IntegrationApiKeySummaryDto {
+  id: string
+  name: string
+  keyPrefix: string
+  createdAt?: string
+  revokedAt?: string | null
+  lastUsedAt?: string | null
+}
+
+/** POST /admin/integration-api-keys */
+export interface IntegrationApiKeyCreatedDto extends IntegrationApiKeySummaryDto {
+  plainSecret: string
+}
+
+/** POST /public/contact */
+export interface PublicContactPayload {
+  name: string
+  email: string
+  company?: string
+  message: string
+}
+
+/** Super-admin deleted search row */
+export interface DeletedItemDto {
+  entityType: string
+  id: string
+  label: string
+  detail?: string
+  deletedAt?: string
+}
+
+// Audit
+export interface AuditLogDto {
+  id: string
+  userId?: string
+  action: string
+  entityType?: string
+  entityId?: string
+  oldValue?: string
+  newValue?: string
+  ipAddress?: string
+  createdAt: string
+}
+
+// Backend envelope
+export interface ApiEnvelope<T> {
+  success: boolean
+  message?: string
+  data: T
+  timestamp?: string
+}

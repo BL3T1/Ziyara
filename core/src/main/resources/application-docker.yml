@@ -1,0 +1,19 @@
+# Behind edge / SPA nginx: trust forwarded Host/Proto so OpenAPI/Swagger URLs stay on the public origin (e.g. app.local).
+server:
+  forward-headers-strategy: framework
+
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/ziyarah
+    username: ziyarah_user
+    password: ziyarah_password
+
+app:
+  media:
+    storage-root: ${APP_MEDIA_STORAGE_ROOT:/data/media}
+    public-base-url: ${APP_MEDIA_PUBLIC_BASE_URL:}
+
+logging:
+  level:
+    root: INFO
+    com.ziyara.backend: INFO
