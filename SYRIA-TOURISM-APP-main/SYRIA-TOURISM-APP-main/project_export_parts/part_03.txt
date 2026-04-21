@@ -1,0 +1,2022 @@
+--- FILE: lib/features/hotels/presentation/pages/hotel_details_page.dart ---
+import 'package:flutter/material.dart';
+import '../../data/models/hotel_model.dart';
+import '../widgets/hotel_header_section.dart';
+import '../widgets/hotel_info_section.dart';
+import '../widgets/hotel_booking_bar.dart';
+
+class HotelDetailsPage extends StatelessWidget {
+  final HotelModel hotel;
+  const HotelDetailsPage({super.key, required this.hotel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          HotelHeaderSection(hotel: hotel),
+          SliverToBoxAdapter(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              transform: Matrix4.translationValues(0, -20, 0),
+              child: HotelInfoSection(hotel: hotel),
+            ),
+          ),
+        ],
+      ),
+      bottomSheet: HotelBookingBar(
+        hotelName: hotel.name,
+        price: hotel.pricePerNight,
+        imageUrl: hotel.imageUrl,
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/hotels/presentation/pages/select_room_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/selection/visual_selector_grid.dart';
+
+class SelectRoomPage extends StatelessWidget {
+  final String hotelName;
+  final double price;
+  final String imageUrl;
+
+  const SelectRoomPage({
+    super.key,
+    required this.hotelName,
+    required this.price,
+    required this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('اختيار الغرفة'), backgroundColor: AppColors.background),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'اختر الغرفة المناسبة لك',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryBlue),
+            ),
+            const SizedBox(height: 8),
+            const Text('المربعات الحمراء محجوزة مسبقاً', style: TextStyle(color: AppColors.textGrey)),
+            const SizedBox(height: 30),
+            
+            // شبكة الغرف
+            VisualSelectorGrid(
+              totalItems: 20, // 20 غرفة في الطابق
+              bookedItems: const [2, 5, 8, 9, 15], // غرف محجوزة وهمية (حمراء)
+              itemLabel: 'غرفة',
+              onSelected: (roomNum) {
+                // يمكن حفظ الرقم المختار هنا
+              },
+            ),
+            
+            const SizedBox(height: 50),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  // الذهاب للدفع مع بيانات الفندق
+                  context.push("/payment", extra: {
+                    "title": "$hotelName - غرفة مميزة",
+                    "price": price,
+                    "imageUrl": imageUrl
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryDark,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text('تأكيد الاختيار والمتابعة للدفع'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/hotels/presentation/widgets/hotel_booking_bar.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../pages/select_room_page.dart';
+
+class HotelBookingBar extends StatelessWidget {
+  final String hotelName;
+  final double price;
+  final String imageUrl;
+
+  const HotelBookingBar({
+    super.key,
+    required this.hotelName,
+    required this.price,
+    required this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, -5))],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('السعر لليلة', style: TextStyle(color: AppColors.textGrey, fontSize: 12)),
+                Text('${price.toInt()} ل.س', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryBlue)),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SelectRoomPage(hotelName: hotelName, price: price, imageUrl: imageUrl),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryDark, padding: const EdgeInsets.symmetric(vertical: 16)),
+              child: const Text('اختيار الغرفة'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/hotels/presentation/widgets/hotel_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../data/models/hotel_model.dart';
+
+class HotelCard extends StatelessWidget {
+  final HotelModel hotel;
+  final VoidCallback onTap;
+
+  const HotelCard({super.key, required this.hotel, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // صورة الفندق
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: CachedNetworkImage(
+                imageUrl: hotel.imageUrl,
+                height: 150,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(color: Colors.grey[200]),
+              ),
+            ),
+            
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // الاسم والتقييم
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          hotel.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: AppColors.textMain,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.gold.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.star, color: AppColors.gold, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              hotel.rating.toString(),
+                              style: const TextStyle(
+                                color: AppColors.primaryDark,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // الموقع
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined, color: AppColors.textGrey, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        hotel.location,
+                        style: const TextStyle(color: AppColors.textGrey, fontSize: 13),
+                      ),
+                      const SizedBox(width: 16),
+                      // عدد النجوم
+                      Row(
+                        children: List.generate(hotel.stars, (index) => 
+                          const Icon(Icons.star, color: Colors.amber, size: 14)
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // السعر وزر الحجز
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'ابتداءً من',
+                            style: TextStyle(fontSize: 10, color: AppColors.textGrey),
+                          ),
+                          Text(
+                            '${hotel.pricePerNight.toInt()} ل.س', // يمكن تحويل العملة لاحقاً
+                            style: const TextStyle(
+                              color: AppColors.primaryBlue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      ElevatedButton(
+                        onPressed: onTap,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryDark,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                        ),
+                        child: const Text('احجز الآن'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/hotels/presentation/widgets/hotel_header_section.dart ---
+import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/services/favorites_service.dart';
+import '../../data/models/hotel_model.dart';
+
+class HotelHeaderSection extends StatelessWidget {
+  final HotelModel hotel;
+  const HotelHeaderSection({super.key, required this.hotel});
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverAppBar(
+      expandedHeight: 300,
+      pinned: true,
+      backgroundColor: AppColors.primaryBlue,
+      leading: CircleAvatar(
+        backgroundColor: Colors.black38,
+        child: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      actions: [
+        CircleAvatar(
+          backgroundColor: Colors.black38,
+          child: IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => Share.share('انظر لهذا الفندق الرائع: ${hotel.name}\nبسعر: ${hotel.pricePerNight} ل.س'),
+          ),
+        ),
+        const SizedBox(width: 10),
+        ValueListenableBuilder<List<String>>(
+          valueListenable: FavoritesService.favoritesNotifier,
+          builder: (context, favList, child) {
+            final isFav = favList.contains(hotel.id);
+            return CircleAvatar(
+              backgroundColor: Colors.black38,
+              child: IconButton(
+                icon: Icon(isFav ? Icons.favorite : Icons.favorite_border, color: isFav ? Colors.red : Colors.white),
+                onPressed: () => FavoritesService.toggleFavorite(hotel.id),
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 10),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        background: Hero(
+          tag: hotel.id,
+          child: CachedNetworkImage(imageUrl: hotel.imageUrl, fit: BoxFit.cover),
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/hotels/presentation/widgets/hotel_info_section.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../data/models/hotel_model.dart';
+
+class HotelInfoSection extends StatelessWidget {
+  final HotelModel hotel;
+  const HotelInfoSection({super.key, required this.hotel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(child: Text(hotel.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primaryBlue))),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: AppColors.gold.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                child: Row(children: [const Icon(Icons.star, color: AppColors.gold, size: 16), const SizedBox(width: 4), Text('${hotel.rating}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark))]),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(children: [const Icon(Icons.location_on, color: AppColors.gold, size: 18), const SizedBox(width: 4), Text(hotel.address, style: const TextStyle(color: AppColors.textGrey))]),
+          
+          const SizedBox(height: 24),
+          
+          // --- قسم الميزات والخدمات المعاد تصميمه ---
+          const Text('الميزات والخدمات المتوفرة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: hotel.facilities.map((feature) => Chip(
+              label: Text(feature, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              avatar: const Icon(Icons.check_circle, color: AppColors.success, size: 18),
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade300)),
+            )).toList(),
+          ),
+          
+          const SizedBox(height: 24),
+          const Text('نبذة عن المكان', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Text('استمتع بإقامة فاخرة مع أفضل الخدمات. الموقع قريب من المراكز الحيوية ومجهز بكافة وسائل الراحة لضمان تجربة لا تنسى.', style: TextStyle(color: AppColors.textGrey, height: 1.5)),
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/intro/presentation/pages/onboarding_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:introduction_screen/introduction_screen.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class OnboardingPage extends StatelessWidget {
+  const OnboardingPage({super.key});
+
+  Future<void> _onIntroEnd(BuildContext context) async {
+    // حفظ أن المستخدم قد رأى الشرح ولن يظهر له مرة أخرى
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isFirstTime', false);
+    
+    if (context.mounted) {
+      context.go('/login');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const bodyStyle = TextStyle(fontSize: 18.0, color: AppColors.textGrey);
+    const pageDecoration = PageDecoration(
+      titleTextStyle: TextStyle(fontSize: 28.0, fontWeight: FontWeight.bold, color: AppColors.primaryBlue),
+      bodyTextStyle: bodyStyle,
+      bodyPadding: EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
+      pageColor: Colors.white,
+      imagePadding: EdgeInsets.zero,
+      imageFlex: 2, // الصورة تأخذ مساحة أكبر
+    );
+
+    return IntroductionScreen(
+      globalBackgroundColor: Colors.white,
+      allowImplicitScrolling: true,
+      autoScrollDuration: 5000,
+      
+      pages: [
+        PageViewModel(
+          title: "اكتشف سوريا بجمالها",
+          body: "استمتع بزيارة أجمل المعالم السياحية والأثرية في سوريا مع خدمات حجز متكاملة.",
+          image: _buildImage(Icons.landscape_rounded),
+          decoration: pageDecoration,
+        ),
+        PageViewModel(
+          title: "حجوزات سهلة وآمنة",
+          body: "احجز الفنادق، المطاعم، والسيارات بضغطة زر مع خيارات دفع متعددة وآمنة.",
+          image: _buildImage(Icons.touch_app_rounded),
+          decoration: pageDecoration,
+        ),
+        PageViewModel(
+          title: "رفيق سفرك الدائم",
+          body: "خدمة عملاء على مدار الساعة، وتتبع مباشر لرحلاتك لضمان راحتك.",
+          image: _buildImage(Icons.support_agent_rounded),
+          decoration: pageDecoration,
+        ),
+      ],
+      onDone: () => _onIntroEnd(context),
+      onSkip: () => _onIntroEnd(context), // زر تخطي
+      showSkipButton: true,
+      skipOrBackFlex: 0,
+      nextFlex: 0,
+      showBackButton: false,
+      rtl: true, // دعم العربية
+      // تخصيص الأزرار
+      skip: const Text('تخطي', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textGrey)),
+      next: const Icon(Icons.arrow_forward, color: AppColors.primaryDark),
+      done: const Text('ابدأ الآن', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+      curve: Curves.fastLinearToSlowEaseIn,
+      controlsMargin: const EdgeInsets.all(16),
+      controlsPadding: const EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 4.0),
+      dotsDecorator: const DotsDecorator(
+        size: Size(10.0, 10.0),
+        color: Color(0xFFBDBDBD),
+        activeSize: Size(22.0, 10.0),
+        activeShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(25.0)),
+        ),
+        activeColor: AppColors.gold, // لون النقاط
+      ),
+    );
+  }
+
+  Widget _buildImage(IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, size: 100, color: AppColors.primaryBlue),
+    );
+  }
+}
+
+
+--- FILE: lib/features/intro/presentation/pages/splash_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:syria_tourism_app/core/widgets/ziyara_logo_painter.dart';
+import '../../../../core/theme/app_colors.dart';
+// استيراد الخدمات
+import '../../../../core/services/favorites_service.dart';
+import '../../../../core/services/search_history_service.dart';
+
+class SplashPage extends StatefulWidget {
+  const SplashPage({super.key});
+
+  @override
+  State<SplashPage> createState() => _SplashPageState();
+}
+
+class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000));
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
+
+    _controller.forward();
+
+    // بدء تهيئة التطبيق وتحميل البيانات
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    // 1. تحميل البيانات الضرورية (هنا مكانها الصحيح)
+    await FavoritesService.loadFavorites();
+    await SearchHistoryService.loadHistory();
+
+    // 2. تأخير بسيط للجمالية (لإكمال الأنيميشن)
+    await Future.delayed(const Duration(seconds: 3));
+
+    // 3. التحقق من حالة المستخدم والانتقال
+    final prefs = await SharedPreferences.getInstance();
+    final isFirstTime = prefs.getBool('isFirstTime') ?? true;
+
+    if (mounted) {
+      context.go(isFirstTime ? '/onboarding' : '/login');
+    }
+  }
+
+  @override
+  void dispose() { _controller.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter, end: Alignment.bottomCenter,
+            colors: [Color(0xFF1A2C42), Color(0xFF0F1C2E)],
+          ),
+        ),
+        child: Center(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: ScaleTransition(
+              scale: _scaleAnimation,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CustomPaint(
+                    painter: ZiyaraLogoPainter(color: AppColors.gold),
+                    child: const SizedBox(width: 140, height: 140),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'ZIYARA',
+                    style: TextStyle(fontFamily: 'Serif', fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 5),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text('بوابتك إلى سوريا', style: TextStyle(color: Colors.white54, fontSize: 16, letterSpacing: 2)),
+
+                  // مؤشر تحميل صغير ليطمئن المستخدم أن التطبيق يعمل
+                  const SizedBox(height: 40),
+                  const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 2),
+                  )
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/notifications/presentation/pages/notifications_page.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class NotificationsPage extends StatelessWidget {
+  const NotificationsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('الإشعارات'), backgroundColor: AppColors.background),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildNotificationItem('تم تأكيد حجزك في فندق شيراتون', 'منذ 2 ساعة', true),
+          _buildNotificationItem('عرض خاص: خصم 20% على المطاعم', 'منذ يوم', false),
+          _buildNotificationItem('يرجى استكمال توثيق الحساب', 'منذ يومين', false),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationItem(String text, String time, bool isUnread) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isUnread ? AppColors.primaryBlue.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.notifications, color: isUnread ? AppColors.gold : AppColors.textGrey),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(text, style: TextStyle(fontWeight: isUnread ? FontWeight.bold : FontWeight.normal)),
+                const SizedBox(height: 4),
+                Text(time, style: const TextStyle(color: AppColors.textGrey, fontSize: 11)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/payment/presentation/pages/booking_success_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/pdf_generator.dart'; // استيراد المولد
+
+class BookingSuccessPage extends StatelessWidget {
+  const BookingSuccessPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // توليد رقم حجز عشوائي للتجربة
+    final bookingId = '#RES-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+    
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(30.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.check_circle, color: AppColors.success, size: 100),
+              const SizedBox(height: 30),
+              const Text(
+                'تم الحجز بنجاح!',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.primaryBlue),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'رقم الحجز: $bookingId',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textGrey),
+              ),
+              const SizedBox(height: 30),
+              
+              // زر تحميل التذكرة الجديد
+              ElevatedButton.icon(
+                onPressed: () async {
+                  // استدعاء دالة توليد التذكرة
+                  await PdfGenerator.generateTicket(
+                    title: 'فندق شيراتون دمشق', // مثال، يمكن تمرير الاسم الحقيقي لاحقاً
+                    price: '450000',
+                    date: DateTime.now().toString().split(' ')[0],
+                    userName: 'أحمد السوري',
+                    bookingId: bookingId,
+                  );
+                },
+                icon: const Icon(Icons.print),
+                label: const Text('تحميل التذكرة (PDF)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.gold,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 30),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              
+              const SizedBox(height: 50),
+              
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    context.go('/home');
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primaryDark,
+                    side: const BorderSide(color: AppColors.primaryDark),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('العودة للرئيسية'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/payment/presentation/pages/payment_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/launcher_helper.dart';
+import '../widgets/payment_summary_card.dart';
+
+class PaymentPage extends StatefulWidget {
+  final String title;
+  final double price;
+  final String imageUrl;
+
+  const PaymentPage({super.key, required this.title, required this.price, required this.imageUrl});
+
+  @override
+  State<PaymentPage> createState() => _PaymentPageState();
+}
+
+class _PaymentPageState extends State<PaymentPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _couponController = TextEditingController();
+  
+  bool _isCouponApplied = false;
+  double _discountAmount = 0.0;
+  File? _idImage;
+  int _personCount = 1;
+
+  Future<void> _pickIdImage() async {
+    final ImagePicker picker = ImagePicker();
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => Wrap(children: [
+        ListTile(leading: const Icon(Icons.camera_alt), title: const Text('التقاط بالكاميرا'), onTap: () async { Navigator.pop(ctx); _setImage(await picker.pickImage(source: ImageSource.camera)); }),
+        ListTile(leading: const Icon(Icons.photo_library), title: const Text('اختيار من المعرض'), onTap: () async { Navigator.pop(ctx); _setImage(await picker.pickImage(source: ImageSource.gallery)); }),
+      ]),
+    );
+  }
+
+  void _setImage(XFile? image) { if (image != null) setState(() => _idImage = File(image.path)); }
+
+  void _applyCoupon() {
+    if (_couponController.text.toUpperCase() == 'ZIYARA2025') {
+      setState(() { _isCouponApplied = true; _discountAmount = widget.price * _personCount * 0.10; });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الخصم 10%!'), backgroundColor: AppColors.success));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('كود خاطئ'), backgroundColor: AppColors.error));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    double totalPrice = (widget.price * _personCount) - _discountAmount;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('تأكيد الحجز'), backgroundColor: AppColors.background),
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PaymentSummaryCard(title: widget.title, price: widget.price, imageUrl: widget.imageUrl),
+              const SizedBox(height: 24),
+              
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('عدد الأشخاص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Row(
+                      children: [
+                        IconButton(onPressed: () { if (_personCount > 1) setState(() => _personCount--); }, icon: const Icon(Icons.remove_circle_outline)),
+                        Text('$_personCount', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                        IconButton(onPressed: () { setState(() => _personCount++); }, icon: const Icon(Icons.add_circle_outline, color: AppColors.cyan)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 24),
+              const Text('بيانات الحاجز', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'الاسم الرباعي', prefixIcon: Icon(Icons.person), filled: true, fillColor: Colors.white),
+                validator: (v) => v!.isEmpty ? 'مطلوب' : null,
+              ),
+              
+              const SizedBox(height: 16),
+              const Text('إثبات الشخصية (إجباري)', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: _pickIdImage,
+                child: Container(
+                  height: 120,
+                  width: double.infinity,
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: _idImage == null ? Colors.grey.shade300 : AppColors.success, width: 2)),
+                  child: _idImage == null 
+                    ? const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_a_photo, color: AppColors.textGrey), Text('اضغط لرفع صورة الهوية/الجواز')])
+                    : ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.file(_idImage!, fit: BoxFit.cover)),
+                ),
+              ),
+              if (_idImage == null)
+                 const Padding(padding: EdgeInsets.only(top: 5), child: Text('* يجب رفع صورة الهوية لإتمام الحجز', style: TextStyle(color: AppColors.error, fontSize: 12))),
+              
+              const SizedBox(height: 24),
+              Row(children: [Expanded(child: TextField(controller: _couponController, enabled: !_isCouponApplied, decoration: const InputDecoration(hintText: 'كود الخصم', filled: true, fillColor: Colors.white))), const SizedBox(width: 10), ElevatedButton(onPressed: _isCouponApplied ? null : _applyCoupon, child: const Text('تطبيق'))]),
+              
+              const SizedBox(height: 24),
+              const Divider(),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('الإجمالي', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text('${totalPrice.toInt()} ل.س', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primaryBlue))]),
+              
+              const SizedBox(height: 30),
+              Center(child: TextButton.icon(
+                // تم إزالة رقمك الشخصي واستبداله برقم خدمة عام
+                onPressed: () => LauncherHelper.openWhatsApp(context, '+963900000000'), 
+                icon: const Icon(Icons.support_agent, color: AppColors.gold), 
+                label: const Text('بحاجة مساعدة؟ تواصل مع الدعم', style: TextStyle(color: AppColors.gold))
+              )),
+              
+              const SizedBox(height: 10),
+              SizedBox(width: double.infinity, child: ElevatedButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    if (_idImage != null) {
+                      context.push('/payment_success');
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('عذراً، صورة الهوية مطلوبة'), backgroundColor: AppColors.error));
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryDark, padding: const EdgeInsets.symmetric(vertical: 16)),
+                child: const Text('تأكيد الدفع', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/payment/presentation/widgets/payment_summary_card.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class PaymentSummaryCard extends StatelessWidget {
+  final String title;
+  final double price;
+  final String imageUrl;
+
+  const PaymentSummaryCard({
+    super.key,
+    required this.title,
+    required this.price,
+    required this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(imageUrl, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (c, o, s) => Container(color: Colors.grey, width: 80, height: 80)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 8),
+                Text('${price.toInt()} ل.س', style: const TextStyle(color: AppColors.primaryBlue)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/profile/presentation/pages/profile_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/launcher_helper.dart';
+import '../../../../core/utils/app_settings.dart';
+import '../../../../core/utils/biometric_helper.dart';
+import '../widgets/profile_header.dart';
+
+class ProfilePage extends StatelessWidget {
+  const ProfilePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Locale>(
+      valueListenable: AppSettings.localeNotifier,
+      builder: (context, locale, child) {
+        bool isAr = locale.languageCode == 'ar';
+        return Scaffold(
+          appBar: AppBar(title: Text(isAr ? 'الإعدادات والملف الشخصي' : 'Settings'), backgroundColor: AppColors.primaryBlue),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 20),
+            child: Column(
+              children: [
+                ProfileHeader(isAr: isAr),
+                const SizedBox(height: 20),
+                const Text('تواصل معنا', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textGrey)),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // رقم عام
+                    _socialIcon(FontAwesomeIcons.whatsapp, Colors.green, 'whatsapp://send?phone=00963900000000', context),
+                    const SizedBox(width: 20),
+                    _socialIcon(FontAwesomeIcons.instagram, Colors.purple, 'https://instagram.com', context),
+                    const SizedBox(width: 20),
+                    _socialIcon(FontAwesomeIcons.facebook, Colors.blue, 'https://facebook.com', context),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Divider(),
+                _buildSectionTitle(isAr ? 'الحساب' : 'Account'),
+                _buildProfileTile(Icons.person_outline, isAr ? 'تعديل البيانات' : 'Edit Profile', () {}),
+                _buildProfileTile(Icons.verified_user_outlined, isAr ? 'توثيق الحساب' : 'Verify Account', () => context.push('/verification')),
+                _buildProfileTile(Icons.account_balance_wallet_outlined, isAr ? 'المحفظة الإلكترونية' : 'E-Wallet', () => context.push('/wallet')),
+                _buildSectionTitle(isAr ? 'الإعدادات' : 'Settings'),
+                _buildProfileTile(Icons.language, isAr ? 'اللغة (العربية)' : 'Language', () => AppSettings.toggleLanguage()),
+                _buildProfileTile(Icons.dark_mode_outlined, isAr ? 'المظهر (ليلي/نهاري)' : 'Theme', () => AppSettings.toggleTheme()),
+                _buildProfileTile(Icons.fingerprint, isAr ? 'تفعيل البصمة' : 'Biometrics', () async { await BiometricHelper.authenticate(); }),
+                _buildSectionTitle(isAr ? 'الدعم' : 'Support'),
+                _buildProfileTile(Icons.info_outline, isAr ? 'الشروط والأحكام' : 'Terms', () {}),
+                const SizedBox(height: 30),
+                TextButton.icon(onPressed: () => context.go('/login'), icon: const Icon(Icons.logout, color: AppColors.error), label: Text(isAr ? 'تسجيل الخروج' : 'Logout', style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.bold))),
+              ],
+            ),
+          ),
+        );
+      }
+    );
+  }
+
+  Widget _socialIcon(IconData icon, Color color, String url, BuildContext context) {
+    return InkWell(onTap: () => LauncherHelper.openUrl(context, url), child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle, border: Border.all(color: color.withOpacity(0.2))), child: FaIcon(icon, color: color, size: 24)));
+  }
+
+  Widget _buildSectionTitle(String title) { return Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 10), child: Align(alignment: Alignment.centerRight, child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textGrey)))); }
+
+  Widget _buildProfileTile(IconData icon, String title, VoidCallback onTap) { return Container(margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Card(elevation: 0, margin: EdgeInsets.zero, child: ListTile(leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.primaryBlue.withOpacity(0.05), shape: BoxShape.circle), child: Icon(icon, color: AppColors.primaryBlue, size: 20)), title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)), trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textGrey), onTap: onTap))); }
+}
+
+
+--- FILE: lib/features/profile/presentation/pages/verification_page.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class VerificationPage extends StatelessWidget {
+  const VerificationPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('توثيق الحساب'), backgroundColor: AppColors.background),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            const Icon(Icons.verified_user_outlined, size: 80, color: AppColors.gold),
+            const SizedBox(height: 20),
+            const Text(
+              'قم برفع صورة الهوية أو جواز السفر لتفعيل كافة ميزات التطبيق',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: AppColors.textGrey),
+            ),
+            const SizedBox(height: 40),
+            
+            // خيار الكاميرا
+            _buildUploadOption(Icons.camera_alt, 'التقاط صورة', () {}),
+            const SizedBox(height: 16),
+            // خيار المعرض
+            _buildUploadOption(Icons.photo_library, 'رفع من المعرض', () {}),
+            
+            const Spacer(),
+            ElevatedButton(
+              onPressed: () {},
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryDark,
+                minimumSize: const Size(double.infinity, 50),
+              ),
+              child: const Text('إرسال للتحقق'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUploadOption(IconData icon, String title, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.primaryBlue.withOpacity(0.2), width: 1),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.primaryBlue, size: 28),
+            const SizedBox(width: 16),
+            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.textGrey),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/profile/presentation/pages/wallet_page.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class WalletPage extends StatelessWidget {
+  const WalletPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('المحفظة الإلكترونية'),
+        backgroundColor: AppColors.background,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // كرت الرصيد (تصميم فيزا كارد)
+            Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.primaryBlue, AppColors.primaryDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primaryBlue.withOpacity(0.4),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('الرصيد الحالي', style: TextStyle(color: Colors.white70)),
+                      Icon(Icons.account_balance_wallet, color: Colors.white.withOpacity(0.8)),
+                    ],
+                  ),
+                  const Text(
+                    '2,450,000 ل.س',
+                    style: TextStyle(color: AppColors.gold, fontSize: 28, fontWeight: FontWeight.bold),
+                  ),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('**** **** **** 1234', style: TextStyle(color: Colors.white, fontSize: 16)),
+                      Text('Exp 12/26', style: TextStyle(color: Colors.white70)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 30),
+            
+            // أزرار العمليات
+            Row(
+              children: [
+                Expanded(
+                  child: _buildActionButton(Icons.add, 'شحن الرصيد', () {}),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildActionButton(Icons.swap_horiz, 'تحويل', () {}),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildActionButton(Icons.history, 'السجل', () {}),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 30),
+            const Text('آخر العمليات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            
+            // قائمة العمليات الوهمية
+            _buildTransactionItem('حجز فندق شيراتون', '- 450,000 ل.س', Colors.red),
+            _buildTransactionItem('شحن رصيد', '+ 1,000,000 ل.س', Colors.green),
+            _buildTransactionItem('مطعم نارنج', '- 75,000 ل.س', Colors.red),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(IconData icon, String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: AppColors.primaryBlue),
+            const SizedBox(height: 8),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransactionItem(String title, String amount, Color amountColor) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+                child: const Icon(Icons.receipt_long, color: AppColors.textGrey, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('24 آب 2025', style: TextStyle(color: AppColors.textGrey, fontSize: 12)),
+                ],
+              ),
+            ],
+          ),
+          Text(amount, style: TextStyle(color: amountColor, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/profile/presentation/widgets/profile_header.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class ProfileHeader extends StatelessWidget {
+  final bool isAr;
+  const ProfileHeader({super.key, required this.isAr});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.only(top: 60, bottom: 30),
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: AppColors.primaryBlue,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+      ),
+      child: Column(
+        children: [
+          Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
+                child: CircleAvatar(
+                  radius: 50,
+                  backgroundColor: Colors.white,
+                  backgroundImage: const NetworkImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=100'),
+                  onBackgroundImageError: (_, __) => const Icon(Icons.person, size: 50, color: Colors.grey),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                child: const Icon(Icons.edit, size: 16, color: AppColors.primaryBlue),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text('أحمد السوري', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+          const Text('ahmad@ziyara-app.com', style: TextStyle(color: Colors.white70)),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.success.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.success),
+            ),
+            child: Text(isAr ? 'حساب موثق' : 'Verified Account', style: const TextStyle(color: AppColors.success, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/restaurants/data/models/restaurant_model.dart ---
+import '../../../../core/utils/dummy_image_manager.dart';
+
+class RestaurantModel {
+  final String id;
+  final String name;
+  final String location;
+  final String type;
+  final double rating;
+  final String imageUrl;
+  final bool isOpenNow;
+  final String workingHours;
+  final List<String> menuHighlights;
+
+  RestaurantModel({required this.id, required this.name, required this.location, required this.type, required this.rating, required this.imageUrl, required this.isOpenNow, required this.workingHours, required this.menuHighlights});
+  
+  static List<RestaurantModel> get dummyRestaurants => [
+    RestaurantModel(id: '1', name: 'مطعم نارنج', location: 'دمشق القديمة', type: 'مأكولات شرقية فاخرة', rating: 4.9, 
+      imageUrl: DummyImageManager.restaurantNaranj, 
+      isOpenNow: true, workingHours: '12:00 م - 12:00 ص', menuHighlights: ['كباب كرز', 'فتة باذنجان', 'كبة مشوية']),
+    RestaurantModel(id: '2', name: 'كافيه فيو (View)', location: 'اللاذقية', type: 'كافيه وإطلالة', rating: 4.5, 
+      imageUrl: DummyImageManager.restaurantView,
+      isOpenNow: true, workingHours: '09:00 ص - 02:00 ص', menuHighlights: ['قهوة مختصة', 'وافل', 'عصائر طبيعية']),
+    RestaurantModel(id: '3', name: 'مطعم الونيش', location: 'حلب', type: 'مشويات حلبية أصيلة', rating: 4.8, 
+      imageUrl: DummyImageManager.restaurantWanish,
+      isOpenNow: false, workingHours: '01:00 م - 11:00 م', menuHighlights: ['كباب حلبي', 'لحم بعجين', 'سفرجلية']),
+    RestaurantModel(id: '4', name: 'سكاي بار (Sky Bar)', location: 'دمشق', type: 'سهرة وعشاء', rating: 4.6, 
+      imageUrl: DummyImageManager.restaurantSkyBar,
+      isOpenNow: true, workingHours: '06:00 م - 03:00 ص', menuHighlights: ['ستيك', 'سوشي', 'كوكتيلات']),
+  ];
+}
+
+
+--- FILE: lib/features/restaurants/data/repositories/fake_restaurants_repository.dart ---
+import '../../domain/repositories/restaurants_repository.dart';
+import '../../data/models/restaurant_model.dart';
+
+class FakeRestaurantsRepository implements RestaurantsRepository {
+  @override
+  Future<List<RestaurantModel>> getRestaurants() async {
+    // محاكاة تأخير الشبكة
+    await Future.delayed(const Duration(seconds: 2));
+    return RestaurantModel.dummyRestaurants;
+  }
+}
+
+
+--- FILE: lib/features/restaurants/domain/repositories/restaurants_repository.dart ---
+import '../../data/models/restaurant_model.dart';
+
+abstract class RestaurantsRepository {
+  Future<List<RestaurantModel>> getRestaurants();
+}
+
+
+--- FILE: lib/features/restaurants/presentation/pages/restaurants_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../data/models/restaurant_model.dart';
+import '../../data/repositories/fake_restaurants_repository.dart';
+import '../../../../core/widgets/shimmer/restaurant_card_shimmer.dart';
+import '../widgets/restaurant_card.dart';
+import 'restaurant_details_page.dart';
+
+class RestaurantsPage extends StatefulWidget {
+  const RestaurantsPage({super.key});
+
+  @override
+  State<RestaurantsPage> createState() => _RestaurantsPageState();
+}
+
+class _RestaurantsPageState extends State<RestaurantsPage> {
+  final _repository = FakeRestaurantsRepository();
+  bool _isLoading = true;
+  List<RestaurantModel> _allRestaurants = [];
+  List<RestaurantModel> _filteredRestaurants = [];
+
+  String _selectedCity = 'الكل';
+  final List<String> _cities = ['الكل', 'دمشق', 'اللاذقية', 'حلب'];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRestaurants();
+  }
+
+  Future<void> _fetchRestaurants() async {
+    setState(() => _isLoading = true);
+    try {
+      final data = await _repository.getRestaurants();
+      if (mounted) {
+        setState(() {
+          _allRestaurants = data;
+          _filterData();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _filterData() {
+    setState(() {
+      if (_selectedCity == 'الكل') {
+        _filteredRestaurants = _allRestaurants;
+      } else {
+        _filteredRestaurants = _allRestaurants.where((r) => r.location == _selectedCity).toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('المطاعم والكافيهات'),
+        backgroundColor: AppColors.background,
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchRestaurants)
+        ],
+      ),
+      body: Column(
+        children: [
+          SizedBox(
+            height: 50,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _cities.length,
+              itemBuilder: (context, index) {
+                final city = _cities[index];
+                final isSelected = _selectedCity == city;
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: FilterChip(
+                    label: Text(city),
+                    selected: isSelected,
+                    selectedColor: AppColors.primaryDark,
+                    labelStyle: TextStyle(color: isSelected ? Colors.white : AppColors.textMain),
+                    checkmarkColor: Colors.white,
+                    onSelected: (selected) {
+                      setState(() {
+                        _selectedCity = city;
+                        _filterData();
+                      });
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+          
+          Expanded(
+            child: _isLoading
+                ? ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: 3,
+                    itemBuilder: (context, index) => const RestaurantCardShimmer(),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _filteredRestaurants.length,
+                    itemBuilder: (context, index) {
+                      final restaurant = _filteredRestaurants[index];
+                      return RestaurantCard(
+                        restaurant: restaurant,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => RestaurantDetailsPage(restaurant: restaurant)),
+                          );
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/restaurants/presentation/pages/restaurant_details_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../data/models/restaurant_model.dart';
+
+class RestaurantDetailsPage extends StatelessWidget {
+  final RestaurantModel restaurant;
+
+  const RestaurantDetailsPage({super.key, required this.restaurant});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 250.0,
+            pinned: true,
+            backgroundColor: AppColors.primaryBlue,
+            iconTheme: const IconThemeData(color: Colors.white),
+            flexibleSpace: FlexibleSpaceBar(
+              title: Text(
+                restaurant.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  shadows: [Shadow(color: Colors.black45, blurRadius: 5)],
+                ),
+              ),
+              background: CachedNetworkImage(
+                imageUrl: restaurant.imageUrl,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryDark.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          restaurant.type,
+                          style: const TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const Spacer(),
+                      const Icon(Icons.access_time, color: AppColors.textGrey, size: 18),
+                      const SizedBox(width: 4),
+                      Text(restaurant.workingHours),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'قائمة الطعام المميزة',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  // قائمة أفقية للوجبات (Menu)
+                  SizedBox(
+                    height: 120,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: restaurant.menuHighlights.length,
+                      itemBuilder: (context, index) {
+                        return Container(
+                          width: 120,
+                          margin: const EdgeInsets.only(left: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.restaurant_menu, color: AppColors.gold, size: 30),
+                              const SizedBox(height: 8),
+                              Text(
+                                restaurant.menuHighlights[index],
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'الموقع',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    height: 150,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.map, size: 40, color: AppColors.primaryBlue),
+                          const SizedBox(height: 8),
+                          Text(restaurant.location, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryDark),
+                child: const Text('حجز طاولة'),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () {},
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryDark,
+                  side: const BorderSide(color: AppColors.primaryDark),
+                ),
+                child: const Text('طلب توصيل'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/restaurants/presentation/widgets/restaurant_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../data/models/restaurant_model.dart';
+
+class RestaurantCard extends StatelessWidget {
+  final RestaurantModel restaurant;
+  final VoidCallback onTap;
+
+  const RestaurantCard({super.key, required this.restaurant, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  child: CachedNetworkImage(
+                    imageUrl: restaurant.imageUrl,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: restaurant.isOpenNow ? AppColors.success : AppColors.error,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      restaurant.isOpenNow ? 'مفتوح الآن' : 'مغلق',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                )
+              ],
+            ),
+            
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        restaurant.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, color: AppColors.gold, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            restaurant.rating.toString(),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${restaurant.type} • ${restaurant.location}',
+                    style: const TextStyle(color: AppColors.textGrey, fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: restaurant.menuHighlights.take(2).map((item) => 
+                      Chip(
+                        label: Text(item, style: const TextStyle(fontSize: 11)),
+                        backgroundColor: AppColors.background,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: EdgeInsets.zero,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                      )
+                    ).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/tours/data/models/tour_model.dart ---
+import '../../../../core/utils/dummy_image_manager.dart';
+
+class TourModel {
+  final String id;
+  final String title;
+  final String location;
+  final double price;
+  final int durationDays;
+  final double rating;
+  final String imageUrl;
+  final String description;
+  final List<String> activities;
+  final String date;
+
+  TourModel({required this.id, required this.title, required this.location, required this.price, required this.durationDays, required this.rating, required this.imageUrl, required this.description, required this.activities, required this.date});
+
+  static List<TourModel> get dummyTours => [
+    TourModel(id: '1', title: 'رحلة القلاع والحصون', location: 'وادي النصارى - الحصن', price: 450000, durationDays: 2, rating: 4.8, 
+      imageUrl: DummyImageManager.tourKrak,
+      description: 'زيارة قلعة الحصن الأثرية والاستمتاع بالطبيعة الخلابة.', activities: ['زيارة القلعة', 'غداء في الوادي', 'سهرة فنية'], date: 'كل خميس'),
+    TourModel(id: '2', title: 'سحر الطبيعة في كسب', location: 'اللاذقية - كسب', price: 600000, durationDays: 3, rating: 4.9, 
+      imageUrl: DummyImageManager.tourKassab,
+      description: 'استمتع بأجواء الغابات والجبال في كسب والسمرا.', activities: ['تخييم', 'مشوي', 'سباحة في السمرا'], date: '20 آب 2025'),
+    TourModel(id: '3', title: 'جولة تدمر التاريخية', location: 'حمص - تدمر', price: 350000, durationDays: 1, rating: 4.7, 
+      imageUrl: DummyImageManager.tourPalmyra,
+      description: 'رحلة عبر الزمن لزيارة آثار تدمر العريقة.', activities: ['زيارة الآثار', 'غداء بدوي', 'ركوب الجمال'], date: 'يومياً'),
+  ];
+}
+
+
+--- FILE: lib/features/tours/data/repositories/fake_tours_repository.dart ---
+import '../../domain/repositories/tours_repository.dart';
+import '../../data/models/tour_model.dart';
+
+class FakeToursRepository implements ToursRepository {
+  @override
+  Future<List<TourModel>> getTours() async {
+    await Future.delayed(const Duration(seconds: 2));
+    return TourModel.dummyTours;
+  }
+}
+
+
+--- FILE: lib/features/tours/domain/repositories/tours_repository.dart ---
+import '../../data/models/tour_model.dart';
+
+abstract class ToursRepository {
+  Future<List<TourModel>> getTours();
+}
+
+
+--- FILE: lib/features/tours/presentation/pages/tours_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../data/models/tour_model.dart';
+import '../../data/repositories/fake_tours_repository.dart';
+import '../../../../core/widgets/shimmer/tour_card_shimmer.dart';
+import '../widgets/tour_card.dart';
+import 'tour_details_page.dart';
+
+class ToursPage extends StatefulWidget {
+  const ToursPage({super.key});
+
+  @override
+  State<ToursPage> createState() => _ToursPageState();
+}
+
+class _ToursPageState extends State<ToursPage> {
+  final _repository = FakeToursRepository();
+  bool _isLoading = true;
+  List<TourModel> _tours = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTours();
+  }
+
+  Future<void> _fetchTours() async {
+    setState(() => _isLoading = true);
+    try {
+      final data = await _repository.getTours();
+      if (mounted) {
+        setState(() {
+          _tours = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('الرحلات السياحية'),
+        backgroundColor: AppColors.background,
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchTours)
+        ],
+      ),
+      body: _isLoading
+          ? ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: 3,
+              itemBuilder: (context, index) => const TourCardShimmer(),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _tours.length,
+              itemBuilder: (context, index) {
+                final tour = _tours[index];
+                return TourCard(
+                  tour: tour,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => TourDetailsPage(tour: tour)),
+                    );
+                  },
+                );
+              },
+            ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/tours/presentation/pages/tour_details_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../data/models/tour_model.dart';
+
+class TourDetailsPage extends StatelessWidget {
+  final TourModel tour;
+  const TourDetailsPage({super.key, required this.tour});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 300,
+            pinned: true,
+            leading: CircleAvatar(backgroundColor: Colors.black38, child: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context))),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Hero(tag: tour.id, child: CachedNetworkImage(imageUrl: tour.imageUrl, fit: BoxFit.cover)),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 24),
+                  _buildDescription(),
+                  const SizedBox(height: 24),
+                  _buildActivitiesList(),
+                  const SizedBox(height: 100),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      bottomSheet: _buildBottomBar(context),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Expanded(child: Text(tour.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryBlue))),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: AppColors.primaryDark, borderRadius: BorderRadius.circular(20)), child: Text('${tour.durationDays} أيام', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+        ]),
+        const SizedBox(height: 8),
+        Row(children: [const Icon(Icons.location_on, color: AppColors.gold, size: 20), const SizedBox(width: 4), Text(tour.location, style: const TextStyle(fontSize: 16, color: AppColors.textGrey))]),
+      ],
+    );
+  }
+
+  Widget _buildDescription() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('عن الرحلة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 8),
+      Text(tour.description, style: const TextStyle(color: AppColors.textGrey, height: 1.6)),
+    ]);
+  }
+
+  Widget _buildActivitiesList() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('النشاطات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 12),
+      ...tour.activities.map((a) => Padding(padding: const EdgeInsets.only(bottom: 10), child: Row(children: [const Icon(Icons.check_circle_outline, color: AppColors.success), const SizedBox(width: 10), Text(a)]))),
+    ]);
+  }
+
+  Widget _buildBottomBar(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, -5))]),
+      child: Row(children: [
+        Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('السعر للشخص', style: TextStyle(color: AppColors.textGrey)), Text('${tour.price.toInt()} ل.س', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryBlue))]),
+        const Spacer(),
+        ElevatedButton(
+          onPressed: () => context.push("/payment", extra: {"title": tour.title, "price": tour.price, "imageUrl": tour.imageUrl}),
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryDark, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
+          child: const Text('حجز مقعد'),
+        ),
+      ]),
+    );
+  }
+}
+
+

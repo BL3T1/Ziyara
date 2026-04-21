@@ -1,0 +1,530 @@
+--- FILE: lib/features/tours/presentation/widgets/tour_card.dart ---
+import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../data/models/tour_model.dart';
+
+class TourCard extends StatelessWidget {
+  final TourModel tour;
+  final VoidCallback onTap;
+
+  const TourCard({super.key, required this.tour, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // الصورة مع السعر والتاريخ
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  child: CachedNetworkImage(
+                    imageUrl: tour.imageUrl,
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.calendar_today, color: Colors.white, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          tour.date,
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.gold,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${tour.price.toInt()} ل.س',
+                      style: const TextStyle(color: AppColors.textMain, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          tour.title,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, color: AppColors.gold, size: 18),
+                          const SizedBox(width: 4),
+                          Text('${tour.rating}'),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined, size: 16, color: AppColors.textGrey),
+                      const SizedBox(width: 4),
+                      Text(tour.location, style: const TextStyle(color: AppColors.textGrey)),
+                      const SizedBox(width: 16),
+                      const Icon(Icons.timer_outlined, size: 16, color: AppColors.textGrey),
+                      const SizedBox(width: 4),
+                      Text('${tour.durationDays} أيام', style: const TextStyle(color: AppColors.textGrey)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/transport/data/models/transport_order_model.dart ---
+class TransportOrderModel {
+  final String id;
+  final String fromLocation;
+  final String toLocation;
+  final String carType; // VIP, Economy, Van
+  final double price;
+  final String date;
+  final String driverName; // للسائق المعين
+  final String carPlate;
+
+  TransportOrderModel({
+    required this.id,
+    required this.fromLocation,
+    required this.toLocation,
+    required this.carType,
+    required this.price,
+    required this.date,
+    this.driverName = 'جاري التعيين...',
+    this.carPlate = '---',
+  });
+}
+
+
+--- FILE: lib/features/transport/presentation/pages/driver_tracking_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class DriverTrackingPage extends StatelessWidget {
+  const DriverTrackingPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          // 1. خلفية الخريطة (صورة وهمية أو لون)
+          Container(
+            color: const Color(0xFFE5E5E5),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.map_outlined, size: 100, color: Colors.grey[400]),
+                  const SizedBox(height: 10),
+                  Text('خريطة التتبع', style: TextStyle(color: Colors.grey[600], fontSize: 20)),
+                ],
+              ),
+            ),
+          ),
+          
+          // 2. زر الرجوع
+          Positioned(
+            top: 50,
+            right: 20,
+            child: CircleAvatar(
+              backgroundColor: Colors.white,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () => context.go('/home'),
+              ),
+            ),
+          ),
+
+          // 3. كرت معلومات السائق في الأسفل
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'السائق في الطريق إليك',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryBlue),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('يصل خلال 5 دقائق', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 20),
+                  
+                  // معلومات السائق
+                  Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 30,
+                        backgroundColor: AppColors.background,
+                        child: Icon(Icons.person, size: 30, color: AppColors.textGrey),
+                      ),
+                      const SizedBox(width: 16),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('محمد الأحمد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('KIA Cerato • أبيض', style: TextStyle(color: AppColors.textGrey)),
+                        ],
+                      ),
+                      const Spacer(),
+                      // رقم اللوحة
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text('123456 دمشق', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // أزرار الاتصال
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {},
+                          icon: const Icon(Icons.call),
+                          label: const Text('اتصال'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryDark,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {},
+                          icon: const Icon(Icons.message),
+                          label: const Text('رسالة'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primaryDark,
+                            side: const BorderSide(color: AppColors.primaryDark),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/transport/presentation/pages/transport_booking_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class TransportBookingPage extends StatefulWidget {
+  const TransportBookingPage({super.key});
+
+  @override
+  State<TransportBookingPage> createState() => _TransportBookingPageState();
+}
+
+class _TransportBookingPageState extends State<TransportBookingPage> {
+  String _selectedCarType = 'اقتصادية';
+  final _fromController = TextEditingController();
+  final _toController = TextEditingController();
+  double _estimatedPrice = 0.0;
+
+  void _calculatePrice() {
+    setState(() {
+      double base = _selectedCarType == 'VIP' ? 50000 : (_selectedCarType == 'Van' ? 75000 : 25000);
+      _estimatedPrice = base + 15000; // محاكاة
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
+      body: Stack(
+        children: [
+          // 1. الخلفية (الخريطة)
+          _buildMapBackground(),
+          
+          // 2. زر الرجوع
+          Positioned(
+            top: 50, right: 20,
+            child: CircleAvatar(backgroundColor: Colors.white, child: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/home'))),
+          ),
+
+          // 3. نموذج الحجز العائم
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: _buildBookingSheet(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapBackground() {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
+      color: const Color(0xFFF0F0F0),
+      child: const Center(child: Opacity(opacity: 0.1, child: Icon(Icons.map, size: 200, color: Colors.black))),
+    );
+  }
+
+  Widget _buildBookingSheet() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30)), boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)]),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('إلى أين تريد الذهاب؟', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryBlue)),
+          const SizedBox(height: 20),
+          _buildLocationInput(_fromController, 'موقع الانطلاق', Icons.my_location),
+          const SizedBox(height: 10),
+          _buildLocationInput(_toController, 'الوجهة', Icons.location_on),
+          const SizedBox(height: 20),
+          const Text('نوع السيارة', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          Row(children: [
+            _buildCarOption('اقتصادية', Icons.directions_car, 1),
+            const SizedBox(width: 10),
+            _buildCarOption('VIP', Icons.star, 1.5),
+            const SizedBox(width: 10),
+            _buildCarOption('Van', Icons.airport_shuttle, 2),
+          ]),
+          const SizedBox(height: 24),
+          _buildPriceAndButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationInput(TextEditingController ctrl, String hint, IconData icon) {
+    return TextField(
+      controller: ctrl,
+      onChanged: (_) => _calculatePrice(),
+      decoration: InputDecoration(prefixIcon: Icon(icon, color: AppColors.gold), hintText: hint, filled: true, fillColor: AppColors.background, border: OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.circular(12))),
+    );
+  }
+
+  Widget _buildCarOption(String title, IconData icon, double mult) {
+    bool isSelected = _selectedCarType == title;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () { setState(() { _selectedCarType = title; _calculatePrice(); }); },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(color: isSelected ? AppColors.primaryDark : Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: isSelected ? AppColors.primaryDark : Colors.grey.shade300)),
+          child: Column(children: [
+            Icon(icon, color: isSelected ? AppColors.gold : AppColors.textGrey),
+            const SizedBox(height: 4),
+            Text(title, style: TextStyle(color: isSelected ? Colors.white : AppColors.textGrey, fontSize: 12, fontWeight: FontWeight.bold)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPriceAndButton() {
+    return Row(
+      children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('السعر التقديري', style: TextStyle(color: AppColors.textGrey, fontSize: 12)),
+          Text(_estimatedPrice == 0 ? '--' : '${_estimatedPrice.toInt()} ل.س', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryBlue)),
+        ]),
+        const Spacer(),
+        ElevatedButton(
+          onPressed: () => context.push('/driver_tracking'),
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryDark, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16)),
+          child: const Text('اطلب الآن'),
+        ),
+      ],
+    );
+  }
+}
+
+
+--- FILE: lib/main.dart ---
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'core/theme/app_theme.dart';
+import 'core/utils/app_router.dart';
+import 'core/utils/app_settings.dart';
+
+void main() {
+  // إزالة الـ async و الـ await لجعل الانطلاق فورياً
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // إعدادات واجهة النظام (تعمل على الموبايل، وعلى الويب لا تضر)
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+  ));
+
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+
+  runApp(const SyriaTourismApp());
+}
+
+class SyriaTourismApp extends StatelessWidget {
+  const SyriaTourismApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Locale>(
+      valueListenable: AppSettings.localeNotifier,
+      builder: (context, locale, child) {
+        return ValueListenableBuilder<ThemeMode>(
+          valueListenable: AppSettings.themeNotifier,
+          builder: (context, themeMode, child) {
+            return MaterialApp.router(
+              title: 'ZIYARA | زيارة',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: themeMode,
+              routerConfig: router,
+              locale: locale,
+              supportedLocales: const [
+                Locale('ar', 'SY'),
+                Locale('en', 'US'),
+              ],
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              // كود لمنع تكبير الخط بشكل مبالغ فيه
+              builder: (context, child) {
+                final mediaQueryData = MediaQuery.of(context);
+                return MediaQuery(
+                  data: mediaQueryData.copyWith(textScaler: const TextScaler.linear(1.0)),
+                  child: child!,
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+
+--- FILE: test/widget_test.dart (Test File) ---
+// This is a basic Flutter widget test.
+//
+// To perform an interaction with a widget in your test, use the WidgetTester
+// utility in the flutter_test package. For example, you can send tap and scroll
+// gestures. You can also use WidgetTester to find child widgets in the widget
+// tree, read text, and verify that the values of widget properties are correct.
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:syria_tourism_app/main.dart';
+
+void main() {
+  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+    // Build our app and trigger a frame.
+    await tester.pumpWidget(const MyApp());
+
+    // Verify that our counter starts at 0.
+    expect(find.text('0'), findsOneWidget);
+    expect(find.text('1'), findsNothing);
+
+    // Tap the '+' icon and trigger a frame.
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pump();
+
+    // Verify that our counter has incremented.
+    expect(find.text('0'), findsNothing);
+    expect(find.text('1'), findsOneWidget);
+  });
+}
+
+

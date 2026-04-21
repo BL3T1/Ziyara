@@ -1,0 +1,21 @@
+-- ============================================================================
+-- Row-level security (RLS) — productized path
+-- ----------------------------------------------------------------------------
+-- Flyway V13 enables FORCE ROW LEVEL SECURITY and policies on:
+--   hotel_service_providers, hotel_services, bkg_bookings
+--
+-- The Spring Boot app wraps the primary DataSource with RlsAwareDataSource and
+-- sets PostgreSQL session variables on every pooled connection checkout:
+--   app.rls_bypass        ('1' company staff, '0' customers / partner portal)
+--   app.current_user_id   JWT subject (UUID string)
+--   app.current_provider_id  JWT "pid" claim when resolved (owner or staff)
+--
+-- Enable runtime wiring with: ZIYARA_RLS_ENABLED=true (see application.yml).
+--
+-- Operational checklist:
+--   1) Use a non-superuser database role for the application in production.
+--   2) Deploy application build that sets GUCs before tightening external access.
+--   3) Validate policies with EXPLAIN (ANALYZE, BUFFERS) under realistic JWTs.
+-- ============================================================================
+
+SELECT 1 AS rls_productized_placeholder;
