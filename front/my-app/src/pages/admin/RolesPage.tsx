@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
 import { rolesAPI, getApiErrorMessage } from '../../services/api'
 import type { RoleDto, GroupDto, PermissionCatalogueItemDto } from '../../types/api'
@@ -28,6 +29,7 @@ function catalogueByResource(items: PermissionCatalogueItemDto[]): [string, Perm
 
 export function RolesPage() {
   const { t } = useLanguage()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [roles, setRoles] = useState<RoleDto[]>([])
   const [groups, setGroups] = useState<GroupDto[]>([])
   const [catalogue, setCatalogue] = useState<PermissionCatalogueItemDto[]>([])
@@ -58,6 +60,21 @@ export function RolesPage() {
   useEffect(() => {
     load()
   }, [])
+
+  const roleIdFromUrl = searchParams.get('roleId')?.trim()
+
+  useEffect(() => {
+    if (!roleIdFromUrl || roles.length === 0) return
+    const match = roles.find((r) => r.id === roleIdFromUrl)
+    if (match) {
+      setEditPermissionsRole(match)
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('roleId')
+        return next
+      }, { replace: true })
+    }
+  }, [roleIdFromUrl, roles, setSearchParams])
 
   if (loading) {
     return <div className="text-slate-500 dark:text-slate-400">{t('rolesPage.loading')}</div>

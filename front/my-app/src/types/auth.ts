@@ -32,7 +32,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   user: 'User',
 }
 
-/** Map backend UserRole enum to frontend Role (G1–G6, G7) */
+/** Map backend UserRole enum to frontend Role (org groups Z1–Z6 internal staff, Z7 customer) */
 export function backendRoleToFrontend(backendRole: string): Role {
   const r = (backendRole || '').toUpperCase()
   if (r === 'SUPER_ADMIN') return 'super_admin'

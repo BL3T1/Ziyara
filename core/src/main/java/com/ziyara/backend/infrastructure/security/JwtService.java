@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,24 +42,53 @@ public class JwtService {
     }
     
     public String generateAccessToken(User user) {
+        return generateAccessToken(user, null);
+    }
+
+    /**
+     * @param providerScopeId optional {@code pid} claim for RLS / provider portal scoping
+     */
+    public String generateAccessToken(User user, UUID providerScopeId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", user.getRole().name());
         claims.put("email", user.getEmail());
+        claims.put("tv", user.getTokenVersion());
+        if (providerScopeId != null) {
+            claims.put("pid", providerScopeId.toString());
+        }
         return generateToken(claims, user.getId().toString(), jwtExpiration);
     }
     
     public String generateRefreshToken(User user) {
-        return generateToken(new HashMap<>(), user.getId().toString(), refreshExpiration);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("tv", user.getTokenVersion());
+        return generateToken(claims, user.getId().toString(), refreshExpiration);
     }
     
     private String generateToken(Map<String, Object> claims, String subject, long expiration) {
         return Jwts.builder()
                 .claims(claims)
+                .id(UUID.randomUUID().toString())
                 .subject(subject)
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSigningKey())
                 .compact();
+    }
+
+    /**
+     * JWT ID claim (jti), used for revocation until expiry.
+     */
+    public String extractJti(String token) {
+        try {
+            return extractClaim(token, Claims::getId);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public Instant extractExpirationInstant(String token) {
+        return extractExpiration(token).toInstant();
     }
     
     public String extractUserId(String token) {
@@ -71,6 +101,39 @@ public class JwtService {
     
     public String extractRole(String token) {
         return extractClaim(token, claims -> claims.get("role", String.class));
+    }
+
+    /**
+     * Token version for password-rotation invalidation; missing claim defaults to 0 (legacy tokens).
+     */
+    public int extractTokenVersion(String token) {
+        return extractClaim(token, claims -> {
+            Object raw = claims.get("tv");
+            if (raw instanceof Integer i) {
+                return i;
+            }
+            if (raw instanceof Number n) {
+                return n.intValue();
+            }
+            return 0;
+        });
+    }
+
+    /**
+     * Provider scope for RLS ({@code pid} claim); absent for customers / staff without a home provider.
+     */
+    public UUID extractProviderScopeId(String token) {
+        try {
+            return extractClaim(token, claims -> {
+                Object raw = claims.get("pid");
+                if (raw instanceof String s && !s.isBlank()) {
+                    return UUID.fromString(s.trim());
+                }
+                return null;
+            });
+        } catch (Exception e) {
+            return null;
+        }
     }
     
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
@@ -115,5 +178,9 @@ public class JwtService {
     
     public long getExpirationTime() {
         return jwtExpiration / 1000; // Return in seconds
+    }
+
+    public long getRefreshExpirationSeconds() {
+        return refreshExpiration / 1000;
     }
 }

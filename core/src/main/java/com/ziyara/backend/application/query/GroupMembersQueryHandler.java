@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -51,12 +50,9 @@ public class GroupMembersQueryHandler {
         int s = size <= 0 ? 20 : size;
         int offset = p * s;
 
-        List<Role> allRoles = roleRepository.findAllOrderByName();
-        List<Role> inGroup = allRoles.stream()
-                .filter(r -> UNGROUPED_GROUP_ID.equals(groupId)
-                        ? r.getGroupId() == null
-                        : Objects.equals(groupId, r.getGroupId()))
-                .toList();
+        List<Role> inGroup = UNGROUPED_GROUP_ID.equals(groupId)
+                ? roleRepository.findByGroupIdIsNullOrderByName()
+                : roleRepository.findByGroupIdOrderByName(groupId);
 
         if (inGroup.isEmpty()) {
             return new PageImpl<>(List.of(), PageRequest.of(p, s), 0);

@@ -58,6 +58,12 @@ public class UserResponse {
     @Schema(description = "Preferred currency")
     private String preferredCurrency;
     
+    @Schema(description = "Whether TOTP MFA is enabled")
+    private Boolean mfaEnabled;
+
+    @Schema(description = "Marketing email opt-in (denormalized; see consents API for history)")
+    private Boolean marketingOptIn;
+
     @Schema(description = "Last login time")
     private LocalDateTime lastLoginAt;
     

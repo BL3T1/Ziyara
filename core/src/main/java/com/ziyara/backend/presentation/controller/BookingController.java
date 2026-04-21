@@ -27,6 +27,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import com.ziyara.backend.domain.enums.BookingStatus;
+import com.ziyara.backend.domain.enums.NotificationType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -39,7 +40,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -61,6 +65,7 @@ public class BookingController {
     private final DiscountCodeRepository discountCodeRepository;
     private final TaxiBookingService taxiBookingService;
     private final JwtService jwtService;
+    private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
     
     @GetMapping
     @Operation(summary = "Get bookings (paged)", description = "Customer: own bookings. Company staff: ?scope=all for all bookings. Optional status filter.")
@@ -239,7 +244,16 @@ public class BookingController {
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
         assertCanAccessBooking(booking, userId);
         booking.confirm();
-        return ResponseEntity.ok(ApiResponse.success(toBookingResponse(bookingRepository.save(booking))));
+        Booking saved = bookingRepository.save(booking);
+        staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                .eventId(UUID.randomUUID())
+                .notificationType(NotificationType.BOOKING_CONFIRMED_STAFF.name())
+                .title("Booking confirmed")
+                .message("Booking " + saved.getBookingReference() + " was confirmed.")
+                .notifyRoles(List.of("SALES_MANAGER", "SUPPORT_MANAGER"))
+                .metadata("{\"bookingId\":\"" + saved.getId() + "\"}")
+                .build());
+        return ResponseEntity.ok(ApiResponse.success(toBookingResponse(saved)));
     }
 
     @PostMapping("/{id}/taxi")

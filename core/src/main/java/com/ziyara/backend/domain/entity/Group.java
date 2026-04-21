@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Domain Entity: Group (G1-G7 organizational groups)
+ * Domain Entity: Group (platform Z1–Z7 or custom organizational groups)
  */
 public class Group {
     private UUID id;

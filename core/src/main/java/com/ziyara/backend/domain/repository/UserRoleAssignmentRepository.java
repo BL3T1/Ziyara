@@ -9,6 +9,8 @@ import java.util.UUID;
 public interface UserRoleAssignmentRepository {
     long countByRoleId(UUID roleId);
 
+    long countByGroupId(UUID groupId);
+
     void reassignAllToRole(UUID fromRoleId, UUID targetRoleId);
 
     /** Newest assignment first (by {@code assigned_at}, then id). Empty if none. */

@@ -3,9 +3,7 @@
  * Uses a centralized data hook and reusable gallery card components.
  */
 
-import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { CreateProviderModal } from '../../components/CreateProviderModal'
 import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { Card } from '../../components/Card'
@@ -16,6 +14,7 @@ import {
   type ServiceCategorySlug,
 } from './serviceModel'
 import { ServiceGallery } from './components/ServiceGallery'
+import { PartnerAccountsSection } from './components/PartnerAccountsSection'
 import { useServiceCatalog } from './useServiceCatalog'
 import { safeRedirect } from '../../utils/safeRedirect'
 
@@ -55,12 +54,13 @@ export function ServiceTypePage() {
   const { user } = useAuth()
   const { type } = useParams<{ type: string }>()
   const navigate = useNavigate()
-  const [createPartnerOpen, setCreatePartnerOpen] = useState(false)
   const category = parseServiceCategorySlug(type)
   const config = category ? SERVICE_TYPE_CONFIG[category] : null
   const showAddPartner = user?.role ? canCreateProvider(user.role) : false
   const {
     services,
+    partners,
+    partnerCount,
     loading,
     error,
     reload,
@@ -96,7 +96,9 @@ export function ServiceTypePage() {
         {showAddPartner && (
           <button
             type="button"
-            onClick={() => setCreatePartnerOpen(true)}
+            onClick={() =>
+              navigate(`/management/providers/new?type=${encodeURIComponent(presetProviderType)}`)
+            }
             className="dashboard-btn-primary shrink-0"
           >
             {t(ADD_PARTNER_LABEL_KEY[category])}
@@ -104,18 +106,14 @@ export function ServiceTypePage() {
         )}
       </div>
 
-      <CreateProviderModal
-        open={createPartnerOpen}
-        onClose={() => setCreatePartnerOpen(false)}
-        variant="management"
-        presetServiceType={presetProviderType}
-        onCreated={() => reload()}
-      />
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="p-4">
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('servicesPage.totalListings')}</p>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('servicesPage.publishedListings')}</p>
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? t('ui.emDash') : totalListings}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('servicesPage.partnerAccounts')}</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? t('ui.emDash') : partnerCount}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('home.activeBookings')}</p>
@@ -142,16 +140,21 @@ export function ServiceTypePage() {
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('servicesPage.allServices', { type: pageTitle })}</h2>
         {loading ? (
           <p className="mt-4 text-slate-500 dark:text-slate-400">{t('ui.loading')}</p>
-        ) : services.length === 0 && !error ? (
+        ) : services.length === 0 && partners.length === 0 && !error ? (
           <p className="mt-4 text-slate-500 dark:text-slate-400">{t('servicesPage.noListed', { type: pageTitle.toLowerCase() })}</p>
         ) : (
-          <ServiceGallery
-            services={services}
-            onOpen={(service) => {
-              const slug = category ?? 'hotels'
-              navigate(safeRedirect(`/${slug}/${service.id}`, '/dashboard'))
-            }}
-          />
+          <>
+            {services.length > 0 && (
+              <ServiceGallery
+                services={services}
+                onOpen={(service) => {
+                  const slug = category ?? 'hotels'
+                  navigate(safeRedirect(`/${slug}/${service.id}`, '/dashboard'))
+                }}
+              />
+            )}
+            <PartnerAccountsSection partners={partners} />
+          </>
         )}
       </div>
     </>

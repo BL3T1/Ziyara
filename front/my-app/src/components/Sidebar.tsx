@@ -106,7 +106,7 @@ function SidebarSection({
 
 export function Sidebar() {
   const { user, sidebarNav } = useAuth()
-  const { sidebarCollapsed } = useLayout()
+  const { sidebarCollapsed, setSidebarCollapsed } = useLayout()
   const { t, locale } = useLanguage()
   const isRtl = locale === 'ar'
   const role = user?.role ?? 'user'
@@ -144,7 +144,15 @@ export function Sidebar() {
           className="pointer-events-none absolute inset-x-3 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent"
           aria-hidden
         />
-        <Logo compact className="relative z-[1] drop-shadow-sm" />
+        <Logo
+          compact
+          className="relative z-[1] drop-shadow-sm"
+          expandAction={
+            sidebarCollapsed
+              ? { onClick: () => setSidebarCollapsed(false), ariaLabel: t('common.expandSidebar') }
+              : undefined
+          }
+        />
       </div>
 
       <nav

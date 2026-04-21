@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface GroupJpaRepository extends JpaRepository<GroupJpaEntity, UUID> {
 
     boolean existsByCode(String code);
+
+    boolean existsByCodeAndIdNot(String code, UUID id);
 }

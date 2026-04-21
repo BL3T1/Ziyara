@@ -11,6 +11,7 @@ import type {
   ContentPageDto,
   CreateMenuItemPayload,
   CreateMenuSectionPayload,
+  CreateHotelRoomPayload,
   CreatePortalServicePayload,
   CreateServiceImagePayload,
   PageDto,
@@ -23,6 +24,7 @@ import type {
   RestaurantMenuSectionDto,
   ServiceDto,
   ServiceImageDto,
+  HotelRoomDto,
   ServiceProviderDto,
   UpdatePortalServicePayload,
   UpdateProviderMePayload,
@@ -35,8 +37,10 @@ import type {
   UpsertContentPagePayload,
   UpdateMenuItemPayload,
   UpdateMenuSectionPayload,
+  UpdateHotelRoomPayload,
   UpdateServiceImagePayload,
   CreateServiceProviderPayload,
+  UpdateServiceProviderPayload,
 } from '../types/api'
 
 /** Extract a user-friendly message from an API error (Axios or thrown object). */
@@ -53,6 +57,9 @@ export function getApiErrorMessage(err: unknown, fallback = 'Request failed'): s
   if (status === 403) return 'Access denied'
   if (status === 429) return 'Too many requests. Please wait a moment and try again.'
   if (status === 404) return 'Not found'
+  if (status === 502 || status === 503)
+    return 'The API server is unreachable (bad gateway). Check that the backend is running and that the API URL / proxy matches your setup.'
+  if (status === 504) return 'The API server took too long to respond. Try again, or check backend and database health.'
   if (status === 500) return 'Server error. Please try again later.'
   if (typeof ax.message === 'string' && ax.message) return ax.message
   return fallback
@@ -63,14 +70,26 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1'
 const client: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 })
 
-// Attach token and Accept-Language to every request
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.$?*|{}()[\]\\/+^]/g, '\\$&') + '=([^;]*)'))
+  return m ? decodeURIComponent(m[1]) : null
+}
+
+// Attach token, CSRF (Spring CookieCsrfTokenRepository), and Accept-Language to every request
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   const lang = localStorage.getItem('ziyara-lang')
   if (lang === 'ar' || lang === 'en') config.headers['Accept-Language'] = lang
+  const method = (config.method ?? 'get').toUpperCase()
+  if (!['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+    const xsrf = readCookie('XSRF-TOKEN')
+    if (xsrf) config.headers['X-XSRF-TOKEN'] = xsrf
+  }
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type']
   }
@@ -90,6 +109,7 @@ client.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
+      localStorage.removeItem('ziyara_cookie_session')
       window.location.href = '/login'
     }
     // Reject the full error so callers can read response.status and response.data
@@ -101,11 +121,22 @@ client.interceptors.response.use(
 export const authAPI = {
   login: (body: { email: string; password: string; rememberMe?: boolean }) =>
     client.post<unknown>('/auth/login', body),
+  register: (body: { email: string; password: string; phone?: string; role: 'CUSTOMER' }) =>
+    client.post<unknown>('/auth/register', body),
+  forgotPassword: (body: { email: string }) => client.post<unknown>('/auth/password/forgot', body),
+  resetPasswordWithToken: (body: { token: string; newPassword: string }) =>
+    client.post<unknown>('/auth/password/reset', body),
   logout: () => client.post('/auth/logout'),
-  refresh: (refreshToken: string) =>
-    client.post<unknown>('/auth/refresh', null, {
-      headers: { 'Refresh-Token': refreshToken },
-    }),
+  refresh: (refreshToken?: string) =>
+    client.post<unknown>(
+      '/auth/refresh',
+      null,
+      refreshToken
+        ? {
+            headers: { 'Refresh-Token': refreshToken },
+          }
+        : undefined,
+    ),
 }
 
 // --- Services (bookable) ---
@@ -145,6 +176,14 @@ export const servicesAPI = {
     client.delete<void>(`/services/${id}/images/${imageId}`),
   uploadImage: (id: string, form: FormData) =>
     client.post<ServiceImageDto>(`/services/${id}/images/upload`, form),
+  listRooms: (id: string) => client.get<HotelRoomDto[]>(`/services/${id}/rooms`),
+  createRoom: (id: string, body: CreateHotelRoomPayload) =>
+    client.post<HotelRoomDto>(`/services/${id}/rooms`, body),
+  updateRoom: (id: string, roomId: string, body: UpdateHotelRoomPayload) =>
+    client.put<HotelRoomDto>(`/services/${id}/rooms/${roomId}`, body),
+  deleteRoom: (id: string, roomId: string) => client.delete<void>(`/services/${id}/rooms/${roomId}`),
+  uploadRoomImage: (id: string, roomId: string, form: FormData) =>
+    client.post(`/services/${id}/rooms/${roomId}/images/upload`, form),
   createMenuSection: (id: string, body: CreateMenuSectionPayload) =>
     client.post<RestaurantMenuSectionDto>(`/services/${id}/menu/sections`, body),
   updateMenuSection: (id: string, sectionId: string, body: UpdateMenuSectionPayload) =>
@@ -155,6 +194,8 @@ export const servicesAPI = {
     client.post<RestaurantMenuItemDto>(`/services/${id}/menu/sections/${sectionId}/items`, body),
   updateMenuItem: (id: string, itemId: string, body: UpdateMenuItemPayload) =>
     client.put<RestaurantMenuItemDto>(`/services/${id}/menu/items/${itemId}`, body),
+  uploadMenuItemImage: (id: string, itemId: string, form: FormData) =>
+    client.post<RestaurantMenuItemDto>(`/services/${id}/menu/items/${itemId}/image/upload`, form),
   deleteMenuItem: (id: string, itemId: string) =>
     client.delete<void>(`/services/${id}/menu/items/${itemId}`),
 }
@@ -207,6 +248,14 @@ export const portalServicesAPI = {
     client.delete<void>(`/portal/services/${id}/images/${imageId}`),
   uploadImage: (id: string, form: FormData) =>
     client.post<ServiceImageDto>(`/portal/services/${id}/images/upload`, form),
+  listRooms: (id: string) => client.get<HotelRoomDto[]>(`/portal/services/${id}/rooms`),
+  createRoom: (id: string, body: CreateHotelRoomPayload) =>
+    client.post<HotelRoomDto>(`/portal/services/${id}/rooms`, body),
+  updateRoom: (id: string, roomId: string, body: UpdateHotelRoomPayload) =>
+    client.put<HotelRoomDto>(`/portal/services/${id}/rooms/${roomId}`, body),
+  deleteRoom: (id: string, roomId: string) => client.delete<void>(`/portal/services/${id}/rooms/${roomId}`),
+  uploadRoomImage: (id: string, roomId: string, form: FormData) =>
+    client.post(`/portal/services/${id}/rooms/${roomId}/images/upload`, form),
   createMenuSection: (id: string, body: CreateMenuSectionPayload) =>
     client.post<RestaurantMenuSectionDto>(`/portal/services/${id}/menu/sections`, body),
   updateMenuSection: (id: string, sectionId: string, body: UpdateMenuSectionPayload) =>
@@ -217,6 +266,8 @@ export const portalServicesAPI = {
     client.post<RestaurantMenuItemDto>(`/portal/services/${id}/menu/sections/${sectionId}/items`, body),
   updateMenuItem: (id: string, itemId: string, body: UpdateMenuItemPayload) =>
     client.put<RestaurantMenuItemDto>(`/portal/services/${id}/menu/items/${itemId}`, body),
+  uploadMenuItemImage: (id: string, itemId: string, form: FormData) =>
+    client.post<RestaurantMenuItemDto>(`/portal/services/${id}/menu/items/${itemId}/image/upload`, form),
   deleteMenuItem: (id: string, itemId: string) =>
     client.delete<void>(`/portal/services/${id}/menu/items/${itemId}`),
 }
@@ -294,6 +345,17 @@ export const rolesAPI = {
     nameAr?: string
     descriptionAr?: string
   }) => client.post<unknown>('/roles/groups', body),
+  updateGroup: (
+    groupId: string,
+    body: {
+      name?: string
+      code?: string
+      description?: string
+      nameAr?: string
+      descriptionAr?: string
+    },
+  ) => client.put<unknown>(`/roles/groups/${groupId}`, body),
+  deleteGroup: (groupId: string) => client.delete<unknown>(`/roles/groups/${groupId}`),
   /** Groups with roleCount and userCount (super_admin) */
   getGroupSummaries: () => client.get<unknown>('/roles/groups/summary'),
   getGroupMembers: (groupId: string, params?: { page?: number; size?: number }) =>
@@ -316,7 +378,7 @@ export const rolesAPI = {
 
 // --- Providers ---
 export const providersAPI = {
-  list: (params?: { page?: number; size?: number; status?: string }) =>
+  list: (params?: { page?: number; size?: number; status?: string; type?: string }) =>
     client.get<unknown>('/providers', { params: { page: 0, size: 20, ...params } }),
   /** Portal: current provider profile */
   getMe: () => client.get<ServiceProviderDto>('/providers/me'),
@@ -325,8 +387,8 @@ export const providersAPI = {
   create: (body: CreateServiceProviderPayload) => client.post<ServiceProviderDto>('/providers', body),
   updateCommission: (id: string, body: { commissionRate: number }) =>
     client.patch<unknown>(`/providers/${id}/commission`, body),
-  update: (id: string, body: Record<string, unknown>) =>
-    client.put<unknown>(`/providers/${id}`, body),
+  update: (id: string, body: UpdateServiceProviderPayload) =>
+    client.put<ServiceProviderDto>(`/providers/${id}`, body),
   approve: (id: string) => client.post<unknown>(`/providers/${id}/approve`),
   reject: (id: string, body?: { reason?: string }) =>
     client.post<unknown>(`/providers/${id}/reject`, body ?? {}),
@@ -505,6 +567,7 @@ export const notificationsAPI = {
 export const auditLogsAPI = {
   getRecent: (params?: { limit?: number; search?: string }) =>
     client.get<unknown>('/audit-logs', { params }),
+  getForUser: (userId: string) => client.get<unknown>(`/audit-logs/user/${userId}`),
 }
 
 // --- Content pages (landing CMS) ---

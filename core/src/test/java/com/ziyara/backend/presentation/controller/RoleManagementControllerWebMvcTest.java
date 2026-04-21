@@ -1,8 +1,12 @@
 package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.response.RoleResponse;
+import com.ziyara.backend.application.service.JwtTokenBlocklistService;
+import com.ziyara.backend.infrastructure.config.WebMvcConfigurationPropertiesImport;
 import com.ziyara.backend.infrastructure.config.LocaleConfig;
+import com.ziyara.backend.infrastructure.config.WebMvcSecuritySliceConfiguration;
 import com.ziyara.backend.infrastructure.config.SecurityConfig;
+import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import com.ziyara.backend.modules.sys.api.RoleServiceApi;
@@ -32,7 +36,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = RoleManagementController.class)
-@Import({SecurityConfig.class, LocaleConfig.class, RoleManagementControllerWebMvcTest.SecurityBeans.class})
+@Import({
+        SecurityConfig.class,
+        WebMvcConfigurationPropertiesImport.class,
+        WebMvcSecuritySliceConfiguration.class,
+        LocaleConfig.class,
+        RoleManagementControllerWebMvcTest.SecurityBeans.class
+})
 @ActiveProfiles("test")
 class RoleManagementControllerWebMvcTest {
 
@@ -57,8 +67,11 @@ class RoleManagementControllerWebMvcTest {
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
-                                                         SecurityContextRepository securityContextRepository) {
-            return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository);
+                                                         SecurityContextRepository securityContextRepository,
+                                                         JwtCookieProperties jwtCookieProperties,
+                                                         JwtTokenBlocklistService jwtTokenBlocklistService) {
+            return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository,
+                    jwtCookieProperties, jwtTokenBlocklistService);
         }
     }
 

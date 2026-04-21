@@ -6,6 +6,7 @@ import com.ziyara.backend.application.dto.response.PaymentResponse;
 import com.ziyara.backend.application.dto.response.RefundResponse;
 import com.ziyara.backend.domain.entity.Payment;
 import com.ziyara.backend.domain.entity.Refund;
+import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.domain.enums.PaymentStatus;
 import com.ziyara.backend.domain.enums.RefundStatus;
 import com.ziyara.backend.application.dto.payment.GatewayPaymentResponse;
@@ -14,6 +15,8 @@ import com.ziyara.backend.domain.payment.PaymentProvider;
 import com.ziyara.backend.domain.repository.PaymentRepository;
 import com.ziyara.backend.domain.repository.RefundRepository;
 import com.ziyara.backend.infrastructure.config.PaymentGatewayProperties;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import com.ziyara.backend.modules.payment.api.PaymentServiceApi;
 import com.ziyara.backend.modules.sys.api.AuditServiceApi;
 import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
@@ -27,6 +30,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -43,6 +47,7 @@ public class PaymentService implements PaymentServiceApi {
     private final AuditServiceApi auditLogService;
     private final PaymentGatewayProperties gatewayProperties;
     private final java.util.Optional<PaymentProvider> paymentProvider;
+    private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
 
     @Transactional
     public PaymentResponse initiatePayment(CreatePaymentRequest request) {
@@ -157,7 +162,16 @@ public class PaymentService implements PaymentServiceApi {
                     payment.setStatus(PaymentStatus.FAILED);
                     payment.setErrorMessage(errorMessage);
                     payment.setProcessedAt(java.time.LocalDateTime.now());
-                    return mapToResponse(paymentRepository.save(payment));
+                    Payment saved = paymentRepository.save(payment);
+                    staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                            .eventId(UUID.randomUUID())
+                            .notificationType(NotificationType.PAYMENT_FAILED.name())
+                            .title("Payment failed")
+                            .message("Payment " + saved.getId() + " failed: " + (errorMessage != null ? errorMessage : ""))
+                            .notifyRoles(List.of("FINANCE_MANAGER", "ACCOUNTANT", "SUPPORT_MANAGER"))
+                            .metadata("{\"paymentId\":\"" + saved.getId() + "\"}")
+                            .build());
+                    return mapToResponse(saved);
                 });
     }
     
@@ -171,8 +185,17 @@ public class PaymentService implements PaymentServiceApi {
         payment.setStatus(PaymentStatus.FAILED);
         payment.setErrorMessage(errorMessage);
         payment.setProcessedAt(java.time.LocalDateTime.now());
-        
-        return mapToResponse(paymentRepository.save(payment));
+
+        Payment saved = paymentRepository.save(payment);
+        staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                .eventId(UUID.randomUUID())
+                .notificationType(NotificationType.PAYMENT_FAILED.name())
+                .title("Payment failed")
+                .message("Payment " + saved.getId() + " failed: " + (errorMessage != null ? errorMessage : ""))
+                .notifyRoles(List.of("FINANCE_MANAGER", "ACCOUNTANT", "SUPPORT_MANAGER"))
+                .metadata("{\"paymentId\":\"" + saved.getId() + "\"}")
+                .build());
+        return mapToResponse(saved);
     }
     
     @Override

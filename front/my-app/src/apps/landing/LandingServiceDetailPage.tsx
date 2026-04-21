@@ -4,6 +4,7 @@ import { Card } from '../../components/Card'
 import { getApiErrorMessage, servicesAPI } from '../../services/api'
 import type { RestaurantMenuDto, ServiceDto, ServiceImageDto } from '../../types/api'
 import { ServiceDetailView } from '../../pages/services/components/ServiceDetailView'
+import { LandingServiceBookingPanel } from './LandingServiceBookingPanel'
 import type { ServiceCategorySlug } from '../../pages/services/serviceModel'
 import { normalizeService } from '../../pages/services/serviceModel'
 import { sanitizeText, safeImageUrl } from '../../utils/safeRendering'
@@ -53,35 +54,38 @@ export function LandingServiceDetailPage() {
   const backPath = safeCategory ? `/services/${safeCategory}` : '/services'
   const currencyFallback = rawService?.currency ?? 'USD'
 
-  if (loading) return <p className="text-slate-500 dark:text-slate-400">Loading…</p>
+  if (loading) return <p className="lp-muted">Loading…</p>
 
   if (!service) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-8 dark:border-red-800 dark:bg-red-900/20">
-        <p className="text-red-800 dark:text-red-200">{error ? 'Could not load service.' : 'Service not found.'}</p>
-        {error ? <p className="mt-1 text-sm text-red-700 dark:text-red-300">{error}</p> : null}
-        <button type="button" onClick={() => navigate(backPath)} className="mt-2 text-primary hover:underline">
+      <div className="lp-sheet" style={{ borderColor: 'rgba(220, 100, 100, 0.35)', background: 'rgba(255, 245, 245, 0.9)' }}>
+        <p className="font-semibold text-red-900">{error ? 'Could not load service.' : 'Service not found.'}</p>
+        {error ? <p className="mt-1 text-sm text-red-800/90">{error}</p> : null}
+        <button type="button" onClick={() => navigate(backPath)} className="lp-link-quiet mt-3 inline-block font-semibold" style={{ color: 'var(--accent-teal)' }}>
           Back
         </button>
       </div>
     )
   }
 
+  const crumbBtn = 'border-0 bg-transparent p-0 font-medium cursor-pointer hover:underline'
+  const crumbStyle = { color: 'var(--accent-teal)' } as const
+
   return (
-    <>
-      <nav className="mb-3 text-sm text-slate-600 dark:text-slate-400">
-        <button type="button" onClick={() => navigate('/services')} className="hover:text-primary">
+    <div className="lp-sheet pb-32">
+      <nav className="mb-3 text-sm lp-muted">
+        <button type="button" onClick={() => navigate('/services')} className={crumbBtn} style={crumbStyle}>
           Services
         </button>
         <span className="mx-2">/</span>
-        <button type="button" onClick={() => navigate(backPath)} className="hover:text-primary">
+        <button type="button" onClick={() => navigate(backPath)} className={crumbBtn} style={crumbStyle}>
           {safeCategory ? safeCategory.charAt(0).toUpperCase() + safeCategory.slice(1) : 'Category'}
         </button>
         <span className="mx-2">/</span>
-        <span className="text-slate-900 dark:text-slate-100">{service.name}</span>
+        <span style={{ color: 'var(--ink-heading)', fontWeight: 600 }}>{service.name}</span>
       </nav>
 
-      <button type="button" onClick={() => navigate(backPath)} className="mb-4 text-sm font-medium text-primary hover:underline">
+      <button type="button" onClick={() => navigate(backPath)} className={`mb-4 text-sm ${crumbBtn}`} style={crumbStyle}>
         ← Back to list
       </button>
 
@@ -89,14 +93,18 @@ export function LandingServiceDetailPage() {
 
       {rawService?.type === 'RESTAURANT' && menu ? (
         <div className="mt-8 space-y-6">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Menu</h2>
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--ink-heading)' }}>
+            Menu
+          </h2>
           {menu.sections.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No menu sections yet.</p>
+            <p className="text-sm lp-muted">No menu sections yet.</p>
           ) : (
             menu.sections.map((section) => (
-              <Card key={section.id} className="p-5">
-                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{section.title}</h3>
-                <ul className="mt-4 divide-y divide-slate-200 dark:divide-slate-700">
+              <Card key={section.id} surface="landing" className="!p-5">
+                <h3 className="text-base font-semibold" style={{ color: 'var(--ink-heading)' }}>
+                  {section.title}
+                </h3>
+                <ul className="mt-4 divide-y" style={{ borderColor: 'rgba(90, 122, 130, 0.15)' }}>
                   {section.items.map((item) => (
                     <li key={item.id} className="flex gap-3 py-3 first:pt-0">
                       {(() => {
@@ -107,15 +115,19 @@ export function LandingServiceDetailPage() {
                       })()}
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="font-medium text-slate-900 dark:text-slate-100">{item.name}</span>
+                          <span className="font-medium" style={{ color: 'var(--ink-heading)' }}>
+                            {item.name}
+                          </span>
                           {item.price != null ? (
-                            <span className="text-sm text-slate-600 dark:text-slate-300">
+                            <span className="text-sm" style={{ color: 'var(--ink-muted)' }}>
                               {item.currency ?? currencyFallback} {item.price}
                             </span>
                           ) : null}
                         </div>
                         {item.description ? (
-                          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{sanitizeText(item.description)}</p>
+                          <p className="mt-1 text-sm" style={{ color: 'var(--ink-muted)' }}>
+                            {sanitizeText(item.description)}
+                          </p>
                         ) : null}
                       </div>
                     </li>
@@ -126,6 +138,8 @@ export function LandingServiceDetailPage() {
           )}
         </div>
       ) : null}
-    </>
+
+      <LandingServiceBookingPanel service={service} />
+    </div>
   )
 }

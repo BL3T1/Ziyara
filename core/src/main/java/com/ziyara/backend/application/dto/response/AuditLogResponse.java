@@ -29,6 +29,9 @@ public class AuditLogResponse {
     
     @Schema(description = "User who performed action")
     private UUID userId;
+
+    @Schema(description = "Request correlation id when present")
+    private String correlationId;
     
     @Schema(description = "Creation timestamp")
     private LocalDateTime createdAt;

@@ -10,6 +10,11 @@ public interface RoleRepository {
     Optional<Role> findById(UUID id);
     Optional<Role> findByCode(String code);
     List<Role> findAllOrderByName();
+
+    List<Role> findByGroupIdOrderByName(UUID groupId);
+
+    List<Role> findByGroupIdIsNullOrderByName();
+
     boolean existsByCode(String code);
     void deleteById(UUID id);
 }

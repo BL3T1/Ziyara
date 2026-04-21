@@ -8,6 +8,7 @@ import com.ziyara.backend.domain.enums.ProviderStatus;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -41,6 +42,9 @@ class ServiceProviderServiceTest {
 
     @Mock
     private UserRbacAssignmentService userRbacAssignmentService;
+
+    @Mock
+    private StaffNotificationCommandPublisher staffNotificationCommandPublisher;
 
     @InjectMocks
     private ServiceProviderService providerService;

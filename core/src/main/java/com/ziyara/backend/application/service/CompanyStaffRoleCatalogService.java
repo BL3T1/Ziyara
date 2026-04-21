@@ -10,6 +10,7 @@ import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.repository.GroupRepository;
 import com.ziyara.backend.domain.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +37,7 @@ public class CompanyStaffRoleCatalogService {
      * or clients may still send {@code role} enum for SYSTEM rows only.
      */
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "staffRoleCatalog", key = "'dashboard-creatable'")
     public List<StaffDirectoryRoleOptionResponse> listDashboardCreatableRoles() {
         Map<UUID, Group> groupsById = groupRepository.findAll().stream()
                 .collect(Collectors.toMap(Group::getId, g -> g, (a, b) -> a));

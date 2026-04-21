@@ -22,4 +22,6 @@ public interface NotificationJpaRepository extends JpaRepository<NotificationJpa
     List<NotificationJpaEntity> findByUserIdAndStatus(UUID userId, NotificationStatus status);
     List<NotificationJpaEntity> findByStatus(NotificationStatus status);
     long countByUserIdAndStatus(UUID userId, NotificationStatus status);
+
+    List<NotificationJpaEntity> findTop50ByUserIdOrderByCreatedAtDesc(UUID userId);
 }

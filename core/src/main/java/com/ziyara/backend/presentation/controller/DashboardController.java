@@ -26,7 +26,7 @@ import java.util.List;
 
 /**
  * Dashboard KPIs and activity feed (DASHBOARD_DESIGN_REPORT).
- * Serves Company Dashboard (G1â€“G6) with revenue, bookings, providers, complaints, activity.
+ * Serves Company Dashboard (internal staff, org groups Z1-Z6) with revenue, bookings, providers, complaints, activity.
  */
 @RestController
 @RequestMapping("/dashboard")

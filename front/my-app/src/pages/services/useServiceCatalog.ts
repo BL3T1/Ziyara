@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { dashboardAPI, getApiErrorMessage, servicesAPI } from '../../services/api'
-import type { ServiceDto, ServiceHealthDto, ServiceImageDto } from '../../types/api'
+import { dashboardAPI, getApiErrorMessage, providersAPI, servicesAPI } from '../../services/api'
+import type { PageDto, ServiceDto, ServiceHealthDto, ServiceImageDto, ServiceProviderDto } from '../../types/api'
 import type { ServiceCategorySlug, ServiceEntity } from './serviceModel'
 import { SERVICE_CATEGORY_TO_TYPES, normalizeService } from './serviceModel'
 
@@ -11,8 +11,20 @@ function extractContent(data: unknown): ServiceDto[] {
   return Array.isArray(content) ? (content as ServiceDto[]) : []
 }
 
-export function useServiceCatalog(category: ServiceCategorySlug) {
+function asProviderPage(data: unknown): PageDto<ServiceProviderDto> | null {
+  if (data && typeof data === 'object' && Array.isArray((data as PageDto<ServiceProviderDto>).content)) {
+    return data as PageDto<ServiceProviderDto>
+  }
+  return null
+}
+
+export function useServiceCatalog(
+  category: ServiceCategorySlug,
+  options?: { loadPartners?: boolean },
+) {
+  const loadPartners = options?.loadPartners !== false
   const [services, setServices] = useState<ServiceEntity[]>([])
+  const [partners, setPartners] = useState<ServiceProviderDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [health, setHealth] = useState<ServiceHealthDto | null>(null)
@@ -37,8 +49,16 @@ export function useServiceCatalog(category: ServiceCategorySlug) {
       .then((r) => r.data as ServiceHealthDto)
       .catch(() => null)
 
-    Promise.all([listPromise, healthPromise])
-      .then(async ([rawServices, healthData]) => {
+    const partnerType = loadPartners && types.length === 1 ? types[0] : null
+    const partnersPromise = partnerType
+      ? providersAPI
+          .list({ page: 0, size: 100, type: partnerType })
+          .then((r) => asProviderPage(r.data)?.content ?? [])
+          .catch(() => [] as ServiceProviderDto[])
+      : Promise.resolve([] as ServiceProviderDto[])
+
+    Promise.all([listPromise, healthPromise, partnersPromise])
+      .then(async ([rawServices, healthData, partnerRows]) => {
         const imagePairs = await Promise.all(
           rawServices.map(async (item) => {
             try {
@@ -56,14 +76,16 @@ export function useServiceCatalog(category: ServiceCategorySlug) {
 
         setServices(normalized)
         setHealth(healthData)
+        setPartners(partnerRows)
       })
       .catch((err) => {
         setServices([])
+        setPartners([])
         setHealth(null)
         setError(getApiErrorMessage(err, 'Failed to load services'))
       })
       .finally(() => setLoading(false))
-  }, [category, reloadToken])
+  }, [category, reloadToken, loadPartners])
 
   const totalListings = useMemo(() => {
     const count = health?.serviceCountByType ?? {}
@@ -75,5 +97,7 @@ export function useServiceCatalog(category: ServiceCategorySlug) {
     return SERVICE_CATEGORY_TO_TYPES[category].reduce((sum, backendType) => sum + (Number(count[backendType]) || 0), 0)
   }, [category, health])
 
-  return { services, loading, error, reload, totalListings, activeBookings }
+  const partnerCount = partners.length
+
+  return { services, partners, partnerCount, loading, error, reload, totalListings, activeBookings }
 }

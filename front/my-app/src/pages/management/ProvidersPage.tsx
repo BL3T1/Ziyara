@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { CreateProviderModal } from '../../components/CreateProviderModal'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { providersAPI } from '../../services/api'
@@ -38,7 +38,6 @@ export function ProvidersPage() {
   const showCommission = user?.role ? canViewProviderCommission(user.role) : false
   const showCreate = user?.role ? canCreateProvider(user.role) : false
   const showApproveReject = user?.role ? canApproveRejectProvider(user.role) : false
-  const [createOpen, setCreateOpen] = useState(false)
   const [providers, setProviders] = useState<ServiceProviderDto[]>([])
   const [filter, setFilter] = useState<string | null>(null)
   const [page, setPage] = useState(0)
@@ -47,10 +46,6 @@ export function ProvidersPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [commissionRate, setCommissionRate] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [viewProviderId, setViewProviderId] = useState<string | null>(null)
-  const [viewProvider, setViewProvider] = useState<ServiceProviderDto | null>(null)
-  const [viewLoading, setViewLoading] = useState(false)
-
   const load = () => {
     setLoading(true)
     providersAPI
@@ -113,19 +108,6 @@ export function ProvidersPage() {
     }
   }
 
-  useEffect(() => {
-    if (!viewProviderId) {
-      setViewProvider(null)
-      return
-    }
-    setViewLoading(true)
-    providersAPI
-      .get(viewProviderId)
-      .then((res) => setViewProvider((res.data as ServiceProviderDto) ?? null))
-      .catch(() => setViewProvider(null))
-      .finally(() => setViewLoading(false))
-  }, [viewProviderId])
-
   const handleSaveCommission = async () => {
     if (!editingId || commissionRate === '') return
     const rate = parseFloat(commissionRate)
@@ -149,9 +131,9 @@ export function ProvidersPage() {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('providersPage.title')}</h1>
         </div>
         {showCreate && (
-          <button type="button" onClick={() => setCreateOpen(true)} className="dashboard-btn-primary shrink-0">
+          <Link to="/management/providers/new" className="dashboard-btn-primary inline-flex shrink-0 items-center justify-center no-underline">
             {t('providersPage.createProvider')}
-          </button>
+          </Link>
         )}
       </div>
 
@@ -207,13 +189,9 @@ export function ProvidersPage() {
               {providers.map((p) => (
                 <tr key={p.id}>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-900 dark:text-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => setViewProviderId(p.id)}
-                      className="text-primary hover:underline"
-                    >
+                    <Link to={`/management/providers/${p.id}`} className="text-primary hover:underline">
                       {p.name}
-                    </button>
+                    </Link>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{p.type ?? t('ui.emDash')}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{String(p.status ?? t('ui.emDash'))}</td>
@@ -241,13 +219,12 @@ export function ProvidersPage() {
                   <td className="whitespace-nowrap px-4 py-3 text-sm">
                     {editingId !== p.id && (
                       <>
-                        <button
-                          type="button"
-                          onClick={() => setViewProviderId(p.id)}
+                        <Link
+                          to={`/management/providers/${p.id}`}
                           className="text-slate-600 hover:underline dark:text-slate-300"
                         >
-                          View
-                        </button>
+                          {t('providersPage.viewEdit')}
+                        </Link>
                         {showCommission && (
                           <>
                             <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
@@ -326,79 +303,6 @@ export function ProvidersPage() {
         </div>
       )}
 
-      {viewProviderId && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setViewProviderId(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('providersPage.providerDetail')}</h3>
-            {viewLoading ? (
-              <div className="mt-4 py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
-            ) : viewProvider ? (
-              <dl className="mt-4 space-y-2 text-sm">
-                <div>
-                  <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.colName')}</dt>
-                  <dd className="font-medium text-slate-900 dark:text-slate-100">{viewProvider.name}</dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.colEmail')}</dt>
-                  <dd className="text-slate-900 dark:text-slate-100">{viewProvider.email ?? t('ui.emDash')}</dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.colPhone')}</dt>
-                  <dd className="text-slate-900 dark:text-slate-100">{viewProvider.phone ?? t('ui.emDash')}</dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.addressLabel')}</dt>
-                  <dd className="text-slate-900 dark:text-slate-100">{viewProvider.address ?? t('ui.emDash')}</dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.colStatus')}</dt>
-                  <dd className="text-slate-900 dark:text-slate-100">{viewProvider.status ?? t('ui.emDash')}</dd>
-                </div>
-                {showCommission && (
-                  <div>
-                    <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.colCommission')}</dt>
-                    <dd className="text-slate-900 dark:text-slate-100">
-                      {viewProvider.commissionRate != null ? `${Number(viewProvider.commissionRate)}%` : t('ui.emDash')}
-                    </dd>
-                  </div>
-                )}
-                <div>
-                  <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.colType')}</dt>
-                  <dd className="text-slate-900 dark:text-slate-100">{viewProvider.type ?? t('ui.emDash')}</dd>
-                </div>
-                {viewProvider.rating != null && (
-                  <div>
-                    <dt className="text-slate-500 dark:text-slate-400">{t('providersPage.ratingLabel')}</dt>
-                    <dd className="text-slate-900 dark:text-slate-100">{viewProvider.rating}</dd>
-                  </div>
-                )}
-              </dl>
-            ) : null}
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setViewProviderId(null)}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                {t('providersPage.close')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <CreateProviderModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        variant="management"
-        onCreated={() => load()}
-      />
     </>
   )
 }

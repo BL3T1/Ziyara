@@ -8,6 +8,7 @@ import com.ziyara.backend.domain.enums.PaymentMethod;
 import com.ziyara.backend.domain.repository.PaymentRepository;
 import com.ziyara.backend.domain.repository.RefundRepository;
 import com.ziyara.backend.infrastructure.config.PaymentGatewayProperties;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +39,9 @@ class PaymentServiceTest {
     @Mock
     private PaymentGatewayProperties gatewayProperties;
 
+    @Mock
+    private StaffNotificationCommandPublisher staffNotificationCommandPublisher;
+
     private PaymentService paymentService;
 
     @BeforeEach
@@ -48,7 +52,8 @@ class PaymentServiceTest {
                 refundRepository,
                 auditLogService,
                 gatewayProperties,
-                Optional.empty());
+                Optional.empty(),
+                staffNotificationCommandPublisher);
     }
 
     @Test

@@ -25,6 +25,10 @@ public interface ServiceProviderRepository {
 
     Page<ServiceProvider> findByStatus(ProviderStatus status, Pageable pageable);
 
+    Page<ServiceProvider> findByProviderType(String providerType, Pageable pageable);
+
+    Page<ServiceProvider> findByStatusAndProviderType(ProviderStatus status, String providerType, Pageable pageable);
+
     long count();
     void deleteById(UUID id);
     boolean existsByName(String name);

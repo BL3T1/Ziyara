@@ -4,7 +4,6 @@ import com.ziyara.backend.domain.entity.ServiceProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
@@ -19,18 +18,18 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ProviderWorkflowEmailService {
 
-    private final JavaMailSender mailSender;
+    private final MailDispatchService mailDispatchService;
     private final boolean enabled;
     private final String fromAddress;
     private final List<String> approverRecipients;
 
     public ProviderWorkflowEmailService(
-            JavaMailSender mailSender,
+            MailDispatchService mailDispatchService,
             @Value("${app.notifications.email.enabled:false}") boolean enabled,
             @Value("${app.notifications.email.from:no-reply@ziyara.local}") String fromAddress,
             @Value("${app.notifications.email.provider-approver-recipients:}") String approverRecipientsCsv
     ) {
-        this.mailSender = mailSender;
+        this.mailDispatchService = mailDispatchService;
         this.enabled = enabled;
         this.fromAddress = fromAddress;
         this.approverRecipients = Arrays.stream(approverRecipientsCsv.split(","))
@@ -94,8 +93,8 @@ public class ProviderWorkflowEmailService {
             message.setTo(to);
             message.setSubject(subject);
             message.setText(body);
-            mailSender.send(message);
-            log.info("Email sent subject='{}' recipients={}", subject, Arrays.toString(to));
+            mailDispatchService.send(message);
+            log.info("Email queued subject='{}' recipients={}", subject, Arrays.toString(to));
         } catch (Exception ex) {
             log.warn("Failed to send email subject='{}' recipients={} error={}",
                     subject, Arrays.toString(to), ex.getMessage());

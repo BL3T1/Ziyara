@@ -45,9 +45,10 @@ public class ServiceProviderController {
     public ResponseEntity<ApiResponse<Page<ServiceProviderResponse>>> getAllProviders(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) ProviderStatus status
+            @RequestParam(required = false) ProviderStatus status,
+            @RequestParam(required = false) String type
     ) {
-        return ResponseEntity.ok(ApiResponse.success(providerService.getProvidersPage(page, size, status)));
+        return ResponseEntity.ok(ApiResponse.success(providerService.getProvidersPage(page, size, status, type)));
     }
     
     @GetMapping("/me")
@@ -126,7 +127,7 @@ public class ServiceProviderController {
 
     @PatchMapping("/{id}/commission")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'GENERAL_MANAGER')")
-    @Operation(summary = "Set commission rate", description = "Override provider commission (audited). G1/G5 only.")
+    @Operation(summary = "Set commission rate", description = "Override provider commission (audited). Super Admin and General Manager only.")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> updateCommission(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateProviderCommissionRequest request
@@ -160,7 +161,7 @@ public class ServiceProviderController {
     @Operation(summary = "Reject pending provider", description = "Sets provider INACTIVE and deactivates linked PROVIDER_MANAGER")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> rejectProvider(
             @PathVariable UUID id,
-            @RequestBody(required = false) RejectServiceProviderRequest body
+            @Valid @RequestBody(required = false) RejectServiceProviderRequest body
     ) {
         UUID actorId = getCurrentUserId();
         if (actorId == null) {

@@ -31,10 +31,26 @@ const LandingServiceTypePage = lazy(() =>
 const LandingServiceDetailPage = lazy(() =>
   import('./LandingServiceDetailPage').then((m) => ({ default: m.LandingServiceDetailPage })),
 )
+const LandingLoginPage = lazy(() =>
+  import('./LandingLoginPage').then((m) => ({ default: m.LandingLoginPage })),
+)
+const LandingSignUpPage = lazy(() =>
+  import('./LandingSignUpPage').then((m) => ({ default: m.LandingSignUpPage })),
+)
+const LandingForgotPasswordPage = lazy(() =>
+  import('./LandingForgotPasswordPage').then((m) => ({ default: m.LandingForgotPasswordPage })),
+)
+const LandingResetPasswordPage = lazy(() =>
+  import('./LandingResetPasswordPage').then((m) => ({ default: m.LandingResetPasswordPage })),
+)
 
 export function AppLandingRoutes() {
   return (
     <Routes>
+      <Route path="/login" element={<LandingLoginPage />} />
+      <Route path="/signup" element={<LandingSignUpPage />} />
+      <Route path="/forgot-password" element={<LandingForgotPasswordPage />} />
+      <Route path="/reset-password" element={<LandingResetPasswordPage />} />
       <Route element={<LandingShell />}>
         <Route path="/" element={<LandingHomePage />} />
         <Route path="/about" element={<LandingAboutPage />} />

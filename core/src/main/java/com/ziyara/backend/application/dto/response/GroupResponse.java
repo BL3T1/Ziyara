@@ -7,7 +7,7 @@ import java.util.UUID;
 
 @Data
 @Builder
-@Schema(description = "Organizational group (G1-G7)")
+@Schema(description = "Organizational group (platform Z1–Z7 or custom)")
 public class GroupResponse {
     @Schema(description = "Group ID") private UUID id;
     @Schema(description = "Group name") private String name;

@@ -4,10 +4,12 @@ import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.BookingResponse;
 import com.ziyara.backend.application.dto.request.CreateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.CreateMenuSectionRequest;
+import com.ziyara.backend.application.dto.request.CreateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuSectionRequest;
+import com.ziyara.backend.application.dto.request.UpdateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceRequest;
 import com.ziyara.backend.application.dto.response.PortalDashboardResponse;
@@ -15,6 +17,8 @@ import com.ziyara.backend.application.dto.response.PortalEarningsResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuItemResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuSectionResponse;
+import com.ziyara.backend.application.dto.response.HotelRoomImageResponse;
+import com.ziyara.backend.application.dto.response.HotelRoomResponse;
 import com.ziyara.backend.application.dto.response.ServiceImageResponse;
 import com.ziyara.backend.application.dto.response.ServiceResponse;
 import com.ziyara.backend.application.service.PortalService;
@@ -218,12 +222,92 @@ public class PortalController {
         return ResponseEntity.ok(ApiResponse.success(portalService.updateMenuItem(providerId, id, itemId, request)));
     }
 
+    @PostMapping(value = "/services/{id}/menu/items/{itemId}/image/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload menu item image", description = "RESTAURANT listings only")
+    public ResponseEntity<ApiResponse<RestaurantMenuItemResponse>> uploadMenuItemImage(
+            @PathVariable UUID id,
+            @PathVariable UUID itemId,
+            @RequestParam("file") MultipartFile file) {
+        UUID providerId = requireCurrentProviderId();
+        final byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException("Could not read uploaded file");
+        }
+        RestaurantMenuItemResponse updated = portalService.uploadMenuItemImage(
+                providerId, id, itemId, bytes, file.getContentType(), file.getOriginalFilename());
+        return ResponseEntity.ok(ApiResponse.success("Item image uploaded", updated));
+    }
+
     @DeleteMapping("/services/{id}/menu/items/{itemId}")
     @Operation(summary = "Delete menu item", description = "Own listing only")
     public ResponseEntity<ApiResponse<Void>> deleteMenuItem(@PathVariable UUID id, @PathVariable UUID itemId) {
         UUID providerId = requireCurrentProviderId();
         portalService.deleteMenuItem(providerId, id, itemId);
         return ResponseEntity.ok(ApiResponse.success("Item deleted", null));
+    }
+
+    @GetMapping("/services/{id}/rooms")
+    @Operation(summary = "List hotel rooms", description = "HOTEL listings only")
+    public ResponseEntity<ApiResponse<List<HotelRoomResponse>>> listHotelRooms(@PathVariable UUID id) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.getHotelRooms(providerId, id)));
+    }
+
+    @PostMapping("/services/{id}/rooms")
+    @Operation(summary = "Create hotel room", description = "HOTEL listings only")
+    public ResponseEntity<ApiResponse<HotelRoomResponse>> createHotelRoom(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateHotelRoomRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        HotelRoomResponse created = portalService.createHotelRoom(providerId, id, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Room created", created));
+    }
+
+    @PutMapping("/services/{id}/rooms/{roomId}")
+    @Operation(summary = "Update hotel room", description = "HOTEL listings only")
+    public ResponseEntity<ApiResponse<HotelRoomResponse>> updateHotelRoom(
+            @PathVariable UUID id,
+            @PathVariable UUID roomId,
+            @Valid @RequestBody UpdateHotelRoomRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.updateHotelRoom(providerId, id, roomId, request)));
+    }
+
+    @DeleteMapping("/services/{id}/rooms/{roomId}")
+    @Operation(summary = "Delete hotel room", description = "HOTEL listings only")
+    public ResponseEntity<ApiResponse<Void>> deleteHotelRoom(@PathVariable UUID id, @PathVariable UUID roomId) {
+        UUID providerId = requireCurrentProviderId();
+        portalService.deleteHotelRoom(providerId, id, roomId);
+        return ResponseEntity.ok(ApiResponse.success("Room deleted", null));
+    }
+
+    @PostMapping(value = "/services/{id}/rooms/{roomId}/images/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload room image", description = "HOTEL listings only")
+    public ResponseEntity<ApiResponse<HotelRoomImageResponse>> uploadRoomImage(
+            @PathVariable UUID id,
+            @PathVariable UUID roomId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) String altText,
+            @RequestParam(required = false) Boolean primary) {
+        UUID providerId = requireCurrentProviderId();
+        final byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException("Could not read uploaded file");
+        }
+        HotelRoomImageResponse created = portalService.uploadRoomImage(
+                providerId,
+                id,
+                roomId,
+                bytes,
+                file.getContentType(),
+                file.getOriginalFilename(),
+                altText,
+                primary);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Room image uploaded", created));
     }
 
     @GetMapping("/bookings")

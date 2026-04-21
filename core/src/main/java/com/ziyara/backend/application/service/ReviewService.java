@@ -3,8 +3,11 @@ package com.ziyara.backend.application.service;
 import com.ziyara.backend.application.dto.request.CreateReviewRequest;
 import com.ziyara.backend.application.dto.response.ReviewResponse;
 import com.ziyara.backend.domain.entity.Review;
+import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.domain.enums.ReviewStatus;
 import com.ziyara.backend.domain.repository.ReviewRepository;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +33,7 @@ import java.util.stream.Collectors;
 public class ReviewService {
     
     private final ReviewRepository reviewRepository;
+    private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
     
     @Transactional
     public ReviewResponse createReview(UUID userId, CreateReviewRequest request) {
@@ -41,8 +45,17 @@ public class ReviewService {
         review.setRating(request.getRating());
         review.setComment(request.getComment());
         review.setStatus(ReviewStatus.PENDING);
-        
-        return mapToResponse(reviewRepository.save(review));
+
+        Review saved = reviewRepository.save(review);
+        staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                .eventId(UUID.randomUUID())
+                .notificationType(NotificationType.SYSTEM_ALERT.name())
+                .title("Review pending moderation")
+                .message("A new review is pending for booking " + saved.getBookingId())
+                .notifyRoles(List.of("SUPPORT_MANAGER"))
+                .metadata("{\"reviewId\":\"" + saved.getId() + "\"}")
+                .build());
+        return mapToResponse(saved);
     }
     
     @Transactional

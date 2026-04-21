@@ -23,6 +23,11 @@ spring:
       hibernate:
         format_sql: true
         default_schema: public
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+        default_batch_fetch_size: 16
     open-in-view: false
 
   jackson:
@@ -63,6 +68,13 @@ jwt:
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
   header: Authorization
   prefix: "Bearer "
+  cookie:
+    enabled: ${JWT_COOKIE_ENABLED:true}
+    access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:ziyara_access}
+    refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:ziyara_refresh}
+    same-site: ${JWT_COOKIE_SAME_SITE:Lax}
+    secure: ${JWT_COOKIE_SECURE:false}
+    also-return-token-in-body: ${JWT_ALSO_RETURN_TOKEN_IN_BODY:true}
 
 # Logging Configuration
 logging:
@@ -81,10 +93,17 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: when_authorized
+  tracing:
+    sampling:
+      probability: ${MANAGEMENT_TRACING_SAMPLING_PROBABILITY:0.1}
+    # Optional export (add deps + env in prod): OTLP example —
+    # otlp:
+    #   tracing:
+    #     endpoint: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
   health:
     mail:
       # Avoid backend healthcheck failures when SMTP is not provisioned (common in local/docker).
@@ -123,6 +142,10 @@ app:
     sales-rep-max: 20
     finance-max: 50
 
+  rbac-catalog-validation:
+    # Validates sys_groups Z1–Z7 and system sys_roles.group_id on startup. Disable in slice tests (application-test.yml).
+    enabled: ${APP_RBAC_CATALOG_VALIDATION_ENABLED:true}
+
   media:
     # Local uploads (POST .../images/upload); served at {context-path}/media/**
     storage-root: ${APP_MEDIA_STORAGE_ROOT:./data/media}
@@ -134,8 +157,53 @@ app:
       # Keep disabled by default to avoid SMTP dependency in local/dev.
       enabled: ${APP_NOTIFICATIONS_EMAIL_ENABLED:false}
       from: ${APP_NOTIFICATIONS_EMAIL_FROM:no-reply@ziyara.local}
+      # Used in password-reset emails (link to traveler site).
+      public-landing-base-url: ${APP_PUBLIC_LANDING_BASE_URL:http://www.local}
       # Comma-separated list for submit-for-approval notifications.
       provider-approver-recipients: ${APP_PROVIDER_APPROVER_RECIPIENTS:}
+
+ziyara:
+  cors:
+    # Comma-separated origins (env ZIYARA_CORS_ALLOWED_ORIGINS). When empty, localhost defaults apply if allow-local-defaults is true.
+    allowed-origins: "${ZIYARA_CORS_ALLOWED_ORIGINS:}"
+    allow-local-defaults: true
+    allow-credentials: true
+    allow-all-origins: ${ZIYARA_CORS_ALLOW_ALL:false}
+  password-policy:
+    min-length: ${ZIYARA_PASSWORD_MIN_LENGTH:8}
+    require-uppercase: ${ZIYARA_PASSWORD_REQUIRE_UPPER:true}
+    require-lowercase: ${ZIYARA_PASSWORD_REQUIRE_LOWER:true}
+    require-digit: ${ZIYARA_PASSWORD_REQUIRE_DIGIT:true}
+    require-special: ${ZIYARA_PASSWORD_REQUIRE_SPECIAL:true}
+    # 0 = off. 3–4 recommended in production (set ZIYARA_PASSWORD_MIN_ZXCVBN_SCORE).
+    min-zxcvbn-score: ${ZIYARA_PASSWORD_MIN_ZXCVBN_SCORE:0}
+  security:
+    headers:
+      hsts-enabled: ${ZIYARA_SECURITY_HSTS_ENABLED:false}
+  rls:
+    # When true, wraps the primary DataSource and sets app.* session GUCs per connection (see Flyway V13 policies).
+    enabled: ${ZIYARA_RLS_ENABLED:false}
+  pii:
+    # Optional AES-256 key (32 raw bytes) as Base64. When empty, MFA secrets are stored without app-layer encryption (dev only).
+    encryption-key-base64: ${ZIYARA_PII_ENCRYPTION_KEY_BASE64:}
+  data-retention:
+    enabled: ${ZIYARA_DATA_RETENTION_ENABLED:false}
+    cron: ${ZIYARA_DATA_RETENTION_CRON:0 0 4 * * SUN}
+  rate-limit:
+    login:
+      enabled: ${ZIYARA_RATE_LIMIT_LOGIN_ENABLED:true}
+      max-per-minute-per-ip: ${ZIYARA_RATE_LIMIT_LOGIN_MAX_PER_MINUTE:40}
+      # When true and Redis is configured (spring.data.redis.host), login throttling uses Redis instead of sys_rate_limit_counters.
+      redis-enabled: ${ZIYARA_RATE_LIMIT_LOGIN_REDIS_ENABLED:false}
+  reporting:
+    materialized-view-refresh-enabled: ${ZIYARA_REPORTING_MV_REFRESH_ENABLED:false}
+    materialized-view-cron: ${ZIYARA_REPORTING_MV_CRON:0 20 2 * * *}
+  notifications:
+    kafka:
+      enabled: ${ZIYARA_NOTIFICATIONS_KAFKA_ENABLED:false}
+      topic-staff: ziyara.notifications.staff
+      topic-dlq: ziyara.notifications.staff.dlq
+      consumer-group: ziyarah-backend-staff-notifications
 
 # SpringDoc OpenAPI Configuration
 springdoc:

@@ -2385,7 +2385,7 @@
                                                                                 "Service Providers"
                                                                             ],
                                                                    "summary":  "Set commission rate",
-                                                                   "description":  "Override provider commission (audited). G1/G5 only.",
+                                                                   "description":  "Override provider commission (audited). Super Admin and General Manager only.",
                                                                    "operationId":  "updateCommission",
                                                                    "parameters":  [
                                                                                       {
@@ -2656,7 +2656,7 @@
                                                                  "Role Management"
                                                              ],
                                                     "summary":  "List groups",
-                                                    "description":  "Organizational groups (G1-G7)",
+                                                    "description":  "Organizational groups (platform Z1-Z7 plus custom, e.g. C{n})",
                                                     "operationId":  "getGroups",
                                                     "responses":  {
                                                                       "200":  {
@@ -5850,7 +5850,7 @@
                                                                                                     "description":  "Description"
                                                                                                 }
                                                                             },
-                                                             "description":  "Organizational group (G1-G7)"
+                                                             "description":  "Organizational group (platform Z1-Z7 or custom)"
                                                          },
                                        "ApiResponseListReviewResponse":  {
                                                                              "type":  "object",

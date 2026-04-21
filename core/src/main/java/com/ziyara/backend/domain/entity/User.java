@@ -28,6 +28,25 @@ public class User {
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
 
+    /** Bumped on password change; embedded in JWT as {@code tv} to invalidate old tokens. */
+    private int tokenVersion;
+
+    private LocalDateTime lastPasswordChange;
+    private LocalDateTime passwordExpiresAt;
+
+    private boolean mfaEnabled;
+    private String mfaType;
+    private String mfaSecretCipher;
+    private String mfaBackupCodesCipher;
+    private LocalDateTime mfaLastUsedAt;
+    private LocalDateTime mfaEnrolledAt;
+
+    private boolean gdprConsentGiven;
+    private LocalDateTime gdprConsentDate;
+    private boolean marketingOptIn;
+    private boolean rightToErasureRequested;
+    private LocalDateTime rightToErasureCompletedAt;
+
     // Domain behavior methods
     public boolean isActive() {
         return status == UserStatus.ACTIVE && deletedAt == null;
@@ -81,6 +100,7 @@ public class User {
     public User() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+        this.tokenVersion = 0;
     }
 
     public User(UUID id, String email, String phone, String passwordHash, UserRole role) {
@@ -212,5 +232,121 @@ public class User {
 
     public void setDeletedAt(LocalDateTime deletedAt) {
         this.deletedAt = deletedAt;
+    }
+
+    public int getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public void setTokenVersion(int tokenVersion) {
+        this.tokenVersion = tokenVersion;
+    }
+
+    public void incrementTokenVersion() {
+        this.tokenVersion++;
+    }
+
+    public LocalDateTime getLastPasswordChange() {
+        return lastPasswordChange;
+    }
+
+    public void setLastPasswordChange(LocalDateTime lastPasswordChange) {
+        this.lastPasswordChange = lastPasswordChange;
+    }
+
+    public LocalDateTime getPasswordExpiresAt() {
+        return passwordExpiresAt;
+    }
+
+    public void setPasswordExpiresAt(LocalDateTime passwordExpiresAt) {
+        this.passwordExpiresAt = passwordExpiresAt;
+    }
+
+    public boolean isMfaEnabled() {
+        return mfaEnabled;
+    }
+
+    public void setMfaEnabled(boolean mfaEnabled) {
+        this.mfaEnabled = mfaEnabled;
+    }
+
+    public String getMfaType() {
+        return mfaType;
+    }
+
+    public void setMfaType(String mfaType) {
+        this.mfaType = mfaType;
+    }
+
+    public String getMfaSecretCipher() {
+        return mfaSecretCipher;
+    }
+
+    public void setMfaSecretCipher(String mfaSecretCipher) {
+        this.mfaSecretCipher = mfaSecretCipher;
+    }
+
+    public String getMfaBackupCodesCipher() {
+        return mfaBackupCodesCipher;
+    }
+
+    public void setMfaBackupCodesCipher(String mfaBackupCodesCipher) {
+        this.mfaBackupCodesCipher = mfaBackupCodesCipher;
+    }
+
+    public LocalDateTime getMfaLastUsedAt() {
+        return mfaLastUsedAt;
+    }
+
+    public void setMfaLastUsedAt(LocalDateTime mfaLastUsedAt) {
+        this.mfaLastUsedAt = mfaLastUsedAt;
+    }
+
+    public LocalDateTime getMfaEnrolledAt() {
+        return mfaEnrolledAt;
+    }
+
+    public void setMfaEnrolledAt(LocalDateTime mfaEnrolledAt) {
+        this.mfaEnrolledAt = mfaEnrolledAt;
+    }
+
+    public boolean isGdprConsentGiven() {
+        return gdprConsentGiven;
+    }
+
+    public void setGdprConsentGiven(boolean gdprConsentGiven) {
+        this.gdprConsentGiven = gdprConsentGiven;
+    }
+
+    public LocalDateTime getGdprConsentDate() {
+        return gdprConsentDate;
+    }
+
+    public void setGdprConsentDate(LocalDateTime gdprConsentDate) {
+        this.gdprConsentDate = gdprConsentDate;
+    }
+
+    public boolean isMarketingOptIn() {
+        return marketingOptIn;
+    }
+
+    public void setMarketingOptIn(boolean marketingOptIn) {
+        this.marketingOptIn = marketingOptIn;
+    }
+
+    public boolean isRightToErasureRequested() {
+        return rightToErasureRequested;
+    }
+
+    public void setRightToErasureRequested(boolean rightToErasureRequested) {
+        this.rightToErasureRequested = rightToErasureRequested;
+    }
+
+    public LocalDateTime getRightToErasureCompletedAt() {
+        return rightToErasureCompletedAt;
+    }
+
+    public void setRightToErasureCompletedAt(LocalDateTime rightToErasureCompletedAt) {
+        this.rightToErasureCompletedAt = rightToErasureCompletedAt;
     }
 }

@@ -15,6 +15,7 @@ export const ROUTE_TITLES: Record<string, string> = {
   '/services/trips': 'Trips',
   '/management/users': 'Groups',
   '/management/providers': 'Providers',
+  '/management/providers/new': 'New provider',
   '/management/bookings': 'Bookings',
   '/management/payments': 'Payments',
   '/management/discounts': 'Discounts',
@@ -43,6 +44,7 @@ export const ROUTE_TITLE_KEYS: Record<string, string> = {
   '/services/trips': 'title.trips',
   '/management/users': 'title.groups',
   '/management/providers': 'title.providers',
+  '/management/providers/new': 'title.providerNew',
   '/management/bookings': 'title.bookings',
   '/management/payments': 'title.payments',
   '/management/discounts': 'title.discounts',
@@ -79,6 +81,7 @@ export const ROUTE_ICONS: Record<string, SidebarIconId> = {
   '/services/trips': 'trips',
   '/management/users': 'users',
   '/management/providers': 'providers',
+  '/management/providers/new': 'providers',
   '/management/bookings': 'bookings',
   '/management/payments': 'payments',
   '/management/discounts': 'discounts',
@@ -114,6 +117,14 @@ const SERVICE_TYPE_TITLES: Record<string, string> = {
 export function getPageTitleForPath(pathname: string): string {
   const exact = ROUTE_TITLES[pathname]
   if (exact) return exact
+  const providerEdit = pathname.match(/^\/management\/providers\/([^/]+)$/)
+  if (
+    providerEdit &&
+    providerEdit[1] !== 'new' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(providerEdit[1])
+  ) {
+    return 'Edit provider'
+  }
   const servicesMatch = pathname.match(/^\/services\/([^/]+)(?:\/([^/]+))?/)
   if (servicesMatch) {
     const [, type] = servicesMatch
@@ -126,6 +137,14 @@ export function getPageTitleForPath(pathname: string): string {
 export function getPageTitleKeyForPath(pathname: string): string {
   const exact = ROUTE_TITLE_KEYS[pathname]
   if (exact) return exact
+  const providerEdit = pathname.match(/^\/management\/providers\/([^/]+)$/)
+  if (
+    providerEdit &&
+    providerEdit[1] !== 'new' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(providerEdit[1])
+  ) {
+    return 'title.providerEdit'
+  }
   if (pathname.startsWith('/portal/listings/') && pathname !== '/portal/listings/new') {
     return 'title.listingEdit'
   }
@@ -141,6 +160,14 @@ export function getPageTitleKeyForPath(pathname: string): string {
 export function getPageIconForPath(pathname: string): SidebarIconId {
   const exact = ROUTE_ICONS[pathname]
   if (exact) return exact
+  const providerEdit = pathname.match(/^\/management\/providers\/([^/]+)$/)
+  if (
+    providerEdit &&
+    providerEdit[1] !== 'new' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(providerEdit[1])
+  ) {
+    return 'providers'
+  }
   if (pathname.startsWith('/portal/listings')) return 'hotels'
   if (pathname.startsWith('/support/reviews')) return 'reviews'
   const servicesMatch = pathname.match(/^\/services\/([^/]+)/)

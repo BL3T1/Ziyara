@@ -64,7 +64,7 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   const { pathname } = useLocation()
   const { user, logout } = useAuth()
-  const { theme, toggleSidebar } = useLayout()
+  const { theme, toggleSidebar, sidebarCollapsed } = useLayout()
   const { t } = useLanguage()
   const navigate = useNavigate()
 
@@ -104,15 +104,19 @@ export function DashboardHeader({
       />
       <div className="relative mx-auto flex h-full max-w-[100rem] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-300 outline-none transition-all hover:bg-slate-800/90 hover:text-white focus-visible:ring-2 focus-visible:ring-[rgb(172_158_120/0.45)] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:scale-95 dark:focus-visible:ring-offset-slate-950"
-            aria-label={t('common.toggleSidebar')}
-          >
-            <MenuIcon />
-          </button>
-          <span className="hidden h-8 w-px shrink-0 bg-gradient-to-b from-transparent via-slate-600 to-transparent sm:block" aria-hidden />
+          {!sidebarCollapsed && (
+            <>
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-300 outline-none transition-all hover:bg-slate-800/90 hover:text-white focus-visible:ring-2 focus-visible:ring-[rgb(172_158_120/0.45)] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:scale-95 dark:focus-visible:ring-offset-slate-950"
+                aria-label={t('common.toggleSidebar')}
+              >
+                <MenuIcon />
+              </button>
+              <span className="hidden h-8 w-px shrink-0 bg-gradient-to-b from-transparent via-slate-600 to-transparent sm:block" aria-hidden />
+            </>
+          )}
           <div className="flex min-w-0 items-center gap-3 sm:gap-3.5">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-800/50 text-slate-100 shadow-inner shadow-black/20 ring-1 ring-slate-600/40">
               {PageIcon}

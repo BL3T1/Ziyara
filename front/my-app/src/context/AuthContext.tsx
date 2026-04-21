@@ -3,6 +3,8 @@ import type { User } from '../types/auth'
 
 const TOKEN_KEY = 'token'
 const USER_KEY = 'user'
+/** Set when backend uses HttpOnly cookie auth without returning accessToken in JSON. */
+const COOKIE_SESSION_KEY = 'ziyara_cookie_session'
 
 export interface SidebarNavigationState {
   visibleItemIds: string[]
@@ -45,7 +47,8 @@ export function AuthProvider({ children, defaultUser = null }: AuthProviderProps
 
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY)
-    if (!token && user) {
+    const cookieSession = localStorage.getItem(COOKIE_SESSION_KEY)
+    if (!token && !cookieSession && user) {
       setUserState(null)
       localStorage.removeItem(USER_KEY)
     }
@@ -60,6 +63,7 @@ export function AuthProvider({ children, defaultUser = null }: AuthProviderProps
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
+    localStorage.removeItem(COOKIE_SESSION_KEY)
     setUserState(null)
     setSidebarNav(null)
   }, [])
@@ -67,6 +71,7 @@ export function AuthProvider({ children, defaultUser = null }: AuthProviderProps
   const clearAuth = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
+    localStorage.removeItem(COOKIE_SESSION_KEY)
     setUserState(null)
     setSidebarNav(null)
   }, [])

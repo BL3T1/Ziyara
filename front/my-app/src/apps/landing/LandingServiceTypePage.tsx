@@ -1,5 +1,4 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Card } from '../../components/Card'
 import { useLanguage } from '../../context/LanguageContext'
 import { ServiceGallery } from '../../pages/services/components/ServiceGallery'
 import type { ServiceCategorySlug } from '../../pages/services/serviceModel'
@@ -30,13 +29,19 @@ export function LandingServiceTypePage() {
   ) as ServiceCategorySlug | null
   const config = safeCategory ? CATEGORY_CONFIG[safeCategory] : null
 
-  const { services, loading, error, reload, totalListings, activeBookings } = useServiceCatalog(safeCategory ?? 'hotels')
+  const { services, loading, error, reload } = useServiceCatalog(safeCategory ?? 'hotels', {
+    loadPartners: false,
+  })
 
   if (!safeCategory || !config) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-800 dark:bg-amber-900/20">
-        <h2 className="text-xl font-semibold text-amber-800 dark:text-amber-200">{t('servicesPage.unknownType')}</h2>
-        <p className="mt-2 text-amber-700 dark:text-amber-300">{t('servicesPage.unknownHint')}</p>
+      <div className="lp-sheet text-center" style={{ borderColor: 'rgba(180, 130, 70, 0.35)', background: 'rgba(255, 248, 235, 0.9)' }}>
+        <h2 className="lp-h1" style={{ color: 'var(--accent-tan-dark)' }}>
+          {t('servicesPage.unknownType')}
+        </h2>
+        <p className="lp-body" style={{ marginTop: 12 }}>
+          {t('servicesPage.unknownHint')}
+        </p>
       </div>
     )
   }
@@ -45,38 +50,31 @@ export function LandingServiceTypePage() {
   const pageDescription = t(config.descriptionKey)
 
   return (
-    <>
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{pageTitle}</h1>
-      <p className="mt-2 text-slate-600 dark:text-slate-300">{pageDescription}</p>
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <Card className="p-4">
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('servicesPage.totalListings')}</p>
-          <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? t('ui.emDash') : totalListings}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('home.activeBookings')}</p>
-          <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? t('ui.emDash') : activeBookings}</p>
-        </Card>
-      </div>
+    <div className="lp-sheet">
+      <h1 className="lp-h1">{pageTitle}</h1>
+      <p className="lp-body" style={{ marginTop: 10 }}>
+        {pageDescription}
+      </p>
 
       {error ? (
-        <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
-          <p className="text-sm font-medium text-red-800 dark:text-red-200">{t('servicesPage.loadFailed')}</p>
-          <p className="mt-1 text-sm text-red-700 dark:text-red-300">{error}</p>
-          <button type="button" onClick={reload} className="mt-3 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
+        <div className="mt-6 rounded-[20px] border p-4" style={{ borderColor: 'rgba(220, 100, 100, 0.35)', background: 'rgba(255, 245, 245, 0.85)' }}>
+          <p className="text-sm font-semibold text-red-900">{t('servicesPage.loadFailed')}</p>
+          <p className="mt-1 text-sm text-red-800/90">{error}</p>
+          <button type="button" onClick={reload} className="lp-btn lp-btn-primary lp-btn-sm mt-3 !bg-red-700 hover:!shadow-red-900/20">
             {t('ui.retry')}
           </button>
         </div>
       ) : null}
 
       {loading ? (
-        <p className="mt-4 text-slate-500 dark:text-slate-400">{t('ui.loading')}</p>
+        <p className="mt-4 lp-muted">{t('ui.loading')}</p>
       ) : services.length === 0 ? (
-        <p className="mt-4 text-slate-500 dark:text-slate-400">{t('servicesPage.noListed', { type: pageTitle.toLowerCase() })}</p>
+        <p className="mt-4 lp-muted">{t('servicesPage.noListed', { type: pageTitle.toLowerCase() })}</p>
       ) : (
-        <ServiceGallery services={services} onOpen={(service) => navigate(`/services/${safeCategory}/${service.id}`)} />
+        <div className="mt-6">
+          <ServiceGallery services={services} onOpen={(service) => navigate(`/services/${safeCategory}/${service.id}`)} />
+        </div>
       )}
-    </>
+    </div>
   )
 }

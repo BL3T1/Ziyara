@@ -71,6 +71,11 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.springframework.boot:spring-boot-starter-mail")
+	implementation("org.springframework.boot:spring-boot-starter-data-redis")
+	implementation("org.springframework.boot:spring-boot-starter-cache")
+	implementation("io.micrometer:micrometer-tracing-bridge-brave")
+	implementation("net.logstash.logback:logstash-logback-encoder:8.0")
+	implementation("org.springframework.kafka:spring-kafka")
 	implementation("org.springframework.security:spring-security-web")
 	// JWT (jjwt) - backend auth
 	implementation("io.jsonwebtoken:jjwt-api:0.12.3")
@@ -82,6 +87,9 @@ dependencies {
 	compileOnly("org.projectlombok:lombok:1.18.38")
 	annotationProcessor("org.projectlombok:lombok:1.18.38")
 	runtimeOnly("org.postgresql:postgresql")
+	implementation("commons-codec:commons-codec:1.17.1")
+	// Optional strength scoring (0–4); disabled when ziyara.password-policy.min-zxcvbn-score is 0.
+	implementation("com.nulab-inc:zxcvbn:1.9.0")
 
 	testCompileOnly("org.projectlombok:lombok:1.18.38")
 	testAnnotationProcessor("org.projectlombok:lombok:1.18.38")
@@ -91,6 +99,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
 	testImplementation("org.testcontainers:junit-jupiter:1.19.8")
 	testImplementation("org.testcontainers:postgresql:1.19.8")
+	testImplementation("org.testcontainers:kafka:1.19.8")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

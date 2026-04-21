@@ -26,6 +26,11 @@ public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRe
     }
 
     @Override
+    public long countByGroupId(UUID groupId) {
+        return jpaRepository.countByGroupId(groupId);
+    }
+
+    @Override
     @Transactional
     public void reassignAllToRole(UUID fromRoleId, UUID targetRoleId) {
         jpaRepository.reassignAllToRole(fromRoleId, targetRoleId);

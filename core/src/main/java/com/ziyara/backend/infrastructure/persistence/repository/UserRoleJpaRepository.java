@@ -12,6 +12,9 @@ import java.util.UUID;
 @Repository
 public interface UserRoleJpaRepository extends JpaRepository<UserRoleJpaEntity, UUID> {
     long countByRoleId(UUID roleId);
+
+    long countByGroupId(UUID groupId);
+
     List<UserRoleJpaEntity> findByRoleId(UUID roleId);
 
     @Query("SELECT ur FROM UserRoleJpaEntity ur WHERE ur.userId = :userId ORDER BY ur.assignedAt DESC NULLS LAST, ur.id DESC")

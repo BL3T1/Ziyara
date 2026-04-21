@@ -88,7 +88,49 @@ public class UserJpaEntity implements Persistable<UUID> {
     
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
-    
+
+    @Column(name = "token_version", nullable = false)
+    private Integer tokenVersion = 0;
+
+    @Column(name = "last_password_change")
+    private LocalDateTime lastPasswordChange;
+
+    @Column(name = "password_expires_at")
+    private LocalDateTime passwordExpiresAt;
+
+    @Column(name = "mfa_enabled", nullable = false)
+    private Boolean mfaEnabled = false;
+
+    @Column(name = "mfa_type", length = 20)
+    private String mfaType;
+
+    @Column(name = "mfa_secret_cipher", columnDefinition = "TEXT")
+    private String mfaSecretCipher;
+
+    @Column(name = "mfa_backup_codes_cipher", columnDefinition = "TEXT")
+    private String mfaBackupCodesCipher;
+
+    @Column(name = "mfa_last_used_at")
+    private LocalDateTime mfaLastUsedAt;
+
+    @Column(name = "mfa_enrolled_at")
+    private LocalDateTime mfaEnrolledAt;
+
+    @Column(name = "gdpr_consent_given", nullable = false)
+    private Boolean gdprConsentGiven = false;
+
+    @Column(name = "gdpr_consent_date")
+    private LocalDateTime gdprConsentDate;
+
+    @Column(name = "marketing_opt_in", nullable = false)
+    private Boolean marketingOptIn = false;
+
+    @Column(name = "right_to_erasure_requested", nullable = false)
+    private Boolean rightToErasureRequested = false;
+
+    @Column(name = "right_to_erasure_completed_at")
+    private LocalDateTime rightToErasureCompletedAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

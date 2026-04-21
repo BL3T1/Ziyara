@@ -8,6 +8,7 @@ import { getApiErrorMessage, servicesAPI } from '../../services/api'
 import { Card } from '../../components/Card'
 import type { RestaurantMenuDto, ServiceDto, ServiceImageDto, ServiceTypeDto } from '../../types/api'
 import { ServiceDetailView } from './components/ServiceDetailView'
+import { ServiceDetailMediaEditor } from './ServiceDetailMediaEditor'
 import type { ServiceCategorySlug } from './serviceModel'
 import { normalizeService } from './serviceModel'
 import { sanitizeText, safeImageUrl } from '../../utils/safeRendering'
@@ -32,30 +33,35 @@ export function ServiceDetailPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!id) {
+    const serviceId = id
+    if (!serviceId) {
       setLoading(false)
       return
     }
+
+    const load = () =>
+      Promise.all([
+        servicesAPI.get(serviceId),
+        servicesAPI.getImages(serviceId).catch(() => ({ data: [] as ServiceImageDto[] })),
+        servicesAPI.getMenu(serviceId).catch(() => ({ data: { serviceId, sections: [] } as RestaurantMenuDto })),
+      ])
+        .then(([svcRes, imgRes, menuRes]) => {
+          const svcData = svcRes.data
+          setRawService(svcData && typeof svcData === 'object' ? (svcData as ServiceDto) : null)
+          setImages(Array.isArray(imgRes.data) ? imgRes.data : [])
+          setMenu(menuRes.data && typeof menuRes.data === 'object' ? menuRes.data : { serviceId, sections: [] })
+        })
+        .catch((err) => {
+          setRawService(null)
+          setImages([])
+          setMenu(null)
+          setError(getApiErrorMessage(err, 'Failed to load service'))
+        })
+        .finally(() => setLoading(false))
+
     setLoading(true)
     setError(null)
-    Promise.all([
-      servicesAPI.get(id),
-      servicesAPI.getImages(id).catch(() => ({ data: [] as ServiceImageDto[] })),
-      servicesAPI.getMenu(id).catch(() => ({ data: { serviceId: id, sections: [] } as RestaurantMenuDto })),
-    ])
-      .then(([svcRes, imgRes, menuRes]) => {
-        const svcData = svcRes.data
-        setRawService(svcData && typeof svcData === 'object' ? (svcData as ServiceDto) : null)
-        setImages(Array.isArray(imgRes.data) ? imgRes.data : [])
-        setMenu(menuRes.data && typeof menuRes.data === 'object' ? menuRes.data : { serviceId: id, sections: [] })
-      })
-      .catch((err) => {
-        setRawService(null)
-        setImages([])
-        setMenu(null)
-        setError(getApiErrorMessage(err, 'Failed to load service'))
-      })
-      .finally(() => setLoading(false))
+    void load()
   }, [id])
 
   const service = useMemo(() => (rawService ? normalizeService(rawService, images) : null), [rawService, images])
@@ -164,6 +170,24 @@ export function ServiceDetailPage() {
           )}
         </div>
       )}
+      {rawService ? (
+        <ServiceDetailMediaEditor
+          serviceId={id}
+          serviceType={rawService.type}
+          currency={currencyFallback}
+          images={images}
+          menu={menu}
+          variant="company"
+          onRefresh={async () => {
+            const [imgRes, menuRes] = await Promise.all([
+              servicesAPI.getImages(id).catch(() => ({ data: [] as ServiceImageDto[] })),
+              servicesAPI.getMenu(id).catch(() => ({ data: { serviceId: id, sections: [] } as RestaurantMenuDto })),
+            ])
+            setImages(Array.isArray(imgRes.data) ? imgRes.data : [])
+            setMenu(menuRes.data && typeof menuRes.data === 'object' ? menuRes.data : { serviceId: id, sections: [] })
+          }}
+        />
+      ) : null}
     </>
   )
 }

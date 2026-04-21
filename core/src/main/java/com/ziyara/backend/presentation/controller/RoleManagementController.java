@@ -2,6 +2,7 @@ package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.request.CreateGroupRequest;
+import com.ziyara.backend.application.dto.request.UpdateGroupRequest;
 import com.ziyara.backend.application.dto.request.CreateRoleRequest;
 import com.ziyara.backend.application.dto.request.DeleteRoleRequest;
 import com.ziyara.backend.application.dto.request.UpdateRoleNavigationRequest;
@@ -69,19 +70,40 @@ public class RoleManagementController {
     }
 
     @GetMapping("/groups")
-    @Operation(summary = "List groups", description = "Organizational groups (G1-G7)")
+    @Operation(summary = "List groups", description = "Organizational groups (platform Z1–Z7 plus custom groups, e.g. C{n})")
     public ResponseEntity<ApiResponse<List<GroupResponse>>> getGroups() {
         return ResponseEntity.ok(ApiResponse.success(roleManagementService.getGroups()));
     }
 
     @PostMapping("/groups")
-    @Operation(summary = "Create organizational group", description = "Adds sys_groups row; code optional (auto next G{n})")
+    @Operation(summary = "Create organizational group", description = "Adds sys_groups row; code optional (auto next C{n}). Codes Z+digits are reserved for the platform and rejected.")
     public ResponseEntity<ApiResponse<GroupResponse>> createGroup(
             @Valid @RequestBody CreateGroupRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         UUID currentUserId = userDetails != null ? UUID.fromString(userDetails.getUsername()) : null;
         GroupResponse created = roleManagementService.createGroup(request, currentUserId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Group created", created));
+    }
+
+    @PutMapping("/groups/{groupId}")
+    @Operation(summary = "Update organizational group", description = "Display fields; optional code change for custom groups only (platform Z1–Z7 codes are fixed).")
+    public ResponseEntity<ApiResponse<GroupResponse>> updateGroup(
+            @PathVariable UUID groupId,
+            @Valid @RequestBody UpdateGroupRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID currentUserId = userDetails != null ? UUID.fromString(userDetails.getUsername()) : null;
+        GroupResponse updated = roleManagementService.updateGroup(groupId, request, currentUserId);
+        return ResponseEntity.ok(ApiResponse.success("Group updated", updated));
+    }
+
+    @DeleteMapping("/groups/{groupId}")
+    @Operation(summary = "Delete organizational group", description = "Custom groups only; blocked if platform Z-slice or if roles/assignments still reference the group.")
+    public ResponseEntity<ApiResponse<Void>> deleteGroup(
+            @PathVariable UUID groupId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID currentUserId = userDetails != null ? UUID.fromString(userDetails.getUsername()) : null;
+        roleManagementService.deleteGroup(groupId, currentUserId);
+        return ResponseEntity.ok(ApiResponse.success("Group deleted", null));
     }
 
     @GetMapping("/groups/summary")
@@ -135,7 +157,7 @@ public class RoleManagementController {
     @Operation(summary = "Update role permissions", description = "Replace all permissions for the role. System roles: any permission including locked. Custom roles: unlocked only; locked ids return 400. Unknown permission ids return 400.")
     public ResponseEntity<ApiResponse<RoleResponse>> updateRolePermissions(
             @PathVariable UUID id,
-            @RequestBody UpdateRolePermissionsRequest request,
+            @Valid @RequestBody UpdateRolePermissionsRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         UUID currentUserId = userDetails != null ? UUID.fromString(userDetails.getUsername()) : null;
         RoleResponse updated = roleManagementService.updateRolePermissions(id, request, currentUserId);
@@ -146,7 +168,7 @@ public class RoleManagementController {
     @Operation(summary = "Delete custom role", description = "If users are assigned, provide targetRoleId in body for reassignment")
     public ResponseEntity<ApiResponse<Void>> deleteRole(
             @PathVariable UUID id,
-            @RequestBody(required = false) DeleteRoleRequest request,
+            @Valid @RequestBody(required = false) DeleteRoleRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         UUID currentUserId = userDetails != null ? UUID.fromString(userDetails.getUsername()) : null;
         roleManagementService.deleteRole(id, request != null ? request : new DeleteRoleRequest(), currentUserId);

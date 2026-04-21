@@ -10,6 +10,7 @@ import com.ziyara.backend.application.dto.response.RestaurantMenuSectionResponse
 import com.ziyara.backend.application.query.ServiceQueryHandler;
 import com.ziyara.backend.domain.enums.ServiceType;
 import com.ziyara.backend.domain.repository.ServiceRepository;
+import com.ziyara.backend.infrastructure.media.LocalMediaStorageService;
 import com.ziyara.backend.infrastructure.persistence.entity.RestMenuItemJpaEntity;
 import com.ziyara.backend.infrastructure.persistence.entity.RestMenuSectionJpaEntity;
 import com.ziyara.backend.infrastructure.persistence.repository.RestMenuItemJpaRepository;
@@ -35,6 +36,7 @@ public class RestaurantMenuService {
     private final RestMenuItemJpaRepository itemRepository;
     private final ServiceRepository serviceRepository;
     private final ServiceQueryHandler serviceQueryHandler;
+    private final LocalMediaStorageService mediaStorageService;
 
     @Transactional(readOnly = true)
     public RestaurantMenuResponse getMenu(UUID serviceId) {
@@ -153,6 +155,20 @@ public class RestaurantMenuService {
         requireRestaurant(serviceId);
         RestMenuItemJpaEntity item = loadItemOwnedByService(itemId, serviceId);
         itemRepository.delete(item);
+    }
+
+    @Transactional
+    public RestaurantMenuItemResponse uploadItemImage(
+            UUID serviceId,
+            UUID itemId,
+            byte[] fileBytes,
+            String contentType,
+            String originalFilename) {
+        requireRestaurant(serviceId);
+        RestMenuItemJpaEntity item = loadItemOwnedByService(itemId, serviceId);
+        String url = mediaStorageService.storeServiceImage(serviceId, fileBytes, contentType, originalFilename);
+        item.setImageUrl(url);
+        return toItemResponse(itemRepository.save(item));
     }
 
     private void ensureServiceExists(UUID serviceId) {

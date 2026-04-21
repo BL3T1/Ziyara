@@ -31,10 +31,20 @@ ALTER TABLE notifications
   ALTER COLUMN channel TYPE varchar(50) USING channel::text,
   ALTER COLUMN status TYPE varchar(50) USING status::text;
 
--- taxi_bookings
-ALTER TABLE taxi_bookings
-  ALTER COLUMN vehicle_type TYPE varchar(50) USING vehicle_type::text,
-  ALTER COLUMN status TYPE varchar(50) USING status::text;
+-- taxi_bookings (skip if schema already uses varchar — see JPA-aligned taxi_bookings in schema.sql)
+DO $taxi_enum_to_varchar$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'taxi_bookings'
+      AND column_name = 'vehicle_type' AND data_type = 'USER-DEFINED'
+  ) THEN
+    ALTER TABLE taxi_bookings
+      ALTER COLUMN vehicle_type TYPE varchar(50) USING vehicle_type::text,
+      ALTER COLUMN status TYPE varchar(50) USING status::text;
+  END IF;
+END
+$taxi_enum_to_varchar$;
 
 -- services
 ALTER TABLE services

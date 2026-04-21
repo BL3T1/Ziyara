@@ -29,6 +29,6 @@ public class RegisterRequest {
     private String phone;
 
     @NotNull
-    @Schema(description = "Role (typically CUSTOMER for self-registration)", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Role (public registration supports CUSTOMER only; provider roles must use provider onboarding)", requiredMode = Schema.RequiredMode.REQUIRED)
     private UserRole role;
 }

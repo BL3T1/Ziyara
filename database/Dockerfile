@@ -38,9 +38,17 @@ COPY migrations/024_feature_flags_and_api_keys.sql /docker-entrypoint-initdb.d/2
 COPY migrations/025_portal_support_requests.sql /docker-entrypoint-initdb.d/25-025.sql
 COPY migrations/026_service_type_resort_enum.sql /docker-entrypoint-initdb.d/26-026.sql
 COPY migrations/027_disc_discount_codes_legacy_nullable.sql /docker-entrypoint-initdb.d/27-027.sql
+COPY migrations/027a_sys_roles_navigation_item_ids.sql /docker-entrypoint-initdb.d/27a-027a.sql
 COPY migrations/028_disc_discount_codes_sponsor.sql /docker-entrypoint-initdb.d/28-028.sql
 COPY migrations/029_sys_roles_remove_sales_providers_nav.sql /docker-entrypoint-initdb.d/29-029.sql
 COPY migrations/030_disc_discount_scope.sql /docker-entrypoint-initdb.d/30-030.sql
+COPY migrations/031_organizational_groups_z_codes.sql /docker-entrypoint-initdb.d/31-031.sql
+COPY migrations/032_database_hardening.sql /docker-entrypoint-initdb.d/32-032.sql
+COPY migrations/033_reporting_security_phase2.sql /docker-entrypoint-initdb.d/33-033.sql
+COPY migrations/034_rls_audit_partition_export.sql /docker-entrypoint-initdb.d/34-034.sql
+COPY migrations/035_query_perf_indexes.sql /docker-entrypoint-initdb.d/35-035.sql
+COPY migrations/036_hotel_service_providers_workflow_columns.sql /docker-entrypoint-initdb.d/36-036.sql
+COPY migrations/037_bkg_taxi_bookings_jpa_columns.sql /docker-entrypoint-initdb.d/37-037.sql
 
 EXPOSE 5432
 

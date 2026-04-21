@@ -1,9 +1,18 @@
+interface LandingHeroArtProps {
+  /** Inline: sits inside the Ziyara hero frame without extra motion wrappers. */
+  variant?: 'default' | 'inline'
+}
+
 /**
  * Decorative SVG for the landing hero — abstract travel / horizon motif (no external assets).
  */
-export function LandingHeroArt() {
+export function LandingHeroArt({ variant = 'default' }: LandingHeroArtProps) {
+  const root =
+    variant === 'inline'
+      ? 'relative mx-auto w-full max-w-full select-none'
+      : 'landing-3d-stage relative mx-auto w-full max-w-md select-none'
   return (
-    <div className="landing-3d-stage relative mx-auto w-full max-w-md select-none" aria-hidden>
+    <div className={root} aria-hidden>
       <div className="landing-aurora pointer-events-none absolute -left-6 -top-5 h-16 w-16 rounded-full bg-primary/30 blur-xl dark:bg-primary/35" />
       <div className="landing-float landing-float-slow pointer-events-none absolute -right-4 top-8 h-10 w-10 rounded-full border border-secondary/55 bg-secondary/25 shadow-xl shadow-secondary/20" />
       <div className="landing-orbit pointer-events-none absolute left-1/2 top-5 h-3 w-3 -translate-x-1/2 rounded-full bg-white/80 shadow-lg shadow-white/40 dark:bg-white/60" />

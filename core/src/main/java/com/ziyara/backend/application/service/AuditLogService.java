@@ -6,6 +6,7 @@ import com.ziyara.backend.modules.sys.api.AuditServiceApi;
 import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.repository.AuditLogRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
+import com.ziyara.backend.infrastructure.web.AuditRequestContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -44,7 +45,18 @@ public class AuditLogService implements AuditServiceApi {
         auditLog.setNewValue(newVal);
         auditLog.setIpAddress(ip);
         auditLog.setUserAgent(ua);
-        
+        AuditRequestContext.Holder ctx = AuditRequestContext.get();
+        if (ctx != null) {
+            auditLog.setCorrelationId(ctx.correlationId());
+            auditLog.setRequestId(ctx.requestId());
+            auditLog.setSessionId(ctx.sessionId());
+            auditLog.setProviderId(ctx.providerId());
+            auditLog.setTenantId(ctx.tenantId());
+            auditLog.setRiskScore(ctx.riskScore());
+            auditLog.setDurationMs(ctx.durationMs());
+            auditLog.setTags(ctx.tags());
+        }
+
         auditLogRepository.save(auditLog);
     }
     
@@ -93,6 +105,7 @@ public class AuditLogService implements AuditServiceApi {
                 .entityName(log.getEntityName())
                 .entityId(log.getEntityId())
                 .userId(log.getUserId())
+                .correlationId(log.getCorrelationId())
                 .createdAt(log.getCreatedAt())
                 .userDisplay(userDisplay)
                 .resource(resource.isEmpty() ? "-" : resource)

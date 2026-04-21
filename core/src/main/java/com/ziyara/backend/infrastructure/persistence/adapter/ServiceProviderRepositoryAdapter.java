@@ -60,7 +60,11 @@ public class ServiceProviderRepositoryAdapter implements ServiceProviderReposito
     
     @Override
     public List<ServiceProvider> findByType(String type) {
-        return serviceProviderJpaRepository.findByType(type).stream()
+        if (type == null || type.isBlank()) {
+            return List.of();
+        }
+        String norm = type.trim().toUpperCase();
+        return serviceProviderJpaRepository.findByProviderType(norm).stream()
                 .map(serviceProviderMapper::toDomainEntity)
                 .collect(Collectors.toList());
     }
@@ -80,6 +84,18 @@ public class ServiceProviderRepositoryAdapter implements ServiceProviderReposito
     @Override
     public Page<ServiceProvider> findByStatus(ProviderStatus status, Pageable pageable) {
         return serviceProviderJpaRepository.findByStatus(status, pageable).map(serviceProviderMapper::toDomainEntity);
+    }
+
+    @Override
+    public Page<ServiceProvider> findByProviderType(String providerType, Pageable pageable) {
+        return serviceProviderJpaRepository.findByProviderType(providerType, pageable)
+                .map(serviceProviderMapper::toDomainEntity);
+    }
+
+    @Override
+    public Page<ServiceProvider> findByStatusAndProviderType(ProviderStatus status, String providerType, Pageable pageable) {
+        return serviceProviderJpaRepository.findByStatusAndProviderType(status, providerType, pageable)
+                .map(serviceProviderMapper::toDomainEntity);
     }
 
     @Override

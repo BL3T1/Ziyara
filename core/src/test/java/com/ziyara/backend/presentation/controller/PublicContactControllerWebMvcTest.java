@@ -1,8 +1,12 @@
 package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.service.ContactLeadService;
+import com.ziyara.backend.application.service.JwtTokenBlocklistService;
+import com.ziyara.backend.infrastructure.config.WebMvcConfigurationPropertiesImport;
 import com.ziyara.backend.infrastructure.config.LocaleConfig;
+import com.ziyara.backend.infrastructure.config.WebMvcSecuritySliceConfiguration;
 import com.ziyara.backend.infrastructure.config.SecurityConfig;
+import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
@@ -28,7 +32,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = PublicContactController.class)
-@Import({SecurityConfig.class, LocaleConfig.class, PublicContactControllerWebMvcTest.SecurityBeans.class})
+@Import({
+        SecurityConfig.class,
+        WebMvcConfigurationPropertiesImport.class,
+        WebMvcSecuritySliceConfiguration.class,
+        LocaleConfig.class,
+        PublicContactControllerWebMvcTest.SecurityBeans.class
+})
 @ActiveProfiles("test")
 class PublicContactControllerWebMvcTest {
 
@@ -53,8 +63,11 @@ class PublicContactControllerWebMvcTest {
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
-                                                         SecurityContextRepository securityContextRepository) {
-            return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository);
+                                                         SecurityContextRepository securityContextRepository,
+                                                         JwtCookieProperties jwtCookieProperties,
+                                                         JwtTokenBlocklistService jwtTokenBlocklistService) {
+            return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository,
+                    jwtCookieProperties, jwtTokenBlocklistService);
         }
     }
 

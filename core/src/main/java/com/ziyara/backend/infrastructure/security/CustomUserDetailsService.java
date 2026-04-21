@@ -26,13 +26,12 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String userId) throws UsernameNotFoundException {
         User user = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + userId));
-        
-        return new org.springframework.security.core.userdetails.User(
-                user.getId().toString(),
+
+        return new UserPrincipal(
+                user.getId(),
                 user.getPasswordHash(),
+                user.getTokenVersion(),
                 user.getStatus().canLogin(),
-                true,
-                true,
                 !user.isLocked(),
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
         );

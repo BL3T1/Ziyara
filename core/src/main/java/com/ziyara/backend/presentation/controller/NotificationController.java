@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -43,7 +44,8 @@ public class NotificationController {
     }
     
     @PostMapping
-    @Operation(summary = "Create notification", description = "Send a manual notification (Admin only)")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Operation(summary = "Create notification", description = "Send a manual notification (Super Admin only)")
     public ResponseEntity<ApiResponse<NotificationResponse>> createNotification(
             @Valid @RequestBody CreateNotificationRequest request
     ) {

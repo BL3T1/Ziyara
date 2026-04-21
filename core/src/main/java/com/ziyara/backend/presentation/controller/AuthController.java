@@ -5,14 +5,25 @@ import com.ziyara.backend.application.dto.AuthRequest;
 import com.ziyara.backend.application.dto.AuthResponse;
 import com.ziyara.backend.application.dto.request.*;
 import com.ziyara.backend.application.service.AuthService;
+import com.ziyara.backend.application.service.LoginRateLimitService;
+import com.ziyara.backend.application.service.SecurityAlertService;
+import com.ziyara.backend.application.service.SecurityEventService;
+import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
+import com.ziyara.backend.infrastructure.web.AuthCookieHelper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Controller: AuthController
@@ -21,20 +32,28 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Authentication", description = "Authentication management APIs")
 public class AuthController {
 
     private final AuthService authService;
+    private final LoginRateLimitService loginRateLimitService;
+    private final SecurityEventService securityEventService;
+    private final SecurityAlertService securityAlertService;
+    private final JwtCookieProperties jwtCookieProperties;
+
+    @Value("${server.servlet.context-path:/}")
+    private String servletContextPath;
 
     @PostMapping("/register")
-    @Operation(summary = "Register", description = "Register a new user (e.g. customer)")
+    @Operation(summary = "Register", description = "Register a new user (customer self-signup). Provider accounts must use provider onboarding.")
     public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest request) {
         authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Registration successful. Please log in.", null));
     }
 
     @PostMapping("/password/forgot")
-    @Operation(summary = "Forgot password", description = "Request password reset; token sent by email (stub)")
+    @Operation(summary = "Forgot password", description = "Request password reset; token emailed when app.notifications.email.enabled=true")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.forgotPassword(request);
         return ResponseEntity.ok(ApiResponse.success("If the email exists, a reset link has been sent.", null));
@@ -48,7 +67,7 @@ public class AuthController {
     }
 
     @PostMapping("/otp/send")
-    @Operation(summary = "Send OTP", description = "Send OTP to email or phone (stub: logs only)")
+    @Operation(summary = "Send OTP", description = "Send OTP to email (emailed when enabled) or persist for phone")
     public ResponseEntity<ApiResponse<Void>> sendOtp(@Valid @RequestBody OtpSendRequest request) {
         authService.sendOtp(request);
         return ResponseEntity.ok(ApiResponse.success("OTP sent.", null));
@@ -60,37 +79,139 @@ public class AuthController {
         authService.verifyOtp(request);
         return ResponseEntity.ok(ApiResponse.success("OTP verified.", null));
     }
-    
+
     @PostMapping("/login")
     @Operation(summary = "User login", description = "Authenticate user and return JWT tokens")
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody AuthRequest request,
-            HttpServletRequest httpRequest
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse
     ) {
         String ipAddress = getClientIp(httpRequest);
-        AuthResponse response = authService.authenticate(request, ipAddress);
-        return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+        if (!loginRateLimitService.allow(ipAddress, "POST:/auth/login")) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(ApiResponse.error("Too many login attempts from this network. Please try again shortly."));
+        }
+        try {
+            AuthResponse response = authService.authenticate(request, ipAddress);
+            if (jwtCookieProperties.isEnabled()) {
+                AuthCookieHelper.addAuthCookies(
+                        httpResponse,
+                        response.getAccessToken(),
+                        response.getRefreshToken(),
+                        authService.accessTokenTtlSeconds(),
+                        authService.refreshTokenTtlSeconds(),
+                        servletContextPath,
+                        jwtCookieProperties
+                );
+                if (!jwtCookieProperties.isAlsoReturnTokenInBody()) {
+                    response = response.toBuilder()
+                            .accessToken(null)
+                            .refreshToken(null)
+                            .build();
+                }
+            }
+            return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+        } catch (AuthService.AuthenticationException ex) {
+            Map<String, Object> details = new HashMap<>();
+            details.put("email", request.getEmail());
+            details.put("message", ex.getMessage());
+            String eventType = ex.getMessage() != null && ex.getMessage().contains("MFA") ? "MFA_FAILED" : "LOGIN_FAILED";
+            try {
+                securityEventService.record(null, eventType, "LOW", ipAddress, httpRequest.getHeader("User-Agent"), details);
+                securityAlertService.evaluateThresholdAlerts(ipAddress, eventType);
+            } catch (RuntimeException sideEffect) {
+                // Do not mask 401/403: security audit tables may be missing on older DBs or misconfigured envs.
+                log.warn("Login failure audit skipped: {}", sideEffect.toString());
+            }
+            throw ex;
+        }
     }
-    
+
     @PostMapping("/logout")
     @Operation(summary = "User logout", description = "Invalidate user session")
     public ResponseEntity<ApiResponse<Void>> logout(
-            @RequestHeader("Authorization") String authHeader
+            HttpServletRequest request,
+            HttpServletResponse response
     ) {
-        String token = authHeader.substring(7);
-        authService.logout(token);
+        String access = bearerToken(request);
+        if (access == null || access.isBlank()) {
+            access = cookieValue(request, jwtCookieProperties.getAccessCookieName());
+        }
+        String refresh = refreshToken(request);
+        if (refresh == null || refresh.isBlank()) {
+            refresh = cookieValue(request, jwtCookieProperties.getRefreshCookieName());
+        }
+        authService.logout(access, refresh);
+        if (jwtCookieProperties.isEnabled()) {
+            AuthCookieHelper.clearAuthCookies(response, servletContextPath, jwtCookieProperties);
+        }
         return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
     }
-    
+
     @PostMapping("/refresh")
     @Operation(summary = "Refresh token", description = "Refresh access token using refresh token")
     public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
-            @RequestHeader("Refresh-Token") String refreshToken
+            @RequestHeader(value = "Refresh-Token", required = false) String refreshHeader,
+            HttpServletRequest request,
+            HttpServletResponse httpResponse
     ) {
-        AuthResponse response = authService.refreshToken(refreshToken);
-        return ResponseEntity.ok(ApiResponse.success("Token refreshed", response));
+        String refreshToken = refreshHeader != null && !refreshHeader.isBlank()
+                ? refreshHeader.trim()
+                : cookieValue(request, jwtCookieProperties.getRefreshCookieName());
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Refresh token required"));
+        }
+        AuthResponse authResponse = authService.refreshToken(refreshToken);
+        if (jwtCookieProperties.isEnabled()) {
+            AuthCookieHelper.addAuthCookies(
+                    httpResponse,
+                    authResponse.getAccessToken(),
+                    authResponse.getRefreshToken(),
+                    authService.accessTokenTtlSeconds(),
+                    authService.refreshTokenTtlSeconds(),
+                    servletContextPath,
+                    jwtCookieProperties
+            );
+            if (!jwtCookieProperties.isAlsoReturnTokenInBody()) {
+                authResponse = authResponse.toBuilder()
+                        .accessToken(null)
+                        .refreshToken(null)
+                        .build();
+            }
+        }
+        return ResponseEntity.ok(ApiResponse.success("Token refreshed", authResponse));
     }
-    
+
+    private static String bearerToken(HttpServletRequest request) {
+        String h = request.getHeader("Authorization");
+        if (h != null && h.startsWith("Bearer ")) {
+            return h.substring(7).trim();
+        }
+        return null;
+    }
+
+    private static String cookieValue(HttpServletRequest request, String name) {
+        if (request.getCookies() == null) {
+            return null;
+        }
+        for (var c : request.getCookies()) {
+            if (name.equals(c.getName())) {
+                return c.getValue();
+            }
+        }
+        return null;
+    }
+
+    private static String refreshToken(HttpServletRequest request) {
+        String h = request.getHeader("Refresh-Token");
+        if (h != null && !h.isBlank()) {
+            return h.trim();
+        }
+        return null;
+    }
+
     private String getClientIp(HttpServletRequest request) {
         String xfHeader = request.getHeader("X-Forwarded-For");
         if (xfHeader == null) {

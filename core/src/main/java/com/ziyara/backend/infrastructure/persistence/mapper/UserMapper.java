@@ -32,7 +32,21 @@ public class UserMapper {
         user.setCreatedAt(entity.getCreatedAt());
         user.setUpdatedAt(entity.getUpdatedAt());
         user.setDeletedAt(entity.getDeletedAt());
-        
+        user.setTokenVersion(entity.getTokenVersion() != null ? entity.getTokenVersion() : 0);
+        user.setLastPasswordChange(entity.getLastPasswordChange());
+        user.setPasswordExpiresAt(entity.getPasswordExpiresAt());
+        user.setMfaEnabled(Boolean.TRUE.equals(entity.getMfaEnabled()));
+        user.setMfaType(entity.getMfaType());
+        user.setMfaSecretCipher(entity.getMfaSecretCipher());
+        user.setMfaBackupCodesCipher(entity.getMfaBackupCodesCipher());
+        user.setMfaLastUsedAt(entity.getMfaLastUsedAt());
+        user.setMfaEnrolledAt(entity.getMfaEnrolledAt());
+        user.setGdprConsentGiven(Boolean.TRUE.equals(entity.getGdprConsentGiven()));
+        user.setGdprConsentDate(entity.getGdprConsentDate());
+        user.setMarketingOptIn(Boolean.TRUE.equals(entity.getMarketingOptIn()));
+        user.setRightToErasureRequested(Boolean.TRUE.equals(entity.getRightToErasureRequested()));
+        user.setRightToErasureCompletedAt(entity.getRightToErasureCompletedAt());
+
         return user;
     }
     
@@ -57,6 +71,20 @@ public class UserMapper {
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .deletedAt(user.getDeletedAt())
+                .tokenVersion(user.getTokenVersion())
+                .lastPasswordChange(user.getLastPasswordChange())
+                .passwordExpiresAt(user.getPasswordExpiresAt())
+                .mfaEnabled(user.isMfaEnabled())
+                .mfaType(user.getMfaType())
+                .mfaSecretCipher(user.getMfaSecretCipher())
+                .mfaBackupCodesCipher(user.getMfaBackupCodesCipher())
+                .mfaLastUsedAt(user.getMfaLastUsedAt())
+                .mfaEnrolledAt(user.getMfaEnrolledAt())
+                .gdprConsentGiven(user.isGdprConsentGiven())
+                .gdprConsentDate(user.getGdprConsentDate())
+                .marketingOptIn(user.isMarketingOptIn())
+                .rightToErasureRequested(user.isRightToErasureRequested())
+                .rightToErasureCompletedAt(user.getRightToErasureCompletedAt())
                 .build();
     }
 }

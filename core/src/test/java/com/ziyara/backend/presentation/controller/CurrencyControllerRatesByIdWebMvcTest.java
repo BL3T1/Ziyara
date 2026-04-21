@@ -2,8 +2,12 @@ package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.response.ExchangeRateResponse;
 import com.ziyara.backend.application.service.CurrencyService;
+import com.ziyara.backend.application.service.JwtTokenBlocklistService;
+import com.ziyara.backend.infrastructure.config.WebMvcConfigurationPropertiesImport;
 import com.ziyara.backend.infrastructure.config.LocaleConfig;
+import com.ziyara.backend.infrastructure.config.WebMvcSecuritySliceConfiguration;
 import com.ziyara.backend.infrastructure.config.SecurityConfig;
+import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
@@ -36,7 +40,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Phase 4: GET/DELETE /currency/rates/{id}
  */
 @WebMvcTest(controllers = CurrencyController.class)
-@Import({SecurityConfig.class, LocaleConfig.class, CurrencyControllerRatesByIdWebMvcTest.SecurityBeans.class})
+@Import({
+        SecurityConfig.class,
+        WebMvcConfigurationPropertiesImport.class,
+        WebMvcSecuritySliceConfiguration.class,
+        LocaleConfig.class,
+        CurrencyControllerRatesByIdWebMvcTest.SecurityBeans.class
+})
 @ActiveProfiles("test")
 class CurrencyControllerRatesByIdWebMvcTest {
 
@@ -61,8 +71,11 @@ class CurrencyControllerRatesByIdWebMvcTest {
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
-                                                         SecurityContextRepository securityContextRepository) {
-            return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository);
+                                                         SecurityContextRepository securityContextRepository,
+                                                         JwtCookieProperties jwtCookieProperties,
+                                                         JwtTokenBlocklistService jwtTokenBlocklistService) {
+            return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository,
+                    jwtCookieProperties, jwtTokenBlocklistService);
         }
     }
 

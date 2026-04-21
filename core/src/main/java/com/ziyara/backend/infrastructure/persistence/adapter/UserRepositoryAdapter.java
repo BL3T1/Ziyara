@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -151,5 +152,14 @@ public class UserRepositoryAdapter implements UserRepository {
     @Override
     public long countByRole(UserRole role) {
         return userJpaRepository.countByRole(role);
+    }
+
+    @Override
+    public List<UUID> findActiveDirectoryUserIdsByRoles(Collection<UserRole> roles, UserStatus status) {
+        if (roles == null || roles.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> ids = userJpaRepository.findDistinctIdsByRoleInAndStatus(roles, status);
+        return ids != null ? ids : Collections.emptyList();
     }
 }

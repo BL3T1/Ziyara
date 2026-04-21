@@ -2,17 +2,20 @@
  * Company staff or provider: manage service images (URL) and restaurant menu from the detail page.
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getApiErrorMessage, portalServicesAPI, servicesAPI } from '../../services/api'
 import { Card } from '../../components/Card'
 import type {
   CreateMenuItemPayload,
+  CreateHotelRoomPayload,
   CreateServiceImagePayload,
+  HotelRoomDto,
   RestaurantMenuDto,
   RestaurantMenuItemDto,
   ServiceImageCategoryDto,
   ServiceImageDto,
   ServiceTypeDto,
+  UpdateHotelRoomPayload,
   UpdateMenuItemPayload,
   UpdateServiceImagePayload,
 } from '../../types/api'
@@ -74,6 +77,18 @@ export function ServiceDetailMediaEditor({
   const [newItemBySection, setNewItemBySection] = useState<Record<string, CreateMenuItemPayload>>({})
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editItemForm, setEditItemForm] = useState<UpdateMenuItemPayload>({})
+  const [rooms, setRooms] = useState<HotelRoomDto[]>([])
+  const [newRoom, setNewRoom] = useState<CreateHotelRoomPayload>({
+    roomType: 'STANDARD',
+    roomName: '',
+    capacity: 2,
+    quantityTotal: 1,
+    quantityAvailable: 1,
+    status: 'ACTIVE',
+  })
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null)
+  const [editRoomForm, setEditRoomForm] = useState<UpdateHotelRoomPayload>({})
+  const roomFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const run = useCallback(
@@ -248,12 +263,111 @@ export function ServiceDetailMediaEditor({
       .catch(() => {})
   }
 
+  const uploadItemImage = (itemId: string, file: File | null) => {
+    if (!file) {
+      setErr('Choose an image file first')
+      return
+    }
+    const fd = new FormData()
+    fd.append('file', file)
+    void run(() => api.uploadMenuItemImage(serviceId, itemId, fd)).catch(() => {})
+  }
+
   const deleteItem = (itemId: string) => {
     if (!window.confirm('Remove this menu item?')) return
     void run(() => api.deleteMenuItem(serviceId, itemId))
   }
 
+  const addRoom = () => {
+    if (!newRoom.roomName?.trim()) {
+      setErr('Room name is required')
+      return
+    }
+    void run(async () => {
+      await api.createRoom(serviceId, {
+        ...newRoom,
+        roomName: newRoom.roomName.trim(),
+        roomType: (newRoom.roomType || 'STANDARD').trim(),
+      })
+      await refreshRooms()
+    })
+      .then(() =>
+        setNewRoom({
+          roomType: 'STANDARD',
+          roomName: '',
+          capacity: 2,
+          quantityTotal: 1,
+          quantityAvailable: 1,
+          status: 'ACTIVE',
+        }),
+      )
+      .catch(() => {})
+  }
+
+  const startEditRoom = (room: HotelRoomDto) => {
+    setEditingRoomId(room.id)
+    setEditRoomForm({
+      roomType: room.roomType,
+      roomName: room.roomName,
+      description: room.description,
+      capacity: room.capacity,
+      basePrice: room.basePrice,
+      currency: room.currency,
+      quantityTotal: room.quantityTotal,
+      quantityAvailable: room.quantityAvailable,
+      status: room.status,
+      sortOrder: room.sortOrder,
+    })
+  }
+
+  const saveRoomEdit = () => {
+    if (!editingRoomId) return
+    const roomId = editingRoomId
+    void run(async () => {
+      await api.updateRoom(serviceId, roomId, editRoomForm)
+      await refreshRooms()
+    })
+      .then(() => setEditingRoomId(null))
+      .catch(() => {})
+  }
+
+  const deleteRoom = (roomId: string) => {
+    if (!window.confirm('Delete this room type?')) return
+    void run(async () => {
+      await api.deleteRoom(serviceId, roomId)
+      await refreshRooms()
+    }).catch(() => {})
+  }
+
+  const uploadRoomImage = (roomId: string) => {
+    const input = roomFileInputRefs.current[roomId]
+    const file = input?.files?.[0]
+    if (!file) {
+      setErr('Choose an image file first')
+      return
+    }
+    const fd = new FormData()
+    fd.append('file', file)
+    void run(async () => {
+      await api.uploadRoomImage(serviceId, roomId, fd)
+      await refreshRooms()
+      if (input) input.value = ''
+    }).catch(() => {})
+  }
+
   const sections = menu?.sections ?? []
+
+  const refreshRooms = useCallback(async () => {
+    if (serviceType !== 'HOTEL') return
+    const res = await api.listRooms(serviceId)
+    setRooms(Array.isArray(res.data) ? res.data : [])
+  }, [api, serviceId, serviceType])
+
+  useEffect(() => {
+    if (open && serviceType === 'HOTEL') {
+      void refreshRooms().catch(() => {})
+    }
+  }, [open, refreshRooms, serviceType])
 
   return (
     <div className="mt-6">
@@ -607,6 +721,15 @@ export function ServiceDetailMediaEditor({
                                 )}
                               </div>
                               <div className="flex gap-2">
+                                <label className={btnSecondary}>
+                                  Upload image
+                                  <input
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp,image/gif"
+                                    className="hidden"
+                                    onChange={(e) => uploadItemImage(item.id, e.target.files?.[0] ?? null)}
+                                  />
+                                </label>
                                 <button
                                   type="button"
                                   className={btnSecondary}
@@ -675,6 +798,80 @@ export function ServiceDetailMediaEditor({
                         </button>
                       </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {serviceType === 'HOTEL' && (
+            <section>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Hotel rooms</h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Manage room types, inventory, and room photos.
+              </p>
+
+              <div className="mt-4 rounded border border-dashed border-slate-300 p-3 dark:border-slate-600">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Add room type</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  <input className={inputClass} placeholder="Room type (e.g. DELUXE)" value={newRoom.roomType}
+                    onChange={(e) => setNewRoom((r) => ({ ...r, roomType: e.target.value }))} />
+                  <input className={inputClass} placeholder="Room name" value={newRoom.roomName}
+                    onChange={(e) => setNewRoom((r) => ({ ...r, roomName: e.target.value }))} />
+                  <input type="number" className={inputClass} placeholder="Capacity" value={newRoom.capacity ?? 2}
+                    onChange={(e) => setNewRoom((r) => ({ ...r, capacity: Number.parseInt(e.target.value, 10) || 1 }))} />
+                  <input type="number" className={inputClass} placeholder="Total quantity" value={newRoom.quantityTotal ?? 0}
+                    onChange={(e) => setNewRoom((r) => ({ ...r, quantityTotal: Number.parseInt(e.target.value, 10) || 0 }))} />
+                  <input type="number" className={inputClass} placeholder="Available quantity" value={newRoom.quantityAvailable ?? 0}
+                    onChange={(e) => setNewRoom((r) => ({ ...r, quantityAvailable: Number.parseInt(e.target.value, 10) || 0 }))} />
+                  <input type="number" step="0.01" className={inputClass} placeholder="Base price"
+                    value={newRoom.basePrice ?? ''}
+                    onChange={(e) => setNewRoom((r) => ({ ...r, basePrice: e.target.value === '' ? undefined : Number.parseFloat(e.target.value) }))} />
+                </div>
+                <button type="button" className={`${btnPrimary} mt-2`} disabled={busy} onClick={addRoom}>Add room</button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {rooms.map((room) => (
+                  <div key={room.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                    {editingRoomId === room.id ? (
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <input className={inputClass} value={editRoomForm.roomType ?? ''} onChange={(e) => setEditRoomForm((f) => ({ ...f, roomType: e.target.value }))} />
+                        <input className={inputClass} value={editRoomForm.roomName ?? ''} onChange={(e) => setEditRoomForm((f) => ({ ...f, roomName: e.target.value }))} />
+                        <input type="number" className={inputClass} value={editRoomForm.capacity ?? 1} onChange={(e) => setEditRoomForm((f) => ({ ...f, capacity: Number.parseInt(e.target.value, 10) || 1 }))} />
+                        <input type="number" className={inputClass} value={editRoomForm.quantityTotal ?? 0} onChange={(e) => setEditRoomForm((f) => ({ ...f, quantityTotal: Number.parseInt(e.target.value, 10) || 0 }))} />
+                        <input type="number" className={inputClass} value={editRoomForm.quantityAvailable ?? 0} onChange={(e) => setEditRoomForm((f) => ({ ...f, quantityAvailable: Number.parseInt(e.target.value, 10) || 0 }))} />
+                        <div className="flex gap-2">
+                          <button type="button" className={btnPrimary} onClick={saveRoomEdit} disabled={busy}>Save</button>
+                          <button type="button" className={btnSecondary} onClick={() => setEditingRoomId(null)} disabled={busy}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            {room.roomName} ({room.roomType}) - {room.quantityAvailable}/{room.quantityTotal}
+                          </p>
+                          <div className="flex gap-2">
+                            <button type="button" className={btnSecondary} onClick={() => startEditRoom(room)} disabled={busy}>Edit</button>
+                            <button type="button" className={btnDanger} onClick={() => deleteRoom(room.id)} disabled={busy}>Delete</button>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <input
+                            ref={(el) => {
+                              roomFileInputRefs.current[room.id] = el
+                            }}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            className="text-sm"
+                          />
+                          <button type="button" className={btnSecondary} onClick={() => uploadRoomImage(room.id)} disabled={busy}>
+                            Upload room image
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

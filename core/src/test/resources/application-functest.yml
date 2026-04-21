@@ -1,5 +1,9 @@
 # Profile for true functional endpoint tests: full schema from Hibernate, seeded super-admin.
 spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
   docker:
     compose:
       enabled: false
@@ -25,6 +29,18 @@ server:
 # Super admin demo account is seeded with a bootstrap password from APP_DEMO_PASSWORD
 # (or a generated local/test password when not set).
 app:
+  rbac-catalog-validation:
+    enabled: false
   demo:
     super-admin:
       enabled: true
+
+# Hibernate-only schema: no Flyway tables such as sys_rate_limit_counters.
+ziyara:
+  password-policy:
+    min-zxcvbn-score: 0
+  rate-limit:
+    login:
+      enabled: false
+  reporting:
+    materialized-view-refresh-enabled: false

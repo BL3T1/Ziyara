@@ -258,6 +258,7 @@ export interface ServiceDto {
   maxGuests?: number
   createdAt?: string
   updatedAt?: string
+  rooms?: HotelRoomDto[]
 }
 
 export type ServiceImageCategoryDto = 'PROPERTY' | 'ROOM' | 'TRIP' | 'OTHER'
@@ -345,6 +346,62 @@ export interface UpdateMenuItemPayload {
   sortOrder?: number
 }
 
+export type HotelRoomStatusDto = 'ACTIVE' | 'INACTIVE'
+
+export interface HotelRoomImageDto {
+  id: string
+  roomId: string
+  url: string
+  altText?: string
+  primary: boolean
+  displayOrder: number
+}
+
+export interface HotelRoomDto {
+  id: string
+  serviceId: string
+  roomType: string
+  roomName: string
+  description?: string
+  capacity: number
+  basePrice?: number
+  currency?: string
+  quantityTotal: number
+  quantityAvailable: number
+  amenities?: Record<string, unknown>
+  status: HotelRoomStatusDto
+  sortOrder: number
+  images: HotelRoomImageDto[]
+}
+
+export interface CreateHotelRoomPayload {
+  roomType: string
+  roomName: string
+  description?: string
+  capacity: number
+  basePrice?: number
+  currency?: string
+  quantityTotal: number
+  quantityAvailable: number
+  amenities?: Record<string, unknown>
+  status?: HotelRoomStatusDto
+  sortOrder?: number
+}
+
+export interface UpdateHotelRoomPayload {
+  roomType?: string
+  roomName?: string
+  description?: string
+  capacity?: number
+  basePrice?: number
+  currency?: string
+  quantityTotal?: number
+  quantityAvailable?: number
+  amenities?: Record<string, unknown>
+  status?: HotelRoomStatusDto
+  sortOrder?: number
+}
+
 // Providers
 export interface ServiceProviderDto {
   id: string
@@ -353,6 +410,8 @@ export interface ServiceProviderDto {
   phone?: string
   email?: string
   address?: string
+  description?: string
+  logoUrl?: string
   rating?: number
   status: string
   verified?: boolean
@@ -374,9 +433,32 @@ export interface CreateServiceProviderPayload {
   type?: string
   registrationNumber?: string
   description?: string
+  logoUrl?: string
   managerEmail?: string
   managerPassword?: string
   managerPhone?: string
+}
+
+/** PUT /providers/{id} (company staff); partial updates — include fields to change */
+export type ProviderStatusDto =
+  | 'PENDING_APPROVAL'
+  | 'PENDING_VERIFICATION'
+  | 'ACTIVE'
+  | 'SUSPENDED'
+  | 'INACTIVE'
+  | 'REJECTED'
+  | 'BLOCKED'
+
+export interface UpdateServiceProviderPayload {
+  name?: string
+  phone?: string
+  email?: string
+  address?: string
+  description?: string
+  logoUrl?: string
+  status?: ProviderStatusDto
+  verified?: boolean
+  commissionRate?: number
 }
 
 /** PUT /providers/me (partial update; null/omit = unchanged on server) */
@@ -386,7 +468,6 @@ export interface UpdateProviderMePayload {
   email?: string
   address?: string
   description?: string
-  website?: string
   logoUrl?: string
 }
 

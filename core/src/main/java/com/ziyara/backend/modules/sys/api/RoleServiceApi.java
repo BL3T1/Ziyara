@@ -1,6 +1,7 @@
 package com.ziyara.backend.modules.sys.api;
 
 import com.ziyara.backend.application.dto.request.CreateGroupRequest;
+import com.ziyara.backend.application.dto.request.UpdateGroupRequest;
 import com.ziyara.backend.application.dto.request.CreateRoleRequest;
 import com.ziyara.backend.application.dto.request.DeleteRoleRequest;
 import com.ziyara.backend.application.dto.request.UpdateRoleNavigationRequest;
@@ -34,6 +35,10 @@ public interface RoleServiceApi {
     List<GroupResponse> getGroups();
 
     GroupResponse createGroup(CreateGroupRequest request, UUID currentUserId);
+
+    GroupResponse updateGroup(UUID groupId, UpdateGroupRequest request, UUID currentUserId);
+
+    void deleteGroup(UUID groupId, UUID currentUserId);
 
     List<GroupSummaryResponse> listGroupSummaries();
 

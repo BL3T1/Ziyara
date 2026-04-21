@@ -2,6 +2,9 @@ package com.ziyara.backend.application.service;
 
 import com.ziyara.backend.application.dto.request.UpsertFeatureFlagRequest;
 import com.ziyara.backend.application.dto.response.FeatureFlagResponse;
+import com.ziyara.backend.domain.enums.NotificationType;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import com.ziyara.backend.infrastructure.persistence.entity.FeatureFlagJpaEntity;
 import com.ziyara.backend.infrastructure.persistence.repository.FeatureFlagJpaRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +23,7 @@ public class FeatureFlagService {
 
     private final FeatureFlagJpaRepository repository;
     private final AuditLogService auditLogService;
+    private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
 
     @Transactional(readOnly = true)
     public List<FeatureFlagResponse> listAll() {
@@ -55,6 +59,14 @@ public class FeatureFlagService {
                 null,
                 null
         );
+        staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                .eventId(UUID.randomUUID())
+                .notificationType(NotificationType.SYSTEM_ALERT.name())
+                .title("Feature flag updated")
+                .message("Flag " + key + " is now enabled=" + saved.isEnabled())
+                .notifyRoles(List.of("CEO", "GENERAL_MANAGER", "SUPER_ADMIN"))
+                .metadata("{\"flagKey\":\"" + key + "\"}")
+                .build());
         return toResponse(saved);
     }
 

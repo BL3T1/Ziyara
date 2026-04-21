@@ -26,6 +26,7 @@ export function SalesProvidersPage() {
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [filter, setFilter] = useState<'PENDING_APPROVAL' | null>('PENDING_APPROVAL')
+  const [reloadToken, setReloadToken] = useState(0)
 
   const load = () => {
     setLoading(true)
@@ -49,7 +50,7 @@ export function SalesProvidersPage() {
 
   useEffect(() => {
     load()
-  }, [filter, page])
+  }, [filter, page, reloadToken])
 
   return (
     <>
@@ -152,7 +153,10 @@ export function SalesProvidersPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         variant="sales"
-        onCreated={() => load()}
+        onCreated={() => {
+          setPage(0)
+          setReloadToken((x) => x + 1)
+        }}
       />
     </>
   )

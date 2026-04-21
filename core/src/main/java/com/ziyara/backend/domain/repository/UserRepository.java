@@ -45,4 +45,7 @@ public interface UserRepository {
     long count();
     long countByStatus(UserStatus status);
     long countByRole(UserRole role);
+
+    /** Active (non-deleted) users with any of the given roles and status. */
+    List<UUID> findActiveDirectoryUserIdsByRoles(Collection<UserRole> roles, UserStatus status);
 }

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,4 +48,8 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, UUID> {
     
     @Query("SELECT u FROM UserJpaEntity u WHERE u.deletedAt IS NULL")
     List<UserJpaEntity> findAllActive();
+
+    @Query("select distinct u.id from UserJpaEntity u where u.role in :roles and u.status = :status")
+    List<UUID> findDistinctIdsByRoleInAndStatus(@Param("roles") Collection<UserRole> roles,
+                                                @Param("status") UserStatus status);
 }

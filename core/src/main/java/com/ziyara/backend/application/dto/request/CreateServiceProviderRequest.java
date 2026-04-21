@@ -51,4 +51,7 @@ public class CreateServiceProviderRequest {
     
     @Schema(description = "Provider description")
     private String description;
+
+    @Schema(description = "Logo image URL (optional)")
+    private String logoUrl;
 }

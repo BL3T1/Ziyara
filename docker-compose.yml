@@ -1,3 +1,5 @@
+# Run from the repo root (folder with this file) so Docker Compose loads `.env` next to this file.
+# If POSTGRES_PASSWORD changes, use `docker compose ... down -v` once so Postgres re-inits the volume.
 services:
   # =============================================================================
   # DATABASE SERVICE - PostgreSQL
@@ -28,6 +30,31 @@ services:
       start_period: 30s
 
   # =============================================================================
+  # KAFKA (KRaft single node) — staff notification pipeline
+  # =============================================================================
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: ziyarah-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    ports:
+      - "9092:9092"
+    networks:
+      - ziyarah-network
+
+  # =============================================================================
   # BACKEND SERVICE - Spring Boot
   # =============================================================================
   backend:
@@ -42,9 +69,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ziyarah
       SPRING_DATASOURCE_USERNAME: ziyarah_user
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
-      SPRING_DATASOURCE_DRIVER-CLASS-NAME: org.postgresql.Driver
-      SPRING_JPA_HIBERNATE_DDL-AUTO: update
-      SPRING_JPA_SHOW-SQL: "false"
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      # Schema comes from database image init scripts (see database/Dockerfile). Hibernate update is slow and can time out Hikari during metadata.
+      SPRING_JPA_HIBERNATE_DDL_AUTO: none
+      SPRING_JPA_SHOW_SQL: "false"
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       APP_DEMO_PASSWORD: ${APP_DEMO_PASSWORD:-Demo123!}
       JWT_EXPIRATION: 86400000
@@ -60,6 +88,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      kafka:
+        condition: service_started
     networks:
       - ziyarah-network
     healthcheck:

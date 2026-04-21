@@ -32,4 +32,7 @@ public class AuthRequest {
     
     @Schema(description = "Remember me flag", example = "false")
     private Boolean rememberMe = false;
+
+    @Schema(description = "TOTP code when MFA is enabled on the account", example = "123456")
+    private String mfaCode;
 }

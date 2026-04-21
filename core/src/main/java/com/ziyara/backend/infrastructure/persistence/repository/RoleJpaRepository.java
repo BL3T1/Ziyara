@@ -11,5 +11,10 @@ import java.util.UUID;
 public interface RoleJpaRepository extends JpaRepository<RoleJpaEntity, UUID> {
     Optional<RoleJpaEntity> findByCode(String code);
     List<RoleJpaEntity> findAllByOrderByNameAsc();
+
+    List<RoleJpaEntity> findByGroupIdOrderByNameAsc(UUID groupId);
+
+    List<RoleJpaEntity> findByGroupIdIsNullOrderByNameAsc();
+
     boolean existsByCode(String code);
 }

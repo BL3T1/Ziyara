@@ -14,7 +14,7 @@ import java.util.UUID;
  * Response body for successful authentication
  */
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "Authentication response")

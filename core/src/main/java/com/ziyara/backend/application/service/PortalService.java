@@ -3,10 +3,12 @@ package com.ziyara.backend.application.service;
 import com.ziyara.backend.application.dto.BookingResponse;
 import com.ziyara.backend.application.dto.request.CreateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.CreateMenuSectionRequest;
+import com.ziyara.backend.application.dto.request.CreateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuSectionRequest;
+import com.ziyara.backend.application.dto.request.UpdateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceRequest;
 import com.ziyara.backend.application.dto.response.PortalDashboardResponse;
@@ -14,6 +16,8 @@ import com.ziyara.backend.application.dto.response.PortalEarningsResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuItemResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuSectionResponse;
+import com.ziyara.backend.application.dto.response.HotelRoomImageResponse;
+import com.ziyara.backend.application.dto.response.HotelRoomResponse;
 import com.ziyara.backend.application.dto.response.ServiceImageResponse;
 import com.ziyara.backend.application.dto.response.ServiceResponse;
 import com.ziyara.backend.application.query.ServiceQueryHandler;
@@ -55,6 +59,7 @@ public class PortalService {
     private final ServiceService serviceService;
     private final ServiceImageService serviceImageService;
     private final RestaurantMenuService restaurantMenuService;
+    private final HotelRoomService hotelRoomService;
 
     @Transactional(readOnly = true)
     public PortalDashboardResponse getDashboard(UUID providerId) {
@@ -201,6 +206,58 @@ public class PortalService {
     public void deleteMenuItem(UUID providerId, UUID serviceId, UUID itemId) {
         assertProviderOwnsService(providerId, serviceId);
         restaurantMenuService.deleteItem(serviceId, itemId);
+    }
+
+    @Transactional
+    public RestaurantMenuItemResponse uploadMenuItemImage(
+            UUID providerId,
+            UUID serviceId,
+            UUID itemId,
+            byte[] fileBytes,
+            String contentType,
+            String originalFilename) {
+        assertProviderOwnsService(providerId, serviceId);
+        return restaurantMenuService.uploadItemImage(serviceId, itemId, fileBytes, contentType, originalFilename);
+    }
+
+    @Transactional(readOnly = true)
+    public List<HotelRoomResponse> getHotelRooms(UUID providerId, UUID serviceId) {
+        assertProviderOwnsService(providerId, serviceId);
+        return hotelRoomService.listByService(serviceId);
+    }
+
+    @Transactional
+    public HotelRoomResponse createHotelRoom(UUID providerId, UUID serviceId, CreateHotelRoomRequest request) {
+        assertProviderOwnsService(providerId, serviceId);
+        return hotelRoomService.create(serviceId, request);
+    }
+
+    @Transactional
+    public HotelRoomResponse updateHotelRoom(
+            UUID providerId, UUID serviceId, UUID roomId, UpdateHotelRoomRequest request) {
+        assertProviderOwnsService(providerId, serviceId);
+        return hotelRoomService.update(serviceId, roomId, request);
+    }
+
+    @Transactional
+    public void deleteHotelRoom(UUID providerId, UUID serviceId, UUID roomId) {
+        assertProviderOwnsService(providerId, serviceId);
+        hotelRoomService.delete(serviceId, roomId);
+    }
+
+    @Transactional
+    public HotelRoomImageResponse uploadRoomImage(
+            UUID providerId,
+            UUID serviceId,
+            UUID roomId,
+            byte[] fileBytes,
+            String contentType,
+            String originalFilename,
+            String altText,
+            Boolean primary) {
+        assertProviderOwnsService(providerId, serviceId);
+        return hotelRoomService.uploadRoomImage(
+                serviceId, roomId, fileBytes, contentType, originalFilename, altText, primary);
     }
 
     @Transactional(readOnly = true)

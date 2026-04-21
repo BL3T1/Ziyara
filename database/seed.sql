@@ -22,13 +22,13 @@ ON CONFLICT DO NOTHING;
 
 -- Groups (sys_ after 015)
 INSERT INTO sys_groups (id, name, code, description) VALUES
-('b0000000-0000-0000-0000-000000000001', 'Executive', 'G1', 'Executive group'),
-('b0000000-0000-0000-0000-000000000002', 'Sales', 'G2', 'Sales group'),
-('b0000000-0000-0000-0000-000000000003', 'Finance', 'G3', 'Finance group'),
-('b0000000-0000-0000-0000-000000000004', 'Support', 'G4', 'Customer support and service operations'),
-('b0000000-0000-0000-0000-000000000005', 'HR & People', 'G5', 'Human resources and internal people operations'),
-('b0000000-0000-0000-0000-000000000006', 'Provider Partner', 'G6', 'Partner and provider-facing accounts'),
-('b0000000-0000-0000-0000-000000000007', 'B2C Customers', 'G7', 'End-customer accounts (bookings and profile)')
+('b0000000-0000-0000-0000-000000000001', 'Executive', 'Z1', 'Executive group'),
+('b0000000-0000-0000-0000-000000000002', 'Sales', 'Z2', 'Sales group'),
+('b0000000-0000-0000-0000-000000000003', 'Finance', 'Z3', 'Finance group'),
+('b0000000-0000-0000-0000-000000000004', 'Support', 'Z4', 'Customer support and service operations'),
+('b0000000-0000-0000-0000-000000000005', 'HR & People', 'Z5', 'Human resources and internal people operations'),
+('b0000000-0000-0000-0000-000000000006', 'Provider Partner', 'Z6', 'Partner and provider-facing accounts'),
+('b0000000-0000-0000-0000-000000000007', 'B2C Customers', 'Z7', 'End-customer accounts (bookings and profile)')
 ON CONFLICT DO NOTHING;
 
 -- Roles (sys_ after 015) — one row per UserRole enum, each tied to an organizational group

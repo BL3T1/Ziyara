@@ -14,8 +14,20 @@ const ServiceDetailPage = lazy(() =>
   import('../../pages/services/ServiceDetailPage').then((m) => ({ default: m.ServiceDetailPage })),
 )
 const UsersPage = lazy(() => import('../../pages/management/UsersPage').then((m) => ({ default: m.UsersPage })))
+const GroupMembersPage = lazy(() =>
+  import('../../pages/management/GroupMembersPage').then((m) => ({ default: m.GroupMembersPage })),
+)
+const StaffUserDetailPage = lazy(() =>
+  import('../../pages/management/StaffUserDetailPage').then((m) => ({ default: m.StaffUserDetailPage })),
+)
 const ProvidersPage = lazy(() =>
   import('../../pages/management/ProvidersPage').then((m) => ({ default: m.ProvidersPage })),
+)
+const CreateProviderPage = lazy(() =>
+  import('../../pages/management/CreateProviderPage').then((m) => ({ default: m.CreateProviderPage })),
+)
+const EditProviderPage = lazy(() =>
+  import('../../pages/management/EditProviderPage').then((m) => ({ default: m.EditProviderPage })),
 )
 const BookingsPage = lazy(() =>
   import('../../pages/management/BookingsPage').then((m) => ({ default: m.BookingsPage })),
@@ -90,6 +102,10 @@ export function AppCompanyRoutes() {
             <Route path="/restaurants/:id" element={<ServiceDetailPage />} />
             <Route path="/trips/:id" element={<ServiceDetailPage />} />
             <Route path="/management/users" element={<UsersPage />} />
+            <Route path="/management/groups/:groupId/members" element={<GroupMembersPage />} />
+            <Route path="/management/staff/:userId" element={<StaffUserDetailPage />} />
+            <Route path="/management/providers/new" element={<CreateProviderPage />} />
+            <Route path="/management/providers/:providerId" element={<EditProviderPage />} />
             <Route path="/management/providers" element={<ProvidersPage />} />
             <Route path="/management/bookings" element={<BookingsPage />} />
             <Route path="/management/payments" element={<PaymentsPage />} />

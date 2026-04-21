@@ -21,7 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,19 +35,36 @@ public class PortalStaffService {
     private final UserJpaRepository userJpaRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserRbacAssignmentService userRbacAssignmentService;
+    private final PasswordPolicyService passwordPolicyService;
 
     @Transactional(readOnly = true)
     public List<PortalStaffMemberResponse> listStaff(UUID providerId) {
         ServiceProviderJpaEntity provider = serviceProviderJpaRepository.findById(providerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
-        List<PortalStaffMemberResponse> out = new ArrayList<>();
+        List<ProviderStaffJpaEntity> links = providerStaffJpaRepository.findByProviderIdOrderByCreatedAtAsc(providerId);
         UUID ownerId = provider.getCreatedBy();
+        List<UUID> ids = new ArrayList<>();
         if (ownerId != null) {
-            userJpaRepository.findById(ownerId).ifPresent(u -> out.add(mapUser(u, true, null, null, u.getCreatedAt())));
+            ids.add(ownerId);
         }
-        for (ProviderStaffJpaEntity link : providerStaffJpaRepository.findByProviderIdOrderByCreatedAtAsc(providerId)) {
-            userJpaRepository.findById(link.getUserId()).ifPresent(u ->
-                    out.add(mapUser(u, false, link.getId(), link.getTitle(), link.getCreatedAt())));
+        for (ProviderStaffJpaEntity link : links) {
+            ids.add(link.getUserId());
+        }
+        Map<UUID, UserJpaEntity> usersById = userJpaRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(UserJpaEntity::getId, Function.identity(), (a, b) -> a));
+
+        List<PortalStaffMemberResponse> out = new ArrayList<>();
+        if (ownerId != null) {
+            UserJpaEntity u = usersById.get(ownerId);
+            if (u != null) {
+                out.add(mapUser(u, true, null, null, u.getCreatedAt()));
+            }
+        }
+        for (ProviderStaffJpaEntity link : links) {
+            UserJpaEntity u = usersById.get(link.getUserId());
+            if (u != null) {
+                out.add(mapUser(u, false, link.getId(), link.getTitle(), link.getCreatedAt()));
+            }
         }
         return out;
     }
@@ -108,6 +128,8 @@ public class PortalStaffService {
         if (request.getPhone() != null && !request.getPhone().isBlank() && userJpaRepository.existsByPhone(request.getPhone())) {
             throw new BusinessException("User with phone already exists");
         }
+
+        passwordPolicyService.assertAcceptable(request.getPassword());
 
         UserJpaEntity user = UserJpaEntity.builder()
                 .email(email)

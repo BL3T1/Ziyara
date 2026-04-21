@@ -20,7 +20,7 @@ export function LandingContactPage() {
 
   const isFormValid = useMemo(
     () => name.trim().length > 1 && email.includes('@') && company.trim().length > 1 && message.trim().length > 10,
-    [name, email, company, message]
+    [name, email, company, message],
   )
 
   const handleContactSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -50,70 +50,66 @@ export function LandingContactPage() {
   }
 
   return (
-    <section className="landing-3d-stage landing-scroll-parallax relative grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-      <Card className="landing-3d-card h-full bg-gradient-to-br from-white/90 via-white to-primary/[0.08] dark:from-slate-900/80 dark:via-slate-900/75 dark:to-primary/[0.16]">
-        <p className="landing-fade-up text-xs font-semibold uppercase tracking-[0.12em] text-secondary">
-          {pageText('eyebrow', t('landingBusiness.contactEyebrow'))}
-        </p>
-        <h1 className="landing-fade-up landing-fade-up-delay-1 font-display mt-3 text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+    <section className="landing-scroll-parallax grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+      <Card surface="landing" className="landing-fade-up h-full !rounded-[28px] !p-8">
+        <p className="lp-eyebrow lp-eyebrow--tight">{pageText('eyebrow', t('landingBusiness.contactEyebrow'))}</p>
+        <h1 className="lp-h1" style={{ marginTop: 12 }}>
           {pageText('title', t('landingBusiness.contactTitle'))}
         </h1>
-        <p className="landing-fade-up landing-fade-up-delay-2 mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+        <p className="lp-body" style={{ marginTop: 14 }}>
           {pageText('body', t('landingBusiness.contactBody'))}
         </p>
-        <div className="mt-8 space-y-3 text-sm">
-          <div className="rounded-xl border border-slate-200/80 bg-white/75 px-4 py-3 dark:border-slate-700/70 dark:bg-slate-800/60">
-            <p className="font-semibold text-slate-800 dark:text-slate-200">Response time</p>
-            <p className="text-slate-600 dark:text-slate-400">Usually within one business day.</p>
+        <div className="space-y-3" style={{ marginTop: 28 }}>
+          <div className="lp-search-cell">
+            <p className="lp-label">Response time</p>
+            <p className="lp-value" style={{ fontWeight: 500, fontSize: 14 }}>
+              Usually within one business day.
+            </p>
           </div>
-          <div className="rounded-xl border border-slate-200/80 bg-white/75 px-4 py-3 dark:border-slate-700/70 dark:bg-slate-800/60">
-            <p className="font-semibold text-slate-800 dark:text-slate-200">Coverage</p>
-            <p className="text-slate-600 dark:text-slate-400">
+          <div className="lp-search-cell">
+            <p className="lp-label">Coverage</p>
+            <p className="lp-value" style={{ fontWeight: 500, fontSize: 14 }}>
               {totalCities ? `${totalCities} active cities with ${totalServices} listings in the database.` : 'Makkah, Madinah, Jeddah and nearby cities.'}
             </p>
           </div>
         </div>
       </Card>
-      <Card className="landing-3d-card bg-white/95 dark:bg-slate-900/70">
+      <Card surface="landing" className="landing-fade-up landing-fade-up-delay-1 !rounded-[28px] !p-8">
         <form onSubmit={handleContactSubmit} className="space-y-3">
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder={t('landingBusiness.contactName')}
-            className="w-full rounded-xl border border-slate-300/90 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none ring-primary/30 transition focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            className="lp-input"
           />
           <input
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder={t('landingBusiness.contactEmail')}
-            className="w-full rounded-xl border border-slate-300/90 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none ring-primary/30 transition focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            className="lp-input"
           />
           <input
             value={company}
             onChange={(event) => setCompany(event.target.value)}
             placeholder={t('landingBusiness.contactCompany')}
-            className="w-full rounded-xl border border-slate-300/90 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none ring-primary/30 transition focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            className="lp-input"
           />
           <textarea
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             placeholder={t('landingBusiness.contactMessage')}
             rows={4}
-            className="w-full rounded-xl border border-slate-300/90 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none ring-primary/30 transition focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            className="lp-input min-h-[7rem] resize-y"
           />
-          <button
-            type="submit"
-            disabled={!isFormValid || submitting}
-            className="inline-flex rounded-2xl bg-gradient-to-br from-primary to-primary/90 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary/25 ring-1 ring-white/10 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <button type="submit" disabled={!isFormValid || submitting} className="lp-btn lp-btn-primary lp-btn-sm w-full sm:w-auto">
             {submitting ? t('landingBusiness.contactSending') : t('landingBusiness.contactSubmit')}
           </button>
           {submitError ? (
-            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+            <p className="text-sm text-red-700" role="alert">
               {submitError}
             </p>
           ) : null}
-          {showSuccess ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{t('landingBusiness.contactSuccess')}</p> : null}
+          {showSuccess ? <p className="text-sm text-emerald-800">{t('landingBusiness.contactSuccess')}</p> : null}
         </form>
       </Card>
     </section>

@@ -32,7 +32,7 @@ function getIconForPortalItem(item: SidebarItem) {
 }
 
 function PortalSidebar() {
-  const { sidebarCollapsed } = useLayout()
+  const { sidebarCollapsed, setSidebarCollapsed } = useLayout()
   const { t, locale } = useLanguage()
   const isRtl = locale === 'ar'
 
@@ -59,7 +59,15 @@ function PortalSidebar() {
           className="pointer-events-none absolute inset-x-3 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent"
           aria-hidden
         />
-        <Logo compact className="relative z-[1] drop-shadow-sm" />
+        <Logo
+          compact
+          className="relative z-[1] drop-shadow-sm"
+          expandAction={
+            sidebarCollapsed
+              ? { onClick: () => setSidebarCollapsed(false), ariaLabel: t('common.expandSidebar') }
+              : undefined
+          }
+        />
       </div>
       <nav
         className="sidebar-nav relative z-[1] min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-6 sm:px-3.5"

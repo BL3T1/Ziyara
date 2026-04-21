@@ -3,7 +3,12 @@ package com.ziyara.backend.application.command;
 import com.ziyara.backend.application.dto.request.CreateUserRequest;
 import com.ziyara.backend.application.dto.request.UpdateUserRequest;
 import com.ziyara.backend.application.service.CompanyStaffRoleCatalogService;
+import com.ziyara.backend.application.service.PasswordHistoryService;
+import com.ziyara.backend.application.service.PasswordPolicyService;
 import com.ziyara.backend.application.service.UserRbacAssignmentService;
+import com.ziyara.backend.domain.enums.NotificationType;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import com.ziyara.backend.domain.entity.Role;
 import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.enums.UserRole;
@@ -15,6 +20,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -31,6 +38,9 @@ public class UserCommandHandler {
     private final PasswordEncoder passwordEncoder;
     private final UserRbacAssignmentService userRbacAssignmentService;
     private final CompanyStaffRoleCatalogService companyStaffRoleCatalogService;
+    private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
+    private final PasswordHistoryService passwordHistoryService;
+    private final PasswordPolicyService passwordPolicyService;
 
     /**
      * Company dashboard / HR: internal staff via legacy {@code role} enum or unified {@code primaryRbacRoleId}.
@@ -60,7 +70,16 @@ public class UserCommandHandler {
             resolvedRole = companyStaffRoleCatalogService.resolveSecurityUserRoleForPrimaryRbacRole(rbac);
             primaryRbacRoleId = rbac.getId();
         }
-        return createInternal(request, resolvedRole, primaryRbacRoleId);
+        User saved = createInternal(request, resolvedRole, primaryRbacRoleId);
+        staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                .eventId(UUID.randomUUID())
+                .notificationType(NotificationType.STAFF_USER_CREATED.name())
+                .title("New staff user")
+                .message("A company staff account was created: " + saved.getEmail())
+                .notifyRoles(List.of("HR_MANAGER", "SUPER_ADMIN"))
+                .metadata("{\"userId\":\"" + saved.getId() + "\"}")
+                .build());
+        return saved;
     }
 
     /**
@@ -85,6 +104,8 @@ public class UserCommandHandler {
         if (request.getPhone() != null && !request.getPhone().isBlank() && userRepository.existsByPhone(request.getPhone())) {
             throw new IllegalArgumentException("User with phone already exists");
         }
+
+        passwordPolicyService.assertAcceptable(request.getPassword());
 
         User user = new User();
         // Do not set id - let JPA generate it so persist() is used for new users
@@ -166,6 +187,13 @@ public class UserCommandHandler {
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
         user.freeze();
         userRepository.save(user);
+        staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                .eventId(UUID.randomUUID())
+                .notificationType(NotificationType.SYSTEM_ALERT.name())
+                .title("Account blocked")
+                .message("Your company dashboard account has been blocked. Contact HR or Super Admin if this is unexpected.")
+                .recipientUserId(id)
+                .build());
     }
 
     @Transactional
@@ -178,20 +206,30 @@ public class UserCommandHandler {
 
     @Transactional
     public void resetPassword(UUID id, String newPassword) {
+        passwordPolicyService.assertAcceptable(newPassword);
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
+        passwordHistoryService.assertPasswordNotReused(id, newPassword, passwordEncoder, user.getPasswordHash());
+        passwordHistoryService.recordPasswordRotation(id, user.getPasswordHash());
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setLastPasswordChange(LocalDateTime.now());
+        user.incrementTokenVersion();
         userRepository.save(user);
     }
 
     @Transactional
     public void changePassword(UUID id, String currentPassword, String newPassword) {
+        passwordPolicyService.assertAcceptable(newPassword);
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
             throw new IllegalArgumentException("Current password is incorrect");
         }
+        passwordHistoryService.assertPasswordNotReused(id, newPassword, passwordEncoder, user.getPasswordHash());
+        passwordHistoryService.recordPasswordRotation(id, user.getPasswordHash());
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setLastPasswordChange(LocalDateTime.now());
+        user.incrementTokenVersion();
         userRepository.save(user);
     }
 }

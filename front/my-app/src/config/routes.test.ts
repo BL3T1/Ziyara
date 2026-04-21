@@ -15,15 +15,26 @@ describe('getPageTitleForPath', () => {
   it('has titles for main dashboard routes', () => {
     expect(ROUTE_TITLES['/dashboard']).toBeDefined()
     expect(ROUTE_TITLES['/management/providers']).toBe('Providers')
+    expect(ROUTE_TITLES['/management/providers/new']).toBe('New provider')
     expect(ROUTE_TITLES['/support/complaints']).toBe('Complaints')
   })
 })
 
 describe('getPageTitleKeyForPath', () => {
+  it('resolves create provider route', () => {
+    expect(getPageTitleKeyForPath('/management/providers/new')).toBe('title.providerNew')
+  })
+
   it('resolves provider portal listing routes', () => {
     expect(getPageTitleKeyForPath('/portal/listings/new')).toBe('title.listingNew')
     expect(getPageTitleKeyForPath('/portal/listings')).toBe('title.listings')
     expect(getPageTitleKeyForPath('/portal/listings/550e8400-e29b-41d4-a716-446655440000')).toBe('title.listingEdit')
+  })
+
+  it('resolves management provider edit route by UUID', () => {
+    expect(getPageTitleKeyForPath('/management/providers/550e8400-e29b-41d4-a716-446655440000')).toBe('title.providerEdit')
+    expect(getPageTitleForPath('/management/providers/550e8400-e29b-41d4-a716-446655440000')).toBe('Edit provider')
+    expect(getPageIconForPath('/management/providers/550e8400-e29b-41d4-a716-446655440000')).toBe('providers')
   })
 })
 

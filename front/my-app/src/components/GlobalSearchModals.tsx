@@ -222,7 +222,7 @@ export function GlobalSearchModal({ open, onClose }: { open: boolean; onClose: (
           navigate(`/management/bookings?bookingId=${encodeURIComponent(h.id)}`)
           break
         case 'provider':
-          navigate('/management/providers')
+          navigate(`/management/providers/${encodeURIComponent(h.id)}`)
           break
         case 'service':
           navigate(`/services/${serviceTypeToListingsPath(h.serviceType)}/${h.id}`)

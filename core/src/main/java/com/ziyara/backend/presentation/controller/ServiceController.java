@@ -3,8 +3,10 @@ package com.ziyara.backend.presentation.controller;
 import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.request.CreateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.CreateMenuSectionRequest;
+import com.ziyara.backend.application.dto.request.CreateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceRequest;
+import com.ziyara.backend.application.dto.request.UpdateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuSectionRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceImageRequest;
@@ -12,11 +14,14 @@ import com.ziyara.backend.application.dto.request.UpdateServiceRequest;
 import com.ziyara.backend.application.dto.response.RestaurantMenuItemResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuSectionResponse;
+import com.ziyara.backend.application.dto.response.HotelRoomImageResponse;
+import com.ziyara.backend.application.dto.response.HotelRoomResponse;
 import com.ziyara.backend.application.dto.response.ServiceAvailabilityResponse;
 import com.ziyara.backend.application.dto.response.ServiceImageResponse;
 import com.ziyara.backend.application.dto.response.ServiceResponse;
 import com.ziyara.backend.application.query.ServiceQueryHandler;
 import com.ziyara.backend.application.service.RestaurantMenuService;
+import com.ziyara.backend.application.service.HotelRoomService;
 import com.ziyara.backend.application.service.ServiceImageService;
 import com.ziyara.backend.application.service.ServiceService;
 import com.ziyara.backend.domain.entity.Booking;
@@ -71,6 +76,7 @@ public class ServiceController {
     private final ServiceQueryHandler serviceQueryHandler;
     private final ServiceImageService serviceImageService;
     private final RestaurantMenuService restaurantMenuService;
+    private final HotelRoomService hotelRoomService;
     private final BookingRepository bookingRepository;
 
     private static final Set<BookingStatus> NON_OCCUPYING_STATUSES = Set.of(
@@ -241,6 +247,60 @@ public class ServiceController {
         return ResponseEntity.ok(ApiResponse.success(restaurantMenuService.getMenu(id)));
     }
 
+    @GetMapping("/{id}/rooms")
+    @Operation(summary = "List hotel rooms", description = "HOTEL services only")
+    public ResponseEntity<ApiResponse<List<HotelRoomResponse>>> listRooms(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(hotelRoomService.listByService(id)));
+    }
+
+    @PostMapping("/{id}/rooms")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Create hotel room", description = "HOTEL services only (company staff)")
+    public ResponseEntity<ApiResponse<HotelRoomResponse>> createRoom(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateHotelRoomRequest request) {
+        HotelRoomResponse created = hotelRoomService.create(id, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Room created", created));
+    }
+
+    @PutMapping("/{id}/rooms/{roomId}")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Update hotel room", description = "HOTEL services only (company staff)")
+    public ResponseEntity<ApiResponse<HotelRoomResponse>> updateRoom(
+            @PathVariable UUID id,
+            @PathVariable UUID roomId,
+            @Valid @RequestBody UpdateHotelRoomRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(hotelRoomService.update(id, roomId, request)));
+    }
+
+    @DeleteMapping("/{id}/rooms/{roomId}")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Delete hotel room", description = "HOTEL services only (company staff)")
+    public ResponseEntity<ApiResponse<Void>> deleteRoom(@PathVariable UUID id, @PathVariable UUID roomId) {
+        hotelRoomService.delete(id, roomId);
+        return ResponseEntity.ok(ApiResponse.success("Room deleted", null));
+    }
+
+    @PostMapping(value = "/{id}/rooms/{roomId}/images/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Upload room image", description = "HOTEL services only")
+    public ResponseEntity<ApiResponse<HotelRoomImageResponse>> uploadRoomImage(
+            @PathVariable UUID id,
+            @PathVariable UUID roomId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) String altText,
+            @RequestParam(required = false) Boolean primary) {
+        final byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException("Could not read uploaded file");
+        }
+        HotelRoomImageResponse created = hotelRoomService.uploadRoomImage(
+                id, roomId, bytes, file.getContentType(), file.getOriginalFilename(), altText, primary);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Room image uploaded", created));
+    }
+
     @PostMapping("/{id}/menu/sections")
     @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Create menu section", description = "RESTAURANT services only (company staff)")
@@ -288,6 +348,24 @@ public class ServiceController {
             @PathVariable UUID itemId,
             @Valid @RequestBody UpdateMenuItemRequest request) {
         return ResponseEntity.ok(ApiResponse.success(restaurantMenuService.updateItem(id, itemId, request)));
+    }
+
+    @PostMapping(value = "/{id}/menu/items/{itemId}/image/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Upload menu item image", description = "RESTAURANT services only (company staff)")
+    public ResponseEntity<ApiResponse<RestaurantMenuItemResponse>> uploadMenuItemImage(
+            @PathVariable UUID id,
+            @PathVariable UUID itemId,
+            @RequestParam("file") MultipartFile file) {
+        final byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException("Could not read uploaded file");
+        }
+        RestaurantMenuItemResponse updated = restaurantMenuService.uploadItemImage(
+                id, itemId, bytes, file.getContentType(), file.getOriginalFilename());
+        return ResponseEntity.ok(ApiResponse.success("Item image uploaded", updated));
     }
 
     @DeleteMapping("/{id}/menu/items/{itemId}")

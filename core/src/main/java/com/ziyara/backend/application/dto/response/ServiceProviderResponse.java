@@ -40,6 +40,12 @@ public class ServiceProviderResponse {
     
     @Schema(description = "Address")
     private String address;
+
+    @Schema(description = "Public description")
+    private String description;
+
+    @Schema(description = "Logo image URL")
+    private String logoUrl;
     
     @Schema(description = "Rating (0-5)")
     private Double rating;

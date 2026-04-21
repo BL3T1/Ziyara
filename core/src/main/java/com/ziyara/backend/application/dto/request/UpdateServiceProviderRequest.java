@@ -33,9 +33,6 @@ public class UpdateServiceProviderRequest {
     @Schema(description = "Updated status")
     private ProviderStatus status;
     
-    @Schema(description = "Updated website")
-    private String website;
-    
     @Schema(description = "Updated logo URL")
     private String logoUrl;
     

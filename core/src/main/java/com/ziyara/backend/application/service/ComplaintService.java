@@ -3,8 +3,11 @@ package com.ziyara.backend.application.service;
 import com.ziyara.backend.application.dto.request.*;
 import com.ziyara.backend.application.dto.response.ComplaintResponse;
 import com.ziyara.backend.domain.entity.Complaint;
+import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.domain.enums.ComplaintPriority;
 import com.ziyara.backend.domain.repository.ComplaintRepository;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -25,6 +29,7 @@ import java.util.UUID;
 public class ComplaintService {
 
     private final ComplaintRepository complaintRepository;
+    private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
 
     private static final String TICKET_PREFIX = "CMP-";
 
@@ -46,6 +51,14 @@ public class ComplaintService {
         complaint.setTicketNumber(ticketNumber);
         Complaint saved = complaintRepository.save(complaint);
         log.info("Complaint created: {} by {}", saved.getId(), createdBy);
+        staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                .eventId(UUID.randomUUID())
+                .notificationType(NotificationType.COMPLAINT_NEW.name())
+                .title("New complaint")
+                .message("Ticket " + saved.getTicketNumber() + ": " + saved.getSubject())
+                .notifyRoles(List.of("SUPPORT_MANAGER", "GENERAL_MANAGER", "CEO", "SALES_MANAGER"))
+                .metadata("{\"complaintId\":\"" + saved.getId() + "\"}")
+                .build());
         return toResponse(saved);
     }
 
@@ -66,7 +79,18 @@ public class ComplaintService {
         Complaint complaint = complaintRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Complaint not found"));
         complaint.assign(request.getAgentId());
-        return toResponse(complaintRepository.save(complaint));
+        Complaint saved = complaintRepository.save(complaint);
+        if (request.getAgentId() != null) {
+            staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                    .eventId(UUID.randomUUID())
+                    .notificationType(NotificationType.COMPLAINT_UPDATE.name())
+                    .title("Complaint assigned")
+                    .message("You were assigned complaint " + saved.getTicketNumber())
+                    .recipientUserId(request.getAgentId())
+                    .metadata("{\"complaintId\":\"" + saved.getId() + "\"}")
+                    .build());
+        }
+        return toResponse(saved);
     }
 
     @Transactional

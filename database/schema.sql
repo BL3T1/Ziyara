@@ -296,7 +296,7 @@ CREATE TABLE departments (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Groups Table (Organizational Groups G1-G6)
+-- Groups Table (Organizational groups; platform uses Z1–Z7 in seed)
 CREATE TABLE groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
@@ -566,32 +566,30 @@ CREATE TABLE refunds (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Taxi Bookings Table
+-- Taxi Bookings Table (matches TaxiBookingJpaEntity / bkg_taxi_bookings after prefix migration)
 CREATE TABLE taxi_bookings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    booking_id UUID REFERENCES bookings(id),
-    pickup_location VARCHAR(255) NOT NULL,
-    pickup_address TEXT,
-    pickup_latitude DECIMAL(10, 8),
-    pickup_longitude DECIMAL(11, 8),
-    dropoff_location VARCHAR(255) NOT NULL,
-    dropoff_address TEXT,
-    dropoff_latitude DECIMAL(10, 8),
-    dropoff_longitude DECIMAL(11, 8),
-    pickup_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    vehicle_type vehicle_type_enum NOT NULL DEFAULT 'STANDARD',
-    fare DECIMAL(10, 2) NOT NULL,
-    currency VARCHAR(3) DEFAULT 'USD',
-    external_ref VARCHAR(100),
-    driver_name VARCHAR(100),
-    driver_phone VARCHAR(20),
-    vehicle_plate VARCHAR(20),
-    vehicle_model VARCHAR(100),
-    status taxi_status_enum NOT NULL DEFAULT 'PENDING',
-    estimated_arrival_minutes INTEGER,
-    actual_pickup_time TIMESTAMP WITH TIME ZONE,
-    actual_dropoff_time TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    booking_id UUID NOT NULL REFERENCES bookings(id),
+    driver_id UUID REFERENCES users(id),
+    vehicle_type VARCHAR(50) NOT NULL DEFAULT 'STANDARD',
+    pickup_location TEXT,
+    destination_location TEXT,
+    pickup_latitude DOUBLE PRECISION,
+    pickup_longitude DOUBLE PRECISION,
+    destination_latitude DOUBLE PRECISION,
+    destination_longitude DOUBLE PRECISION,
+    scheduled_at TIMESTAMP WITH TIME ZONE,
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    estimated_distance NUMERIC(8, 2),
+    actual_distance NUMERIC(8, 2),
+    estimated_price NUMERIC(12, 2),
+    actual_price NUMERIC(12, 2),
+    status VARCHAR(50) NOT NULL DEFAULT 'SEARCHING',
+    license_plate VARCHAR(20),
+    driver_name VARCHAR(255),
+    vehicle_model VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -797,7 +795,7 @@ CREATE INDEX idx_refunds_status ON refunds(status);
 -- Taxi Bookings indexes
 CREATE INDEX idx_taxi_bookings_booking ON taxi_bookings(booking_id);
 CREATE INDEX idx_taxi_bookings_status ON taxi_bookings(status);
-CREATE INDEX idx_taxi_bookings_pickup_time ON taxi_bookings(pickup_time);
+CREATE INDEX idx_taxi_bookings_scheduled_at ON taxi_bookings(scheduled_at);
 
 -- Complaints indexes
 CREATE INDEX idx_complaints_customer ON complaints(customer_id);
@@ -966,7 +964,7 @@ COMMENT ON TABLE users IS 'Base table for all system users including customers a
 COMMENT ON TABLE customers IS 'Extended profile information for customer users';
 COMMENT ON TABLE employees IS 'Extended profile information for company employees';
 COMMENT ON TABLE departments IS 'Organizational departments within the company';
-COMMENT ON TABLE groups IS 'Organizational groups (G1-G6) for role categorization';
+COMMENT ON TABLE groups IS 'Organizational groups (platform Z1-Z7 in seed; custom C{n} etc.) for role categorization';
 COMMENT ON TABLE roles IS 'User roles with associated permissions';
 COMMENT ON TABLE permissions IS 'Granular system permissions';
 COMMENT ON TABLE service_providers IS 'Service providers (hotels, restaurants, etc.)';

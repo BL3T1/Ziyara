@@ -59,7 +59,9 @@ export function LoginPage() {
     try {
       const res = await authAPI.login({ email, password, rememberMe })
       const data = res.data as AuthResponseDto
-      if (!data?.accessToken) {
+      const hasBearer = Boolean(data?.accessToken)
+      const hasCookieSession = Boolean(data?.userId) && !hasBearer
+      if (!hasBearer && !hasCookieSession) {
         setError('Invalid response from server')
         return
       }
@@ -85,7 +87,11 @@ export function LoginPage() {
         return
       }
 
-      setStoredToken(data.accessToken)
+      if (hasBearer) {
+        setStoredToken(data.accessToken as string)
+      } else {
+        localStorage.setItem('ziyara_cookie_session', '1')
+      }
       setUser({
         id: String(data.userId),
         email: data.email,

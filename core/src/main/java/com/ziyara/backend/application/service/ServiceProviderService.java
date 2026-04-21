@@ -7,12 +7,15 @@ import com.ziyara.backend.application.dto.response.ServiceProviderResponse;
 import com.ziyara.backend.application.locale.RequestLocaleHolder;
 import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.entity.User;
+import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.domain.enums.ProviderStatus;
 import com.ziyara.backend.domain.enums.ServiceType;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -48,6 +51,7 @@ public class ServiceProviderService {
     private final AuditLogService auditLogService;
     private final ProviderWorkflowEmailService providerWorkflowEmailService;
     private final UserRbacAssignmentService userRbacAssignmentService;
+    private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
 
     private static boolean isSalesCreator(UserRole role) {
         return role == UserRole.SALES_MANAGER || role == UserRole.SALES_REPRESENTATIVE;
@@ -151,6 +155,9 @@ public class ServiceProviderService {
         provider.setEmail(contactEmail);
         provider.setAddress(request.getAddress());
         provider.setDescription(request.getDescription());
+        if (request.getLogoUrl() != null && !request.getLogoUrl().isBlank()) {
+            provider.setLogoUrl(request.getLogoUrl().trim());
+        }
         provider.setRating(0.0);
         provider.setReviewCount(0);
 
@@ -171,6 +178,14 @@ public class ServiceProviderService {
                 null, "name=" + saved.getName() + ";userId=" + managerUser.getId(), null, null);
         if (pendingProvider) {
             providerWorkflowEmailService.notifySubmittedForApproval(saved, managerUser.getEmail());
+            staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                    .eventId(UUID.randomUUID())
+                    .notificationType(NotificationType.PROVIDER_PENDING_REVIEW.name())
+                    .title("Provider pending approval")
+                    .message("Partner \"" + saved.getName() + "\" is waiting for approval.")
+                    .notifyRoles(List.of("SALES_MANAGER", "SUPPORT_MANAGER", "CEO", "GENERAL_MANAGER"))
+                    .metadata("{\"providerId\":\"" + saved.getId() + "\"}")
+                    .build());
         } else {
             providerWorkflowEmailService.notifyActivated(saved, managerUser.getEmail());
         }
@@ -191,7 +206,6 @@ public class ServiceProviderService {
         if (request.getAddress() != null) provider.setAddress(request.getAddress());
         if (request.getDescription() != null) provider.setDescription(request.getDescription());
         if (request.getStatus() != null) provider.setStatus(request.getStatus());
-        if (request.getWebsite() != null) provider.setWebsite(request.getWebsite());
         if (request.getLogoUrl() != null) provider.setLogoUrl(request.getLogoUrl());
         if (request.getVerified() != null) provider.setVerified(request.getVerified());
         if (request.getCommissionRate() != null) provider.setCommissionRate(request.getCommissionRate());
@@ -236,13 +250,22 @@ public class ServiceProviderService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ServiceProviderResponse> getProvidersPage(int page, int size, ProviderStatus status) {
+    public Page<ServiceProviderResponse> getProvidersPage(int page, int size, ProviderStatus status, String type) {
         int p = Math.max(0, page);
         int s = Math.min(100, Math.max(1, size));
         PageRequest pr = PageRequest.of(p, s, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<ServiceProvider> pg = status != null
-                ? serviceProviderRepository.findByStatus(status, pr)
-                : serviceProviderRepository.findAll(pr);
+        String typeNorm = type != null && !type.isBlank() ? type.trim().toUpperCase() : null;
+
+        Page<ServiceProvider> pg;
+        if (status != null && typeNorm != null) {
+            pg = serviceProviderRepository.findByStatusAndProviderType(status, typeNorm, pr);
+        } else if (status != null) {
+            pg = serviceProviderRepository.findByStatus(status, pr);
+        } else if (typeNorm != null) {
+            pg = serviceProviderRepository.findByProviderType(typeNorm, pr);
+        } else {
+            pg = serviceProviderRepository.findAll(pr);
+        }
         return pg.map(this::mapToResponse);
     }
 
@@ -331,6 +354,8 @@ public class ServiceProviderService {
                 .phone(provider.getPhone())
                 .email(provider.getEmail())
                 .address(provider.getAddress())
+                .description(provider.getDescription())
+                .logoUrl(provider.getLogoUrl())
                 .rating(provider.getRating())
                 .reviewCount(provider.getReviewCount())
                 .status(provider.getStatus())

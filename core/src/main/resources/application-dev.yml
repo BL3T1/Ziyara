@@ -1,6 +1,9 @@
 # Dev profile: Hibernate creates/updates schema so tables exist without full Flyway migrations.
 # To run without Docker, add: spring.docker.compose.enabled=false (requires Postgres on localhost)
 spring:
+  datasource:
+    hikari:
+      leak-detection-threshold: 60000
   jpa:
     hibernate:
       ddl-auto: update

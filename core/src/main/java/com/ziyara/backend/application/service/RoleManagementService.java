@@ -1,6 +1,7 @@
 package com.ziyara.backend.application.service;
 
 import com.ziyara.backend.application.dto.request.CreateGroupRequest;
+import com.ziyara.backend.application.dto.request.UpdateGroupRequest;
 import com.ziyara.backend.application.dto.request.CreateRoleRequest;
 import com.ziyara.backend.application.dto.request.DeleteRoleRequest;
 import com.ziyara.backend.application.dto.request.UpdateRoleNavigationRequest;
@@ -17,6 +18,7 @@ import com.ziyara.backend.application.locale.RequestLocaleHolder;
 import com.ziyara.backend.domain.entity.Group;
 import com.ziyara.backend.domain.entity.Permission;
 import com.ziyara.backend.domain.entity.Role;
+import com.ziyara.backend.domain.catalog.PlatformOrgGroups;
 import com.ziyara.backend.domain.enums.RoleLevel;
 import com.ziyara.backend.domain.enums.RoleStatus;
 import com.ziyara.backend.domain.enums.UserRole;
@@ -26,6 +28,8 @@ import com.ziyara.backend.modules.sys.api.RoleServiceApi;
 import com.ziyara.backend.presentation.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,18 +65,21 @@ public class RoleManagementService implements RoleServiceApi {
         List<Role> roles = roleRepository.findAllOrderByName();
         Map<UUID, String> groupNames = groupRepository.findAll().stream()
                 .collect(Collectors.toMap(Group::getId, g -> RequestLocaleHolder.localized(g.getName(), g.getNameAr()), (a, b) -> a));
+        Map<UUID, Permission> permById = permissionMap();
         return roles.stream()
-                .map(r -> toRoleResponse(r, groupNames))
+                .map(r -> toRoleResponse(r, groupNames, permById))
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public Optional<RoleResponse> getRole(UUID id) {
+        Map<UUID, Permission> permById = permissionMap();
         return roleRepository.findById(id)
-                .map(r -> toRoleResponse(r, groupNamesMap()));
+                .map(r -> toRoleResponse(r, groupNamesMap(), permById));
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "permissionCatalogue", key = "'all'")
     public List<PermissionSummaryResponse> getPermissionCatalogue() {
         return permissionRepository.findAll().stream()
                 .map(this::toPermissionSummary)
@@ -99,6 +106,7 @@ public class RoleManagementService implements RoleServiceApi {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "staffRoleCatalog", allEntries = true)
     public GroupResponse createGroup(CreateGroupRequest request, UUID currentUserId) {
         String name = request.getName().trim();
         if (name.isEmpty()) {
@@ -107,7 +115,7 @@ public class RoleManagementService implements RoleServiceApi {
         String codeInput = trimToNull(request.getCode());
         final String code;
         if (codeInput == null) {
-            code = allocateNextNumericGroupCode();
+            code = allocateNextCustomGroupCode();
         } else {
             String c = codeInput.toUpperCase(Locale.ROOT);
             if (c.length() > 20) {
@@ -118,6 +126,10 @@ public class RoleManagementService implements RoleServiceApi {
             }
             if (groupRepository.existsByCode(c)) {
                 throw new IllegalArgumentException("A group with code " + c + " already exists");
+            }
+            if (PlatformOrgGroups.isReservedPlatformGroupCode(c)) {
+                throw new BusinessException(
+                        "Reserved platform group codes (Z followed by digits) cannot be created via API.");
             }
             code = c;
         }
@@ -138,18 +150,105 @@ public class RoleManagementService implements RoleServiceApi {
                 .build();
     }
 
+    @Transactional
+    @CacheEvict(cacheNames = "staffRoleCatalog", allEntries = true)
+    public GroupResponse updateGroup(UUID groupId, UpdateGroupRequest request, UUID currentUserId) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new BusinessException("Group not found"));
+        boolean platform = PlatformOrgGroups.isPlatformGroupId(groupId);
+        boolean any = false;
+        if (request.getName() != null) {
+            if (request.getName().isBlank()) {
+                throw new BusinessException("Name cannot be blank");
+            }
+            group.setName(request.getName().trim());
+            any = true;
+        }
+        if (request.getNameAr() != null) {
+            group.setNameAr(request.getNameAr().trim().isEmpty() ? null : request.getNameAr().trim());
+            any = true;
+        }
+        if (request.getDescription() != null) {
+            group.setDescription(request.getDescription().trim().isEmpty() ? null : request.getDescription().trim());
+            any = true;
+        }
+        if (request.getDescriptionAr() != null) {
+            group.setDescriptionAr(
+                    request.getDescriptionAr().trim().isEmpty() ? null : request.getDescriptionAr().trim());
+            any = true;
+        }
+        if (request.getCode() != null) {
+            String normalized = request.getCode().trim().toUpperCase(Locale.ROOT);
+            if (normalized.isEmpty()) {
+                throw new BusinessException("Code cannot be blank when provided");
+            }
+            if (platform && !normalized.equals(group.getCode())) {
+                throw new BusinessException("Platform group code cannot be changed");
+            }
+            if (!normalized.equals(group.getCode())) {
+                if (normalized.length() > 20) {
+                    throw new BusinessException("Code must be at most 20 characters");
+                }
+                if (!normalized.matches("[A-Z0-9_]+")) {
+                    throw new IllegalArgumentException("Code must contain only letters, digits, or underscore");
+                }
+                if (PlatformOrgGroups.isReservedPlatformGroupCode(normalized)) {
+                    throw new BusinessException(
+                            "Reserved platform group codes (Z followed by digits) cannot be assigned to a group.");
+                }
+                if (groupRepository.existsByCodeAndIdNot(normalized, groupId)) {
+                    throw new IllegalArgumentException("A group with code " + normalized + " already exists");
+                }
+                group.setCode(normalized);
+                any = true;
+            }
+        }
+        if (!any) {
+            throw new BusinessException("Provide at least one of name, nameAr, description, descriptionAr, or code");
+        }
+        Group saved = groupRepository.save(group);
+        auditLogService.logAction("Group updated", GROUP_ENTITY, saved.getId().toString(), currentUserId,
+                "code=" + saved.getCode(), null, null, null);
+        return GroupResponse.builder()
+                .id(saved.getId())
+                .name(RequestLocaleHolder.localized(saved.getName(), saved.getNameAr()))
+                .code(saved.getCode())
+                .description(RequestLocaleHolder.localized(saved.getDescription(), saved.getDescriptionAr()))
+                .build();
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = "staffRoleCatalog", allEntries = true)
+    public void deleteGroup(UUID groupId, UUID currentUserId) {
+        if (groupRepository.findById(groupId).isEmpty()) {
+            throw new BusinessException("Group not found");
+        }
+        if (PlatformOrgGroups.isPlatformGroupId(groupId)) {
+            throw new BusinessException("Cannot delete a platform organizational group");
+        }
+        if (!roleRepository.findByGroupIdOrderByName(groupId).isEmpty()) {
+            throw new BusinessException("Cannot delete group while roles are assigned to it");
+        }
+        if (userRoleAssignmentRepository.countByGroupId(groupId) > 0) {
+            throw new BusinessException("Cannot delete group while user role assignments still reference it");
+        }
+        groupRepository.deleteById(groupId);
+        auditLogService.logAction("Group deleted", GROUP_ENTITY, groupId.toString(), currentUserId,
+                null, null, null, null);
+    }
+
     /**
-     * Next free {@code G}{n} code (n &gt; max existing G+digits in DB).
+     * Next free {@code C}{n} code for admin-created organizational groups (never {@code Z}+digits — reserved for platform).
      */
-    private String allocateNextNumericGroupCode() {
+    private String allocateNextCustomGroupCode() {
         int max = 0;
         for (Group group : groupRepository.findAll()) {
             String c = group.getCode();
             if (c == null || c.length() < 2) {
                 continue;
             }
-            char first = c.charAt(0);
-            if (first != 'G' && first != 'g') {
+            char first = Character.toUpperCase(c.charAt(0));
+            if (first != 'C') {
                 continue;
             }
             try {
@@ -162,12 +261,12 @@ public class RoleManagementService implements RoleServiceApi {
             }
         }
         for (int n = max + 1; n < max + 10_000; n++) {
-            String candidate = "G" + n;
+            String candidate = "C" + n;
             if (!groupRepository.existsByCode(candidate)) {
                 return candidate;
             }
         }
-        throw new IllegalStateException("Could not allocate a unique G{n} group code");
+        throw new IllegalStateException("Could not allocate a unique C{n} group code");
     }
 
     private static String trimToNull(String s) {
@@ -228,14 +327,22 @@ public class RoleManagementService implements RoleServiceApi {
         if (c == null || c.isBlank()) {
             return 999;
         }
-        if (c.length() >= 2 && c.charAt(0) == 'G') {
+        char head = Character.toUpperCase(c.charAt(0));
+        if (c.length() >= 2 && (head == 'Z' || head == 'G')) {
             try {
                 return Integer.parseInt(c.substring(1));
             } catch (NumberFormatException e) {
                 return 998;
             }
         }
-        return 500 + Math.abs(c.hashCode() % 100);
+        if (c.length() >= 2 && head == 'C') {
+            try {
+                return 500 + Integer.parseInt(c.substring(1));
+            } catch (NumberFormatException e) {
+                return 998;
+            }
+        }
+        return 700 + Math.abs(c.hashCode() % 100);
     }
 
     /**
@@ -256,10 +363,12 @@ public class RoleManagementService implements RoleServiceApi {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "staffRoleCatalog", allEntries = true)
     public RoleResponse createCustomRole(CreateRoleRequest request, UUID currentUserId) {
+        Map<UUID, Permission> permById = permissionMap();
         if (request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
-            validateAllPermissionsExist(request.getPermissionIds());
-            validateNoLockedPermissions(request.getPermissionIds());
+            validateAllPermissionsExist(request.getPermissionIds(), permById.keySet());
+            validateNoLockedPermissions(request.getPermissionIds(), permById);
         }
         String code = generateCustomRoleCode(request.getName());
         if (roleRepository.existsByCode(code)) {
@@ -278,7 +387,7 @@ public class RoleManagementService implements RoleServiceApi {
         if (request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
             rolePermissionRepository.setPermissionsForRole(saved.getId(), request.getPermissionIds());
         }
-        return toRoleResponse(saved, groupNamesMap());
+        return toRoleResponse(saved, groupNamesMap(), permById);
     }
 
     private UUID resolveGroupForNewRole(CreateRoleRequest request, UUID currentUserId) {
@@ -294,7 +403,7 @@ public class RoleManagementService implements RoleServiceApi {
         }
         Group g = new Group();
         g.setName(desiredName);
-        g.setCode(allocateNextNumericGroupCode());
+        g.setCode(allocateNextCustomGroupCode());
         g.setDescription("Auto-created with role: " + request.getName().trim());
         Group saved = groupRepository.save(g);
         auditLogService.logAction("Group auto-created for role", GROUP_ENTITY, saved.getId().toString(), currentUserId,
@@ -303,6 +412,7 @@ public class RoleManagementService implements RoleServiceApi {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "staffRoleCatalog", allEntries = true)
     public RoleResponse updateRole(UUID roleId, UpdateRoleRequest request, UUID currentUserId) {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new BusinessException("Role not found"));
@@ -332,10 +442,11 @@ public class RoleManagementService implements RoleServiceApi {
         Role saved = roleRepository.save(role);
         auditLogService.logAction("Role metadata updated", ROLE_ENTITY, roleId.toString(), currentUserId,
                 "code=" + role.getCode(), null, null, null);
-        return toRoleResponse(saved, groupNamesMap());
+        return toRoleResponse(saved, groupNamesMap(), permissionMap());
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "staffRoleCatalog", allEntries = true)
     public RoleResponse updateRoleNavigation(UUID roleId, UpdateRoleNavigationRequest request, UUID currentUserId) {
         CompanySidebarCatalog.assertAllRequestedIdsKnown(request.getVisibleItemIds());
         Role role = roleRepository.findById(roleId)
@@ -346,28 +457,31 @@ public class RoleManagementService implements RoleServiceApi {
         String kind = role.isSystemRole() ? "system" : "custom";
         auditLogService.logAction("Role navigation updated (" + kind + ")", ROLE_ENTITY, roleId.toString(), currentUserId,
                 "items=" + sanitized.size(), null, null, null);
-        return toRoleResponse(saved, groupNamesMap());
+        return toRoleResponse(saved, groupNamesMap(), permissionMap());
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "staffRoleCatalog", allEntries = true)
     public RoleResponse updateRolePermissions(UUID roleId, UpdateRolePermissionsRequest request, UUID currentUserId) {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new NoSuchElementException("Role not found: " + roleId));
+        Map<UUID, Permission> permById = permissionMap();
         List<UUID> ids = request.getPermissionIds() != null ? request.getPermissionIds() : List.of();
         if (!ids.isEmpty()) {
-            validateAllPermissionsExist(ids);
+            validateAllPermissionsExist(ids, permById.keySet());
             if (!role.isSystemRole()) {
-                validateNoLockedPermissions(ids);
+                validateNoLockedPermissions(ids, permById);
             }
         }
         rolePermissionRepository.setPermissionsForRole(roleId, ids);
         String kind = role.isSystemRole() ? "system" : "custom";
         auditLogService.logAction("Role permissions updated (" + kind + ")", ROLE_ENTITY, roleId.toString(), currentUserId,
                 "count=" + ids.size(), null, null, null);
-        return toRoleResponse(roleRepository.findById(roleId).orElse(role), groupNamesMap());
+        return toRoleResponse(roleRepository.findById(roleId).orElse(role), groupNamesMap(), permById);
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "staffRoleCatalog", allEntries = true)
     public void deleteRole(UUID roleId, DeleteRoleRequest request, UUID currentUserId) {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new NoSuchElementException("Role not found: " + roleId));
@@ -393,21 +507,18 @@ public class RoleManagementService implements RoleServiceApi {
                 "code=" + roleCode, null, null, null);
     }
 
-    private void validateAllPermissionsExist(List<UUID> permissionIds) {
-        Set<UUID> known = permissionRepository.findAll().stream()
-                .map(Permission::getId)
-                .collect(Collectors.toSet());
+    private void validateAllPermissionsExist(List<UUID> permissionIds, Set<UUID> knownIds) {
         for (UUID id : permissionIds) {
-            if (!known.contains(id)) {
+            if (!knownIds.contains(id)) {
                 throw new IllegalArgumentException("Unknown permission id: " + id);
             }
         }
     }
 
-    private void validateNoLockedPermissions(List<UUID> permissionIds) {
-        Set<UUID> ids = new HashSet<>(permissionIds);
-        for (Permission p : permissionRepository.findAll()) {
-            if (p.isLocked() && ids.contains(p.getId())) {
+    private void validateNoLockedPermissions(List<UUID> permissionIds, Map<UUID, Permission> permById) {
+        for (UUID id : permissionIds) {
+            Permission p = permById.get(id);
+            if (p != null && p.isLocked()) {
                 throw new IllegalArgumentException("Permission " + p.getCode() + " is locked and cannot be assigned to custom roles.");
             }
         }
@@ -425,12 +536,15 @@ public class RoleManagementService implements RoleServiceApi {
                 .collect(Collectors.toMap(Group::getId, g -> RequestLocaleHolder.localized(g.getName(), g.getNameAr()), (a, b) -> a));
     }
 
-    private RoleResponse toRoleResponse(Role r, Map<UUID, String> groupNames) {
+    private Map<UUID, Permission> permissionMap() {
+        return permissionRepository.findAll().stream()
+                .collect(Collectors.toMap(Permission::getId, p -> p, (a, b) -> a));
+    }
+
+    private RoleResponse toRoleResponse(Role r, Map<UUID, String> groupNames, Map<UUID, Permission> permById) {
         List<UUID> permIds = rolePermissionRepository.findPermissionIdsByRoleId(r.getId());
-        List<Permission> allPerms = permissionRepository.findAll();
-        Map<UUID, Permission> permMap = allPerms.stream().collect(Collectors.toMap(Permission::getId, p -> p));
         List<PermissionSummaryResponse> perms = permIds.stream()
-                .map(permMap::get)
+                .map(permById::get)
                 .filter(Objects::nonNull)
                 .map(this::toPermissionSummary)
                 .collect(Collectors.toList());
