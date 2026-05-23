@@ -1,4 +1,4 @@
-package com.ziyara.backend.presentation.exception;
+package com.ziyara.backend.application.exception;
 
 /** Too many requests (e.g. public form rate limit). */
 public class RateLimitedException extends RuntimeException {
