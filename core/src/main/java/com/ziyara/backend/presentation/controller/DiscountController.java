@@ -11,7 +11,7 @@ import com.ziyara.backend.application.query.DiscountQueryHandler;
 import com.ziyara.backend.application.service.DiscountCodeService;
 import com.ziyara.backend.domain.entity.DiscountCode;
 import com.ziyara.backend.domain.enums.DiscountStatus;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

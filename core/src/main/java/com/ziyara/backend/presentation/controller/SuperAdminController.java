@@ -76,7 +76,7 @@ public class SuperAdminController {
             @RequestParam(defaultValue = "20") int size
     ) {
         superAdminRecoveryService.assertActiveCustomer(userId);
-        return ResponseEntity.ok(ApiResponse.success(bookingService.pageForCustomer(userId, status, page, size)));
+        return ResponseEntity.ok(ApiResponse.success(bookingService.listForCustomer(userId, status, page, size)));
     }
 
     @GetMapping("/customers/{userId}/payments")

@@ -68,6 +68,28 @@ public class UserQueryHandler {
         }
     }
 
+    /**
+     * Resolves a user's UUID from their email address using a plain jOOQ lookup.
+     * Used by {@code UserController} endpoints that accept email as a path variable,
+     * eliminating the need to inject the domain-layer {@code UserRepository} into the
+     * presentation layer.
+     *
+     * @param email normalised (lower-case, trimmed) email address
+     * @return the user's UUID
+     * @throws com.ziyara.backend.application.exception.ResourceNotFoundException if no user found
+     */
+    public UUID findUserIdByEmail(String email) {
+        UUID id = dsl.select(F_ID)
+                .from(DSL.table(DSL.name(USERS)))
+                .where(F_EMAIL.equalIgnoreCase(email))
+                .fetchOne(F_ID);
+        if (id == null) {
+            throw new com.ziyara.backend.application.exception.ResourceNotFoundException(
+                    "User not found for email: " + email);
+        }
+        return id;
+    }
+
     public Optional<UserResponse> findById(UUID id) {
         var record = dsl.select(F_ID, F_EMAIL, F_PHONE, F_ROLE, F_STATUS, F_EMAIL_VERIFIED, F_PHONE_VERIFIED, F_MFA_ENABLED, F_MARKETING_OPT_IN, F_LAST_LOGIN_AT, F_CREATED_AT)
                 .from(DSL.table(DSL.name(USERS)))

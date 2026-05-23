@@ -7,8 +7,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.ziyara.backend.application.dto.request.UpdateSystemSettingsRequest;
 import com.ziyara.backend.application.dto.response.SystemSettingsResponse;
-import com.ziyara.backend.infrastructure.persistence.entity.SystemSettingJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.repository.SystemSettingJpaRepository;
+import com.ziyara.backend.domain.entity.SystemSetting;
+import com.ziyara.backend.domain.repository.SystemSettingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +27,7 @@ public class SystemSettingsService {
     private static final String DEFAULT_COMPANY = "Ziyara";
     private static final String DEFAULT_CURRENCY = "USD";
 
-    private final SystemSettingJpaRepository repository;
+    private final SystemSettingRepository repository;
     private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
@@ -58,24 +58,28 @@ public class SystemSettingsService {
         ObjectNode wrapper = objectMapper.createObjectNode();
         wrapper.set("v", value);
         String json = wrapper.toString();
-        SystemSettingJpaEntity row = repository.findBySettingKey(key)
-                .orElse(SystemSettingJpaEntity.builder().settingKey(key).build());
-        row.setValueJson(json);
-        row.setUpdatedAt(now);
-        row.setUpdatedBy(updatedBy);
-        repository.save(row);
+        SystemSetting setting = repository.findByKey(key)
+                .orElseGet(() -> {
+                    SystemSetting s = new SystemSetting();
+                    s.setSettingKey(key);
+                    return s;
+                });
+        setting.setValueJson(json);
+        setting.setUpdatedAt(now);
+        setting.setUpdatedBy(updatedBy);
+        repository.save(setting);
     }
 
     private String readString(String key, String defaultValue) {
-        return repository.findBySettingKey(key)
-                .map(SystemSettingJpaEntity::getValueJson)
+        return repository.findByKey(key)
+                .map(SystemSetting::getValueJson)
                 .map(json -> parseVAsString(json, defaultValue))
                 .orElse(defaultValue);
     }
 
     private boolean readBoolean(String key) {
-        return repository.findBySettingKey(key)
-                .map(SystemSettingJpaEntity::getValueJson)
+        return repository.findByKey(key)
+                .map(SystemSetting::getValueJson)
                 .map(this::parseVAsBoolean)
                 .orElse(false);
     }

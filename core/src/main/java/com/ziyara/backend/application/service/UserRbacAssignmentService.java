@@ -4,7 +4,7 @@ import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.repository.RoleRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.domain.repository.UserRoleAssignmentRepository;
-import com.ziyara.backend.presentation.exception.BusinessException;
+import com.ziyara.backend.application.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +41,7 @@ public class UserRbacAssignmentService {
      * {@code code} matches {@code userRole}, copying {@code group_id} onto the assignment for group-based summaries.
      * <p>
      * Called after company-dashboard user create and after {@code sys_users.role} is changed by an admin.
-     * If an admin had assigned a <em>custom</em> RBAC role for sidebar overrides, that row is replaced —
+     * If an admin had assigned a <em>custom</em> RBAC role for sidebar overrides, that row is replaced â€”
      * they must re-assign the custom role if still required.
      */
     @Transactional

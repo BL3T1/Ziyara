@@ -5,7 +5,7 @@ import com.ziyara.backend.application.dto.response.DeletedItemResponse;
 import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.repository.UserRepository;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
 import org.jooq.DSLContext;

@@ -11,7 +11,7 @@ import com.ziyara.backend.domain.enums.ComplaintPriority;
 import com.ziyara.backend.domain.enums.ComplaintStatus;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

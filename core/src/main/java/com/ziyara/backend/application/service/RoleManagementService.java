@@ -25,7 +25,7 @@ import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.repository.*;
 import com.ziyara.backend.modules.sys.api.AuditServiceApi;
 import com.ziyara.backend.modules.sys.api.RoleServiceApi;
-import com.ziyara.backend.presentation.exception.BusinessException;
+import com.ziyara.backend.application.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -238,7 +238,7 @@ public class RoleManagementService implements RoleServiceApi {
     }
 
     /**
-     * Next free {@code C}{n} code for admin-created organizational groups (never {@code Z}+digits — reserved for platform).
+     * Next free {@code C}{n} code for admin-created organizational groups (never {@code Z}+digits â€” reserved for platform).
      */
     private String allocateNextCustomGroupCode() {
         int max = 0;

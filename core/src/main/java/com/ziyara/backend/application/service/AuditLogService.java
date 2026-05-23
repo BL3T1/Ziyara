@@ -9,11 +9,13 @@ import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.infrastructure.web.AuditRequestContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -87,6 +89,25 @@ public class AuditLogService implements AuditServiceApi {
                     .collect(Collectors.toList());
         }
         return logs.stream().map(this::mapToResponseWithDisplay).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public Page<AuditLogResponse> getFilteredLogs(String entityType,
+                                                   String action,
+                                                   UUID userId,
+                                                   LocalDateTime dateFrom,
+                                                   LocalDateTime dateTo,
+                                                   int page,
+                                                   int size) {
+        Pageable pageable = PageRequest.of(page, Math.min(size, 200));
+        // Substitute open-ended bounds for null timestamps to avoid PostgreSQL
+        // parameter type-inference failure ("could not determine data type of parameter $N").
+        LocalDateTime from = dateFrom != null ? dateFrom : LocalDateTime.of(1900, 1, 1, 0, 0);
+        LocalDateTime to   = dateTo   != null ? dateTo   : LocalDateTime.of(9999, 12, 31, 23, 59);
+        return auditLogRepository
+                .findFiltered(entityType, action, userId, from, to, pageable)
+                .map(this::mapToResponseWithDisplay);
     }
 
     private AuditLogResponse mapToResponse(AuditLog log) {

@@ -1,17 +1,18 @@
 package com.ziyara.backend.application.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ziyara.backend.application.dto.response.DataExportRequestResponse;
 import com.ziyara.backend.application.event.DataExportRequestedEvent;
+import com.ziyara.backend.domain.entity.Booking;
+import com.ziyara.backend.domain.entity.DataExportRequest;
+import com.ziyara.backend.domain.entity.Notification;
 import com.ziyara.backend.domain.entity.User;
+import com.ziyara.backend.domain.entity.UserConsent;
+import com.ziyara.backend.domain.repository.BookingRepository;
+import com.ziyara.backend.domain.repository.DataExportRequestRepository;
+import com.ziyara.backend.domain.repository.NotificationRepository;
+import com.ziyara.backend.domain.repository.UserConsentRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
-import com.ziyara.backend.infrastructure.persistence.entity.BookingJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.entity.DataExportRequestJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.entity.NotificationJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.entity.UserConsentJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.repository.BookingJpaRepository;
-import com.ziyara.backend.infrastructure.persistence.repository.DataExportRequestJpaRepository;
-import com.ziyara.backend.infrastructure.persistence.repository.NotificationJpaRepository;
-import com.ziyara.backend.infrastructure.persistence.repository.UserConsentJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
@@ -36,29 +37,26 @@ public class DataExportService {
 
     private static final String MANIFEST_VERSION = "ziyara.export.v1";
 
-    private final DataExportRequestJpaRepository exportRepository;
+    private final DataExportRequestRepository exportRepository;
     private final UserRepository userRepository;
-    private final BookingJpaRepository bookingJpaRepository;
-    private final UserConsentJpaRepository userConsentJpaRepository;
-    private final NotificationJpaRepository notificationJpaRepository;
+    private final BookingRepository bookingRepository;
+    private final UserConsentRepository userConsentRepository;
+    private final NotificationRepository notificationRepository;
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
 
-    public List<DataExportRequestJpaEntity> list(UUID userId) {
-        return exportRepository.findByUserIdOrderByRequestedAtDesc(userId);
+    public List<DataExportRequestResponse> list(UUID userId) {
+        return exportRepository.findByUserIdOrderedDesc(userId).stream()
+                .map(this::toResponse)
+                .collect(java.util.stream.Collectors.toList());
     }
 
-    public DataExportRequestJpaEntity getForUser(UUID exportId, UUID userId) {
-        DataExportRequestJpaEntity row = exportRepository.findById(exportId)
-                .orElseThrow(() -> new IllegalArgumentException("Export not found"));
-        if (!row.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("Export not found");
-        }
-        return row;
+    public DataExportRequestResponse getForUser(UUID exportId, UUID userId) {
+        return toResponse(getEntityForUser(exportId, userId));
     }
 
     public byte[] downloadPayloadForUser(UUID exportId, UUID userId) {
-        DataExportRequestJpaEntity row = getForUser(exportId, userId);
+        DataExportRequest row = getEntityForUser(exportId, userId);
         if (!"COMPLETED".equals(row.getStatus()) || row.getPayloadJson() == null || row.getPayloadJson().isBlank()) {
             throw new IllegalStateException("Export is not ready for download");
         }
@@ -66,31 +64,54 @@ public class DataExportService {
     }
 
     @Transactional
-    public DataExportRequestJpaEntity requestExport(UUID userId) {
+    public DataExportRequestResponse requestExport(UUID userId) {
         if (!userRepository.existsById(userId)) {
             throw new IllegalArgumentException("User not found");
         }
-        DataExportRequestJpaEntity row = DataExportRequestJpaEntity.builder()
-                .userId(userId)
-                .status("PENDING")
-                .format("JSON")
-                .requestedAt(LocalDateTime.now())
-                .build();
+        DataExportRequest row = new DataExportRequest();
+        row.setUserId(userId);
+        row.setStatus("PENDING");
+        row.setFormat("JSON");
+        row.setRequestedAt(LocalDateTime.now());
         row = exportRepository.save(row);
         eventPublisher.publishEvent(new DataExportRequestedEvent(row.getId()));
+        return toResponse(row);
+    }
+
+    private DataExportRequest getEntityForUser(UUID exportId, UUID userId) {
+        DataExportRequest row = exportRepository.findById(exportId)
+                .orElseThrow(() -> new IllegalArgumentException("Export not found"));
+        if (!row.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("Export not found");
+        }
         return row;
+    }
+
+    private DataExportRequestResponse toResponse(DataExportRequest e) {
+        return DataExportRequestResponse.builder()
+                .id(e.getId())
+                .userId(e.getUserId())
+                .status(e.getStatus())
+                .format(e.getFormat())
+                .requestedAt(e.getRequestedAt())
+                .completedAt(e.getCompletedAt())
+                .expiresAt(e.getExpiresAt())
+                .recordCount(e.getRecordCount())
+                .failureReason(e.getFailureReason())
+                .build();
     }
 
     @Transactional
     public void completeExport(UUID exportRequestId) {
-        DataExportRequestJpaEntity row = exportRepository.findById(exportRequestId)
+        DataExportRequest row = exportRepository.findById(exportRequestId)
                 .orElseThrow(() -> new IllegalArgumentException("Export not found"));
         if (!"PENDING".equals(row.getStatus())) {
             return;
         }
         try {
             UUID userId = row.getUserId();
-            User user = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("User not found"));
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("manifestVersion", MANIFEST_VERSION);
@@ -106,7 +127,7 @@ public class DataExportService {
             payload.put("exportedAt", LocalDateTime.now().toString());
 
             List<Map<String, Object>> consents = new ArrayList<>();
-            for (UserConsentJpaEntity c : userConsentJpaRepository.findByUserIdOrderByGrantedAtDesc(userId)) {
+            for (UserConsent c : userConsentRepository.findByUserIdOrderedDesc(userId)) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("consentType", c.getConsentType());
                 m.put("purpose", c.getPurpose());
@@ -118,18 +139,20 @@ public class DataExportService {
             }
             payload.put("consents", consents);
 
-            var bookingPage = bookingJpaRepository.findByCustomerId(
+            var bookingPage = bookingRepository.findByCustomerId(
                     userId,
                     PageRequest.of(0, 500, Sort.by(Sort.Direction.DESC, "createdAt")));
             List<Map<String, Object>> bookings = new ArrayList<>();
-            for (BookingJpaEntity b : bookingPage.getContent()) {
+            for (Booking b : bookingPage.getContent()) {
                 bookings.add(bookingSummary(b));
             }
             payload.put("bookings", bookings);
             payload.put("bookingsTruncated", bookingPage.getTotalElements() > bookings.size());
 
             List<Map<String, Object>> notifications = new ArrayList<>();
-            for (NotificationJpaEntity n : notificationJpaRepository.findTop50ByUserIdOrderByCreatedAtDesc(userId)) {
+            for (Notification n : notificationRepository
+                    .findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 50))
+                    .getContent()) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", n.getId().toString());
                 m.put("type", n.getType() != null ? n.getType().name() : null);
@@ -157,7 +180,7 @@ public class DataExportService {
         }
     }
 
-    private static Map<String, Object> bookingSummary(BookingJpaEntity b) {
+    private static Map<String, Object> bookingSummary(Booking b) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", b.getId().toString());
         m.put("bookingReference", b.getBookingReference());

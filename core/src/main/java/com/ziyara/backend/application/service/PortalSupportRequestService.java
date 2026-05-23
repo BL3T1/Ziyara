@@ -2,8 +2,8 @@ package com.ziyara.backend.application.service;
 
 import com.ziyara.backend.application.dto.request.CreatePortalSupportRequest;
 import com.ziyara.backend.application.dto.response.PortalSupportRequestResponse;
-import com.ziyara.backend.infrastructure.persistence.entity.PortalSupportRequestJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.repository.PortalSupportRequestJpaRepository;
+import com.ziyara.backend.domain.entity.PortalSupportRequest;
+import com.ziyara.backend.domain.repository.PortalSupportRequestRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,34 +17,33 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PortalSupportRequestService {
 
-    private final PortalSupportRequestJpaRepository repository;
+    private final PortalSupportRequestRepository repository;
 
     @Transactional(readOnly = true)
     public List<PortalSupportRequestResponse> listForProvider(UUID providerId) {
-        return repository.findByProviderIdOrderByCreatedAtDesc(providerId).stream()
+        return repository.findByProviderId(providerId).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional
     public PortalSupportRequestResponse create(UUID providerId, UUID userId, CreatePortalSupportRequest request) {
-        PortalSupportRequestJpaEntity row = PortalSupportRequestJpaEntity.builder()
-                .providerId(providerId)
-                .userId(userId)
-                .subject(request.getSubject().trim())
-                .body(request.getBody().trim())
-                .createdAt(Instant.now())
-                .build();
-        return toResponse(repository.save(row));
+        PortalSupportRequest req = new PortalSupportRequest();
+        req.setProviderId(providerId);
+        req.setUserId(userId);
+        req.setSubject(request.getSubject().trim());
+        req.setBody(request.getBody().trim());
+        req.setCreatedAt(Instant.now());
+        return toResponse(repository.save(req));
     }
 
-    private PortalSupportRequestResponse toResponse(PortalSupportRequestJpaEntity e) {
+    private PortalSupportRequestResponse toResponse(PortalSupportRequest r) {
         return PortalSupportRequestResponse.builder()
-                .id(e.getId())
-                .subject(e.getSubject())
-                .body(e.getBody())
-                .userId(e.getUserId())
-                .createdAt(e.getCreatedAt())
+                .id(r.getId())
+                .subject(r.getSubject())
+                .body(r.getBody())
+                .userId(r.getUserId())
+                .createdAt(r.getCreatedAt())
                 .build();
     }
 }

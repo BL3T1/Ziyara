@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * Portal dashboard KPIs for the current provider (BACKEND_CRUD_REPORT §4).
@@ -32,4 +33,18 @@ public class PortalDashboardResponse {
 
     @Schema(description = "Currency for revenue")
     private String revenueCurrency;
+
+    @Schema(description = "Earnings per ISO week for the last 8 weeks (oldest first)")
+    private List<WeeklyRevenueItem> weeklyRevenue;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class WeeklyRevenueItem {
+        @Schema(description = "ISO week start date (Monday), e.g. 2025-05-12")
+        private String week;
+        @Schema(description = "Total completed payment amount for that week")
+        private BigDecimal amount;
+    }
 }

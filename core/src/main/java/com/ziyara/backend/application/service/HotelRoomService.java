@@ -4,16 +4,16 @@ import com.ziyara.backend.application.dto.request.CreateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.UpdateHotelRoomRequest;
 import com.ziyara.backend.application.dto.response.HotelRoomImageResponse;
 import com.ziyara.backend.application.dto.response.HotelRoomResponse;
+import com.ziyara.backend.domain.entity.HotelRoom;
+import com.ziyara.backend.domain.entity.HotelRoomImage;
 import com.ziyara.backend.domain.enums.HotelRoomStatus;
 import com.ziyara.backend.domain.enums.ServiceType;
+import com.ziyara.backend.domain.repository.HotelRoomImageRepository;
+import com.ziyara.backend.domain.repository.HotelRoomRepository;
 import com.ziyara.backend.domain.repository.ServiceRepository;
-import com.ziyara.backend.infrastructure.media.LocalMediaStorageService;
-import com.ziyara.backend.infrastructure.persistence.entity.HotelRoomImageJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.entity.HotelRoomJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.repository.HotelRoomImageJpaRepository;
-import com.ziyara.backend.infrastructure.persistence.repository.HotelRoomJpaRepository;
-import com.ziyara.backend.presentation.exception.BusinessException;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.infrastructure.media.MediaStorageService;
+import com.ziyara.backend.application.exception.BusinessException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,14 +28,14 @@ import java.util.stream.Collectors;
 public class HotelRoomService {
 
     private final ServiceRepository serviceRepository;
-    private final HotelRoomJpaRepository roomRepository;
-    private final HotelRoomImageJpaRepository roomImageRepository;
-    private final LocalMediaStorageService mediaStorageService;
+    private final HotelRoomRepository roomRepository;
+    private final HotelRoomImageRepository roomImageRepository;
+    private final MediaStorageService mediaStorageService;
 
     @Transactional(readOnly = true)
     public List<HotelRoomResponse> listByService(UUID serviceId) {
         requireHotelService(serviceId);
-        return roomRepository.findByServiceIdOrderBySortOrderAscIdAsc(serviceId).stream()
+        return roomRepository.findByServiceId(serviceId).stream()
                 .map(this::toRoomResponse)
                 .collect(Collectors.toList());
     }
@@ -44,20 +44,20 @@ public class HotelRoomService {
     public HotelRoomResponse create(UUID serviceId, CreateHotelRoomRequest request) {
         requireHotelService(serviceId);
         validateQuantities(request.getQuantityTotal(), request.getQuantityAvailable());
-        HotelRoomJpaEntity saved = roomRepository.save(HotelRoomJpaEntity.builder()
-                .serviceId(serviceId)
-                .roomType(request.getRoomType().trim())
-                .roomName(request.getRoomName().trim())
-                .description(request.getDescription())
-                .capacity(request.getCapacity())
-                .basePrice(request.getBasePrice())
-                .currency(trimOrNull(request.getCurrency()))
-                .quantityTotal(request.getQuantityTotal())
-                .quantityAvailable(request.getQuantityAvailable())
-                .amenities(request.getAmenities())
-                .status(request.getStatus() != null ? request.getStatus() : HotelRoomStatus.ACTIVE)
-                .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
-                .build());
+        HotelRoom room = new HotelRoom();
+        room.setServiceId(serviceId);
+        room.setRoomType(request.getRoomType().trim());
+        room.setRoomName(request.getRoomName().trim());
+        room.setDescription(request.getDescription());
+        room.setCapacity(request.getCapacity());
+        room.setBasePrice(request.getBasePrice());
+        room.setCurrency(trimOrNull(request.getCurrency()));
+        room.setQuantityTotal(request.getQuantityTotal());
+        room.setQuantityAvailable(request.getQuantityAvailable());
+        room.setAmenities(request.getAmenities());
+        room.setStatus(request.getStatus() != null ? request.getStatus() : HotelRoomStatus.ACTIVE);
+        room.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
+        HotelRoom saved = roomRepository.save(room);
         recalculateServiceRoomTotals(serviceId);
         return toRoomResponse(saved);
     }
@@ -65,7 +65,7 @@ public class HotelRoomService {
     @Transactional
     public HotelRoomResponse update(UUID serviceId, UUID roomId, UpdateHotelRoomRequest request) {
         requireHotelService(serviceId);
-        HotelRoomJpaEntity room = roomRepository.findByIdAndServiceId(roomId, serviceId)
+        HotelRoom room = roomRepository.findByIdAndServiceId(roomId, serviceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
         if (request.getRoomType() != null) room.setRoomType(request.getRoomType().trim());
         if (request.getRoomName() != null) room.setRoomName(request.getRoomName().trim());
@@ -79,7 +79,7 @@ public class HotelRoomService {
         if (request.getStatus() != null) room.setStatus(request.getStatus());
         if (request.getSortOrder() != null) room.setSortOrder(request.getSortOrder());
         validateQuantities(room.getQuantityTotal(), room.getQuantityAvailable());
-        HotelRoomJpaEntity saved = roomRepository.save(room);
+        HotelRoom saved = roomRepository.save(room);
         recalculateServiceRoomTotals(serviceId);
         return toRoomResponse(saved);
     }
@@ -87,9 +87,9 @@ public class HotelRoomService {
     @Transactional
     public void delete(UUID serviceId, UUID roomId) {
         requireHotelService(serviceId);
-        HotelRoomJpaEntity room = roomRepository.findByIdAndServiceId(roomId, serviceId)
+        roomRepository.findByIdAndServiceId(roomId, serviceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
-        roomRepository.delete(room);
+        roomRepository.deleteById(roomId);
         recalculateServiceRoomTotals(serviceId);
     }
 
@@ -103,21 +103,20 @@ public class HotelRoomService {
             String altText,
             Boolean primary) {
         requireHotelService(serviceId);
-        HotelRoomJpaEntity room = roomRepository.findByIdAndServiceId(roomId, serviceId)
+        HotelRoom room = roomRepository.findByIdAndServiceId(roomId, serviceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
         if (Boolean.TRUE.equals(primary)) {
             clearPrimaryImage(room.getId());
         }
         String url = mediaStorageService.storeServiceImage(serviceId, fileBytes, contentType, originalFilename);
-        int order = roomImageRepository.findByRoomIdOrderByDisplayOrderAscIdAsc(room.getId()).size();
-        HotelRoomImageJpaEntity image = roomImageRepository.save(HotelRoomImageJpaEntity.builder()
-                .roomId(room.getId())
-                .url(url)
-                .altText(trimOrNull(altText))
-                .primary(Boolean.TRUE.equals(primary))
-                .displayOrder(order)
-                .build());
-        return toImageResponse(image);
+        int order = roomImageRepository.findByRoomId(room.getId()).size();
+        HotelRoomImage image = new HotelRoomImage();
+        image.setRoomId(room.getId());
+        image.setUrl(url);
+        image.setAltText(trimOrNull(altText));
+        image.setPrimary(Boolean.TRUE.equals(primary));
+        image.setDisplayOrder(order);
+        return toImageResponse(roomImageRepository.save(image));
     }
 
     @Transactional(readOnly = true)
@@ -125,14 +124,13 @@ public class HotelRoomService {
         requireHotelService(serviceId);
         roomRepository.findByIdAndServiceId(roomId, serviceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
-        return roomImageRepository.findByRoomIdOrderByDisplayOrderAscIdAsc(roomId).stream()
+        return roomImageRepository.findByRoomId(roomId).stream()
                 .map(this::toImageResponse)
                 .collect(Collectors.toList());
     }
 
     private void clearPrimaryImage(UUID roomId) {
-        List<HotelRoomImageJpaEntity> existing = roomImageRepository.findByRoomIdOrderByDisplayOrderAscIdAsc(roomId);
-        for (HotelRoomImageJpaEntity image : existing) {
+        for (HotelRoomImage image : roomImageRepository.findByRoomId(roomId)) {
             if (Boolean.TRUE.equals(image.getPrimary())) {
                 image.setPrimary(false);
                 roomImageRepository.save(image);
@@ -143,9 +141,9 @@ public class HotelRoomService {
     private void recalculateServiceRoomTotals(UUID serviceId) {
         com.ziyara.backend.domain.entity.Service service = serviceRepository.findById(serviceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service not found"));
-        List<HotelRoomJpaEntity> rooms = roomRepository.findByServiceIdOrderBySortOrderAscIdAsc(serviceId);
-        int total = rooms.stream().map(HotelRoomJpaEntity::getQuantityTotal).filter(v -> v != null).mapToInt(Integer::intValue).sum();
-        int available = rooms.stream().map(HotelRoomJpaEntity::getQuantityAvailable).filter(v -> v != null).mapToInt(Integer::intValue).sum();
+        List<HotelRoom> rooms = roomRepository.findByServiceId(serviceId);
+        int total = rooms.stream().mapToInt(r -> r.getQuantityTotal() != null ? r.getQuantityTotal() : 0).sum();
+        int available = rooms.stream().mapToInt(r -> r.getQuantityAvailable() != null ? r.getQuantityAvailable() : 0).sum();
         service.setTotalRooms(total);
         service.setAvailableRooms(available);
         serviceRepository.save(service);
@@ -166,7 +164,7 @@ public class HotelRoomService {
         }
     }
 
-    private HotelRoomResponse toRoomResponse(HotelRoomJpaEntity room) {
+    private HotelRoomResponse toRoomResponse(HotelRoom room) {
         return HotelRoomResponse.builder()
                 .id(room.getId())
                 .serviceId(room.getServiceId())
@@ -181,13 +179,13 @@ public class HotelRoomService {
                 .amenities(room.getAmenities() != null ? room.getAmenities() : Map.of())
                 .status(room.getStatus())
                 .sortOrder(room.getSortOrder() != null ? room.getSortOrder() : 0)
-                .images(roomImageRepository.findByRoomIdOrderByDisplayOrderAscIdAsc(room.getId()).stream()
+                .images(roomImageRepository.findByRoomId(room.getId()).stream()
                         .map(this::toImageResponse)
                         .collect(Collectors.toList()))
                 .build();
     }
 
-    private HotelRoomImageResponse toImageResponse(HotelRoomImageJpaEntity image) {
+    private HotelRoomImageResponse toImageResponse(HotelRoomImage image) {
         return HotelRoomImageResponse.builder()
                 .id(image.getId())
                 .roomId(image.getRoomId())

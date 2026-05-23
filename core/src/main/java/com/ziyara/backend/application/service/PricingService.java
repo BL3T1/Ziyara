@@ -9,8 +9,8 @@ import com.ziyara.backend.domain.repository.DiscountCodeRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.ServiceRepository;
 import com.ziyara.backend.core.api.PricingEngineApi;
-import com.ziyara.backend.presentation.exception.BusinessException;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.BusinessException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -175,11 +175,11 @@ public class PricingService implements PricingEngineApi {
         switch (type) {
             case HOTEL:
             case RESORT:
-                return "Per night Ã— " + nights + " nights Ã— " + rooms + " room(s)";
+                return "Per night Ãƒâ€” " + nights + " nights Ãƒâ€” " + rooms + " room(s)";
             case RESTAURANT:
                 return "Reservation";
             case TRIP:
-                return "Per person Ã— " + guests + " guest(s)";
+                return "Per person Ãƒâ€” " + guests + " guest(s)";
             case TAXI:
             default:
                 return "Fixed / dynamic";

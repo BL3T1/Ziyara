@@ -1,6 +1,11 @@
 package com.ziyara.backend.presentation.exception;
 
 import com.ziyara.backend.application.dto.ApiResponse;
+import com.ziyara.backend.application.exception.BusinessException;
+import com.ziyara.backend.application.exception.MfaEnrollmentRequiredException;
+import com.ziyara.backend.application.exception.RateLimitedException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.UnauthorizedException;
 import com.ziyara.backend.application.service.AuthService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -115,8 +120,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthService.AuthenticationException.class)
     public ResponseEntity<ApiResponse<Void>> handleAuthException(AuthService.AuthenticationException ex) {
         log.warn("Auth error: {}", ex.getMessage());
+        // Distinguish "MFA code required" from generic auth failures so the mobile client
+        // can show the TOTP challenge screen instead of a generic error message.
+        String code = "MFA code required".equals(ex.getMessage())
+                ? "MFA_CODE_REQUIRED"
+                : "AUTH_FAILED";
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(withCorrelation(ApiResponse.errorCoded(ex.getMessage(), "AUTH_FAILED")));
+                .body(withCorrelation(ApiResponse.errorCoded(ex.getMessage(), code)));
+    }
+
+    @ExceptionHandler(MfaEnrollmentRequiredException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMfaEnrollmentRequired(MfaEnrollmentRequiredException ex) {
+        log.warn("MFA enrollment required: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(withCorrelation(ApiResponse.errorCoded(ex.getMessage(), "MFA_ENROLLMENT_REQUIRED")));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

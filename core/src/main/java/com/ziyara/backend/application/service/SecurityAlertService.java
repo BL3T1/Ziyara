@@ -1,10 +1,10 @@
 package com.ziyara.backend.application.service;
 
-import com.ziyara.backend.infrastructure.persistence.entity.SecurityAlertJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.entity.SecurityAlertRuleJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.repository.SecurityAlertJpaRepository;
-import com.ziyara.backend.infrastructure.persistence.repository.SecurityAlertRuleJpaRepository;
-import com.ziyara.backend.infrastructure.persistence.repository.SecurityEventJpaRepository;
+import com.ziyara.backend.domain.entity.SecurityAlert;
+import com.ziyara.backend.domain.entity.SecurityAlertRule;
+import com.ziyara.backend.domain.repository.SecurityAlertRepository;
+import com.ziyara.backend.domain.repository.SecurityAlertRuleRepository;
+import com.ziyara.backend.domain.repository.SecurityEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,28 +21,31 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SecurityAlertService {
 
-    private final SecurityAlertRuleJpaRepository ruleJpaRepository;
-    private final SecurityEventJpaRepository eventJpaRepository;
-    private final SecurityAlertJpaRepository alertJpaRepository;
+    private final SecurityAlertRuleRepository ruleRepository;
+    private final SecurityEventRepository eventRepository;
+    private final SecurityAlertRepository alertRepository;
 
     @Transactional
     public void evaluateThresholdAlerts(String ipAddress, String eventType) {
         if (ipAddress == null || ipAddress.isBlank()) {
             return;
         }
-        List<SecurityAlertRuleJpaEntity> rules = ruleJpaRepository.findByEventTypeAndEnabledTrue(eventType);
-        for (SecurityAlertRuleJpaEntity rule : rules) {
+        List<SecurityAlertRule> rules = ruleRepository.findByEventTypeEnabled(eventType);
+        for (SecurityAlertRule rule : rules) {
             Instant since = Instant.now().minus(rule.getTimeWindowMinutes(), ChronoUnit.MINUTES);
-            long n = eventJpaRepository.countByTypeAndIpSince(eventType, ipAddress, since);
+            long n = eventRepository.countByTypeAndIpSince(eventType, ipAddress, since);
             if (n == rule.getThreshold().longValue()) {
-                SecurityAlertJpaEntity alert = SecurityAlertJpaEntity.builder()
-                        .ruleId(rule.getId())
-                        .triggeredBy(Map.of("ip", ipAddress, "windowMinutes", rule.getTimeWindowMinutes(), "count", n, "eventType", eventType))
-                        .occurrenceCount((int) n)
-                        .severity(rule.getSeverity())
-                        .status("NEW")
-                        .build();
-                alertJpaRepository.save(alert);
+                SecurityAlert alert = new SecurityAlert();
+                alert.setRuleId(rule.getId());
+                alert.setTriggeredBy(Map.of(
+                        "ip", ipAddress,
+                        "windowMinutes", rule.getTimeWindowMinutes(),
+                        "count", n,
+                        "eventType", eventType));
+                alert.setOccurrenceCount((int) n);
+                alert.setSeverity(rule.getSeverity());
+                alert.setStatus("NEW");
+                alertRepository.save(alert);
             }
         }
     }

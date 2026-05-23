@@ -8,7 +8,7 @@ import com.ziyara.backend.domain.enums.ComplaintPriority;
 import com.ziyara.backend.domain.repository.ComplaintRepository;
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Service: ComplaintService (Phase 2 – Commands)
+ * Service: ComplaintService (Phase 2 â€“ Commands)
  * Handles complaint create, update, assign, resolve, escalate, close.
  */
 @Service

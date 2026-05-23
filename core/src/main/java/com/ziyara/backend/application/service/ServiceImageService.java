@@ -7,8 +7,8 @@ import com.ziyara.backend.application.query.ServiceQueryHandler;
 import com.ziyara.backend.domain.entity.ServiceImage;
 import com.ziyara.backend.domain.enums.ServiceImageCategory;
 import com.ziyara.backend.domain.repository.ServiceImageRepository;
-import com.ziyara.backend.infrastructure.media.LocalMediaStorageService;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.infrastructure.media.MediaStorageService;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +25,7 @@ public class ServiceImageService {
 
     private final ServiceImageRepository serviceImageRepository;
     private final ServiceQueryHandler serviceQueryHandler;
-    private final LocalMediaStorageService localMediaStorageService;
+    private final MediaStorageService localMediaStorageService;
 
     @Transactional(readOnly = true)
     public List<ServiceImageResponse> list(UUID serviceId) {

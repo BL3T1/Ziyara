@@ -1,8 +1,8 @@
 package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.ApiResponse;
+import com.ziyara.backend.application.dto.response.DataExportRequestResponse;
 import com.ziyara.backend.application.service.DataExportService;
-import com.ziyara.backend.infrastructure.persistence.entity.DataExportRequestJpaEntity;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +32,7 @@ public class UserDataExportController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "List prior export requests")
-    public ResponseEntity<ApiResponse<List<DataExportRequestJpaEntity>>> list() {
+    public ResponseEntity<ApiResponse<List<DataExportRequestResponse>>> list() {
         UUID userId = currentUserId();
         if (userId == null) {
             return ResponseEntity.status(401).body(ApiResponse.error("Not authenticated"));
@@ -43,7 +43,7 @@ public class UserDataExportController {
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Get one export request (poll while PENDING)")
-    public ResponseEntity<ApiResponse<DataExportRequestJpaEntity>> getOne(@PathVariable("id") UUID id) {
+    public ResponseEntity<ApiResponse<DataExportRequestResponse>> getOne(@PathVariable("id") UUID id) {
         UUID userId = currentUserId();
         if (userId == null) {
             return ResponseEntity.status(401).body(ApiResponse.error("Not authenticated"));
@@ -79,7 +79,7 @@ public class UserDataExportController {
     @PostMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Request a JSON export (async; poll GET until COMPLETED)")
-    public ResponseEntity<ApiResponse<DataExportRequestJpaEntity>> request() {
+    public ResponseEntity<ApiResponse<DataExportRequestResponse>> request() {
         UUID userId = currentUserId();
         if (userId == null) {
             return ResponseEntity.status(401).body(ApiResponse.error("Not authenticated"));

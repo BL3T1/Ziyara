@@ -1,8 +1,8 @@
 package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.ApiResponse;
+import com.ziyara.backend.application.dto.response.UserConsentResponse;
 import com.ziyara.backend.application.service.UserConsentService;
-import com.ziyara.backend.infrastructure.persistence.entity.UserConsentJpaEntity;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,7 +30,7 @@ public class UserConsentController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "List consent history for current user")
-    public ResponseEntity<ApiResponse<List<UserConsentJpaEntity>>> list() {
+    public ResponseEntity<ApiResponse<List<UserConsentResponse>>> list() {
         UUID userId = currentUserId();
         if (userId == null) {
             return ResponseEntity.status(401).body(ApiResponse.error("Not authenticated"));
@@ -41,7 +41,7 @@ public class UserConsentController {
     @PostMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Record a consent decision")
-    public ResponseEntity<ApiResponse<UserConsentJpaEntity>> grant(
+    public ResponseEntity<ApiResponse<UserConsentResponse>> grant(
             @Valid @RequestBody ConsentGrantBody body,
             HttpServletRequest request) {
         UUID userId = currentUserId();
@@ -50,7 +50,7 @@ public class UserConsentController {
         }
         String ip = request.getRemoteAddr();
         String ua = request.getHeader("User-Agent");
-        UserConsentJpaEntity saved = userConsentService.recordGrant(
+        UserConsentResponse saved = userConsentService.recordGrant(
                 userId, body.getConsentType(), body.getPurpose(), body.isGranted(), ip, ua);
         return ResponseEntity.ok(ApiResponse.success(saved));
     }

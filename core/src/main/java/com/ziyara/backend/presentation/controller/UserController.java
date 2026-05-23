@@ -21,8 +21,8 @@ import com.ziyara.backend.application.service.UserRbacAssignmentService;
 import com.ziyara.backend.application.query.dto.UserListQuery;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
-import com.ziyara.backend.domain.repository.UserRepository;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
+import java.util.Map;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -53,7 +53,6 @@ public class UserController {
     private final NavigationService navigationService;
     private final UserRbacAssignmentService userRbacAssignmentService;
     private final RbacAssignmentQueryService rbacAssignmentQueryService;
-    private final UserRepository userRepository;
     private final CompanyStaffRoleCatalogService companyStaffRoleCatalogService;
 
     private static UUID getCurrentUserId() {
@@ -80,9 +79,7 @@ public class UserController {
         if (email.isEmpty()) {
             throw new IllegalArgumentException("Email is required");
         }
-        return userRepository.findByEmail(email)
-                .map(u -> u.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found for email: " + email));
+        return userQueryHandler.findUserIdByEmail(email);
     }
 
     @GetMapping("/staff-role-options")
@@ -176,6 +173,22 @@ public class UserController {
         return userQueryHandler.findById(userId)
                 .map(u -> ResponseEntity.ok(ApiResponse.success(u)))
                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("User not found")));
+    }
+
+    @PostMapping("/me/fcm-token")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Register FCM push token", description = "Saves the device FCM token so the backend can send push notifications to this device")
+    public ResponseEntity<ApiResponse<Void>> registerFcmToken(@RequestBody Map<String, String> body) {
+        UUID userId = getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
+        }
+        String token = body.get("token");
+        if (token == null || token.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("token is required"));
+        }
+        userCommandHandler.updateFcmToken(userId, token);
+        return ResponseEntity.ok(ApiResponse.success("FCM token registered", null));
     }
 
     @PostMapping("/me/change-password")

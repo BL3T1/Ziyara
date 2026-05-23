@@ -4,6 +4,7 @@ import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.UserResponse;
 import com.ziyara.backend.application.dto.response.BookingReportResponse;
 import com.ziyara.backend.application.dto.response.RevenueReportResponse;
+import com.ziyara.backend.application.service.ReportExportService;
 import com.ziyara.backend.application.service.ReportService;
 import com.ziyara.backend.application.service.SuperAdminRecoveryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,6 +12,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -31,6 +35,7 @@ import java.util.UUID;
 @SecurityRequirement(name = "bearerAuth")
 public class ReportController {
     private final ReportService reportService;
+    private final ReportExportService reportExportService;
     private final SuperAdminRecoveryService superAdminRecoveryService;
 
     @GetMapping("/revenue")
@@ -62,6 +67,58 @@ public class ReportController {
         validateReportScope(scope, providerId, customerId);
         return ResponseEntity.ok(
                 ApiResponse.success(reportService.generateBookingReport(start, end, scope, providerId, customerId)));
+    }
+
+    @GetMapping("/analytics")
+    @Operation(summary = "Platform analytics", description = "Revenue distribution, paid vs unpaid ratio, top providers")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getAnalytics(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getAnalytics(start, end)));
+    }
+
+    @GetMapping("/export")
+    @Operation(summary = "Export report", description = "Export revenue or booking report as Excel or PDF")
+    public ResponseEntity<byte[]> exportReport(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+            @RequestParam(defaultValue = "revenue") String type,
+            @RequestParam(defaultValue = "excel") String format
+    ) throws Exception {
+        String fmt = format.toLowerCase(Locale.ROOT);
+        String tp = type.toLowerCase(Locale.ROOT);
+        byte[] data;
+        String filename;
+        String contentType;
+
+        if ("booking".equals(tp) || "bookings".equals(tp)) {
+            BookingReportResponse report = reportService.generateBookingReport(start, end, "ALL", null, null);
+            if ("pdf".equals(fmt)) {
+                data = reportExportService.exportBookingsToPdf(report);
+                filename = "bookings-report.pdf";
+                contentType = "application/pdf";
+            } else {
+                data = reportExportService.exportBookingsToExcel(report);
+                filename = "bookings-report.xlsx";
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            }
+        } else {
+            RevenueReportResponse report = reportService.generateRevenueReport(start, end, "ALL", null, null);
+            if ("pdf".equals(fmt)) {
+                data = reportExportService.exportRevenueToPdf(report);
+                filename = "revenue-report.pdf";
+                contentType = "application/pdf";
+            } else {
+                data = reportExportService.exportRevenueToExcel(report);
+                filename = "revenue-report.xlsx";
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            }
+        }
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(data);
     }
 
     @GetMapping("/customer-search")

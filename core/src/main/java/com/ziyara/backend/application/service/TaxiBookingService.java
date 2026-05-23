@@ -7,7 +7,8 @@ import com.ziyara.backend.domain.enums.TaxiStatus;
 import com.ziyara.backend.domain.enums.VehicleType;
 import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.domain.repository.TaxiBookingRepository;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.UnauthorizedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -92,6 +93,20 @@ public class TaxiBookingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Taxi booking not found"));
     }
     
+    /**
+     * Verifies that {@code userId} is the assigned driver for the taxi linked to
+     * {@code bookingId} (the parent booking ID, not the taxi booking ID).
+     * Throws {@link UnauthorizedException} if not.
+     */
+    @Transactional(readOnly = true)
+    public void assertIsDriver(UUID bookingId, UUID userId) {
+        TaxiBooking tb = taxiBookingRepository.findByBookingId(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Taxi booking not found for booking " + bookingId));
+        if (!userId.equals(tb.getDriverId())) {
+            throw new UnauthorizedException("Not the assigned driver for booking " + bookingId);
+        }
+    }
+
     private TaxiBookingResponse mapToResponse(TaxiBooking booking) {
         return TaxiBookingResponse.builder()
                 .id(booking.getId())

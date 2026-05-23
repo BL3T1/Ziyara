@@ -5,7 +5,7 @@ import com.ziyara.backend.application.dto.request.UpdateExchangeRateRequest;
 import com.ziyara.backend.application.dto.response.ExchangeRateResponse;
 import com.ziyara.backend.domain.entity.ExchangeRate;
 import com.ziyara.backend.domain.repository.ExchangeRateRepository;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

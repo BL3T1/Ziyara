@@ -1,12 +1,12 @@
 package com.ziyara.backend.application.service;
 
 import com.ziyara.backend.domain.entity.DiscountCode;
+import com.ziyara.backend.domain.entity.RestMenuItem;
+import com.ziyara.backend.domain.entity.RestMenuSection;
 import com.ziyara.backend.domain.enums.ServiceType;
-import com.ziyara.backend.infrastructure.persistence.entity.RestMenuItemJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.entity.RestMenuSectionJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.repository.RestMenuItemJpaRepository;
-import com.ziyara.backend.infrastructure.persistence.repository.RestMenuSectionJpaRepository;
-import com.ziyara.backend.presentation.exception.BusinessException;
+import com.ziyara.backend.domain.repository.RestMenuItemRepository;
+import com.ziyara.backend.domain.repository.RestMenuSectionRepository;
+import com.ziyara.backend.application.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,8 +22,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DiscountScopeService {
 
-    private final RestMenuItemJpaRepository menuItemRepository;
-    private final RestMenuSectionJpaRepository menuSectionRepository;
+    private final RestMenuItemRepository menuItemRepository;
+    private final RestMenuSectionRepository menuSectionRepository;
 
     public void assertApplicable(
             DiscountCode dc,
@@ -79,7 +79,7 @@ public class DiscountScopeService {
         Set<UUID> inferredSections = new HashSet<>();
         if (orderedSectionIds != null) {
             for (UUID secId : orderedSectionIds) {
-                RestMenuSectionJpaEntity sec = menuSectionRepository.findById(secId)
+                RestMenuSection sec = menuSectionRepository.findById(secId)
                         .orElseThrow(() -> new BusinessException("Invalid menu section"));
                 if (!sec.getServiceId().equals(serviceId)) {
                     throw new BusinessException("Menu section does not belong to this restaurant listing");
@@ -89,7 +89,7 @@ public class DiscountScopeService {
         }
         for (UUID itemId : items) {
             menuItemRepository.findById(itemId).ifPresent(mi -> {
-                RestMenuSectionJpaEntity section = menuSectionRepository.findById(mi.getSectionId())
+                RestMenuSection section = menuSectionRepository.findById(mi.getSectionId())
                         .orElseThrow(() -> new BusinessException("Invalid menu item for this booking"));
                 if (!section.getServiceId().equals(serviceId)) {
                     throw new BusinessException("Menu item does not belong to this restaurant listing");
@@ -123,12 +123,12 @@ public class DiscountScopeService {
         if (menuItemIds == null || menuItemIds.isEmpty()) {
             return;
         }
-        List<RestMenuItemJpaEntity> found = menuItemRepository.findAllById(menuItemIds);
+        List<RestMenuItem> found = menuItemRepository.findAllById(menuItemIds);
         if (found.size() != menuItemIds.size()) {
             throw new BusinessException("One or more menu items are invalid");
         }
-        for (RestMenuItemJpaEntity mi : found) {
-            RestMenuSectionJpaEntity sec = menuSectionRepository.findById(mi.getSectionId())
+        for (RestMenuItem mi : found) {
+            RestMenuSection sec = menuSectionRepository.findById(mi.getSectionId())
                     .orElseThrow(() -> new BusinessException("Invalid menu structure"));
             if (!sec.getServiceId().equals(serviceId)) {
                 throw new BusinessException("Menu item does not belong to this restaurant listing");

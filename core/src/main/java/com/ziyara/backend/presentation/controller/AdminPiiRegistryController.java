@@ -1,8 +1,8 @@
 package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.ApiResponse;
-import com.ziyara.backend.infrastructure.persistence.entity.PiiFieldRegistryJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.repository.PiiFieldRegistryJpaRepository;
+import com.ziyara.backend.application.dto.response.PiiFieldRegistryResponse;
+import com.ziyara.backend.application.service.PiiRegistryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -20,12 +20,12 @@ import java.util.List;
 @Tag(name = "Compliance", description = "PII field inventory (read-only)")
 public class AdminPiiRegistryController {
 
-    private final PiiFieldRegistryJpaRepository piiFieldRegistryJpaRepository;
+    private final PiiRegistryService piiRegistryService;
 
     @GetMapping
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @Operation(summary = "List registered PII columns")
-    public ResponseEntity<ApiResponse<List<PiiFieldRegistryJpaEntity>>> list() {
-        return ResponseEntity.ok(ApiResponse.success(piiFieldRegistryJpaRepository.findAll()));
+    public ResponseEntity<ApiResponse<List<PiiFieldRegistryResponse>>> list() {
+        return ResponseEntity.ok(ApiResponse.success(piiRegistryService.listAll()));
     }
 }

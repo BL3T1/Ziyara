@@ -39,4 +39,13 @@ public class EmployeeResponse {
     
     @Schema(description = "Joining date")
     private LocalDateTime joiningDate;
+
+    @Schema(description = "Status: ACTIVE or OFFBOARDED")
+    private String status;
+
+    @Schema(description = "Timestamp when the employee was offboarded (null if active)")
+    private LocalDateTime offboardedAt;
+
+    @Schema(description = "Reason provided at offboarding (null if active)")
+    private String offboardReason;
 }

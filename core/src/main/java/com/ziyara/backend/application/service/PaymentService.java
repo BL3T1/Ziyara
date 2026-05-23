@@ -19,7 +19,7 @@ import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPubli
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import com.ziyara.backend.modules.payment.api.PaymentServiceApi;
 import com.ziyara.backend.modules.sys.api.AuditServiceApi;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.Nullable;
 import org.slf4j.Logger;
@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Service: PaymentService – implements PaymentServiceApi (Phase 3 modular monolith).
+ * Service: PaymentService â€“ implements PaymentServiceApi (Phase 3 modular monolith).
  * Handles payment processing coordination.
  */
 @Service

@@ -218,6 +218,14 @@ public class UserCommandHandler {
     }
 
     @Transactional
+    public void updateFcmToken(UUID id, String fcmToken) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
+        user.setFcmToken(fcmToken);
+        userRepository.save(user);
+    }
+
+    @Transactional
     public void changePassword(UUID id, String currentPassword, String newPassword) {
         passwordPolicyService.assertAcceptable(newPassword);
         User user = userRepository.findById(id)

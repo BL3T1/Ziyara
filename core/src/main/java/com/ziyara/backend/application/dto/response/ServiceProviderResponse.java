@@ -47,8 +47,8 @@ public class ServiceProviderResponse {
     @Schema(description = "Logo image URL")
     private String logoUrl;
     
-    @Schema(description = "Rating (0-5)")
-    private Double rating;
+    @Schema(description = "Rating 0.00–5.00 (NUMERIC precision)")
+    private BigDecimal rating;
     
     @Schema(description = "Review count")
     private Integer reviewCount;

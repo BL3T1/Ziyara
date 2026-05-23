@@ -158,7 +158,7 @@ public class ServiceProviderService {
         if (request.getLogoUrl() != null && !request.getLogoUrl().isBlank()) {
             provider.setLogoUrl(request.getLogoUrl().trim());
         }
-        provider.setRating(0.0);
+        provider.setRating(BigDecimal.ZERO);
         provider.setReviewCount(0);
 
         boolean pendingProvider = isSalesCreator(creatorRole);
