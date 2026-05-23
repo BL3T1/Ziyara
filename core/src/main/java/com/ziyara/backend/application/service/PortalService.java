@@ -11,6 +11,8 @@ import com.ziyara.backend.application.dto.request.UpdateMenuSectionRequest;
 import com.ziyara.backend.application.dto.request.UpdateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceRequest;
+import com.ziyara.backend.application.dto.request.PayoutRequestPayload;
+import com.ziyara.backend.application.dto.response.PayoutRequestResponse;
 import com.ziyara.backend.application.dto.response.PortalDashboardResponse;
 import com.ziyara.backend.application.dto.response.PortalEarningsResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuItemResponse;
@@ -28,7 +30,7 @@ import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.domain.repository.PaymentRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.ServiceRepository;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -36,13 +38,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Provider-scoped portal: dashboard, services, bookings, earnings (BACKEND_CRUD_REPORT §4).
+ * Provider-scoped portal: dashboard, services, bookings, earnings (BACKEND_CRUD_REPORT Â§4).
  */
 @Service
 @RequiredArgsConstructor
@@ -55,6 +64,7 @@ public class PortalService {
     private final ServiceRepository serviceRepository;
     private final ServiceQueryHandler serviceQueryHandler;
     private final BookingRepository bookingRepository;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final PaymentRepository paymentRepository;
     private final ServiceService serviceService;
     private final ServiceImageService serviceImageService;
@@ -77,19 +87,68 @@ public class PortalService {
         BigDecimal totalRevenue = bookingIds.isEmpty() ? BigDecimal.ZERO
                 : paymentRepository.sumCompletedAmountByBookingIds(bookingIds);
 
+        List<PortalDashboardResponse.WeeklyRevenueItem> weeklyRevenue =
+                buildWeeklyRevenue(bookingIds);
+
         return PortalDashboardResponse.builder()
                 .serviceCount(serviceCount)
                 .totalBookings(totalBookings)
                 .activeBookings(activeBookings)
                 .totalRevenue(totalRevenue != null ? totalRevenue : BigDecimal.ZERO)
                 .revenueCurrency(CURRENCY)
+                .weeklyRevenue(weeklyRevenue)
                 .build();
+    }
+
+    private List<PortalDashboardResponse.WeeklyRevenueItem> buildWeeklyRevenue(List<UUID> bookingIds) {
+        if (bookingIds.isEmpty()) return buildEmptyWeeks();
+        LocalDateTime since = LocalDateTime.now().minusWeeks(8).with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay();
+        var payments = paymentRepository.findCompletedByBookingIdsSince(bookingIds, since);
+
+        // Group by ISO week start (Monday)
+        Map<LocalDate, BigDecimal> byWeek = new TreeMap<>();
+        for (var p : payments) {
+            LocalDate weekStart = p.getCreatedAt().toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            byWeek.merge(weekStart, p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        // Ensure all 8 weeks are present (fill gaps with zero)
+        LocalDate cursor = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(7);
+        List<PortalDashboardResponse.WeeklyRevenueItem> result = new ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            result.add(PortalDashboardResponse.WeeklyRevenueItem.builder()
+                    .week(cursor.format(DateTimeFormatter.ISO_LOCAL_DATE))
+                    .amount(byWeek.getOrDefault(cursor, BigDecimal.ZERO))
+                    .build());
+            cursor = cursor.plusWeeks(1);
+        }
+        return result;
+    }
+
+    private List<PortalDashboardResponse.WeeklyRevenueItem> buildEmptyWeeks() {
+        LocalDate cursor = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(7);
+        List<PortalDashboardResponse.WeeklyRevenueItem> result = new ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            result.add(PortalDashboardResponse.WeeklyRevenueItem.builder()
+                    .week(cursor.format(DateTimeFormatter.ISO_LOCAL_DATE))
+                    .amount(BigDecimal.ZERO)
+                    .build());
+            cursor = cursor.plusWeeks(1);
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)
     public Page<ServiceResponse> getServices(UUID providerId, int page, int size) {
         ensureProviderExists(providerId);
         return serviceQueryHandler.findPage(page, size, providerId, null, null, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public ServiceResponse getService(UUID providerId, UUID serviceId) {
+        assertProviderOwnsService(providerId, serviceId);
+        return serviceQueryHandler.findById(serviceId)
+                .orElseThrow(() -> new com.ziyara.backend.application.exception.ResourceNotFoundException("Service not found"));
     }
 
     @Transactional
@@ -295,6 +354,25 @@ public class PortalService {
                 .end(end)
                 .totalEarnings(total)
                 .currency(CURRENCY)
+                .build();
+    }
+
+    @Transactional
+    public PayoutRequestResponse createPayoutRequest(UUID providerId, PayoutRequestPayload payload) {
+        ensureProviderExists(providerId);
+        UUID id = UUID.randomUUID();
+        java.time.Instant now = java.time.Instant.now();
+        jdbcTemplate.update(
+                "INSERT INTO portal_payout_requests (id, provider_id, amount, currency, notes, status, requested_at) " +
+                "VALUES (?, ?, ?, ?, ?, 'PENDING', ?)",
+                id, providerId, payload.getAmount(), CURRENCY,
+                payload.getNotes(), java.sql.Timestamp.from(now));
+        return PayoutRequestResponse.builder()
+                .id(id)
+                .amount(payload.getAmount())
+                .currency(CURRENCY)
+                .status("PENDING")
+                .requestedAt(now)
                 .build();
     }
 

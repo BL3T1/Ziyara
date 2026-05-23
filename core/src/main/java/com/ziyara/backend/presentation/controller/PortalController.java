@@ -7,11 +7,13 @@ import com.ziyara.backend.application.dto.request.CreateMenuSectionRequest;
 import com.ziyara.backend.application.dto.request.CreateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceRequest;
+import com.ziyara.backend.application.dto.request.PayoutRequestPayload;
 import com.ziyara.backend.application.dto.request.UpdateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuSectionRequest;
 import com.ziyara.backend.application.dto.request.UpdateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceRequest;
+import com.ziyara.backend.application.dto.response.PayoutRequestResponse;
 import com.ziyara.backend.application.dto.response.PortalDashboardResponse;
 import com.ziyara.backend.application.dto.response.PortalEarningsResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuItemResponse;
@@ -39,7 +41,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.ziyara.backend.presentation.exception.BusinessException;
+import com.ziyara.backend.application.exception.BusinessException;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -47,7 +49,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Provider portal: dashboard, my services, my bookings, earnings (BACKEND_CRUD_REPORT §4).
+ * Provider portal: dashboard, my services, my bookings, earnings (BACKEND_CRUD_REPORT Â§4).
  * All endpoints require authenticated user to be a registered provider.
  */
 @RestController
@@ -75,6 +77,13 @@ public class PortalController {
             @RequestParam(defaultValue = "20") int size) {
         UUID providerId = requireCurrentProviderId();
         return ResponseEntity.ok(ApiResponse.success(portalService.getServices(providerId, page, size)));
+    }
+
+    @GetMapping("/services/{id}")
+    @Operation(summary = "Get own service", description = "Get a single service listing owned by the current provider")
+    public ResponseEntity<ApiResponse<ServiceResponse>> getService(@PathVariable UUID id) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.getService(providerId, id)));
     }
 
     @PostMapping("/services")
@@ -315,6 +324,15 @@ public class PortalController {
     public ResponseEntity<ApiResponse<List<BookingResponse>>> getBookings() {
         UUID providerId = requireCurrentProviderId();
         return ResponseEntity.ok(ApiResponse.success(portalService.getBookings(providerId)));
+    }
+
+    @PostMapping("/payout-request")
+    @Operation(summary = "Request payout", description = "Provider submits a withdrawal request for ops team to process")
+    public ResponseEntity<ApiResponse<PayoutRequestResponse>> requestPayout(
+            @Valid @RequestBody PayoutRequestPayload payload) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Payout request submitted", portalService.createPayoutRequest(providerId, payload)));
     }
 
     @GetMapping("/earnings")
