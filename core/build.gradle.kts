@@ -1,5 +1,6 @@
 plugins {
 	java
+	jacoco
 	id("org.springframework.boot") version "3.5.12"
 	id("nu.studer.jooq") version "9.0"
 }
@@ -123,6 +124,39 @@ tasks.withType<Test> {
 			excludeTags("docker")
 		}
 	}
+	// Emit JUnit XML so CI can parse test results
+	reports {
+		junitXml.required.set(true)
+		html.required.set(true)
+	}
+}
+
+// ─── JaCoCo coverage ──────────────────────────────────────────────────────────
+tasks.jacocoTestReport {
+	dependsOn(tasks.test)
+	reports {
+		xml.required.set(true)   // for CI coverage tools
+		html.required.set(true)  // for human-readable report artifact
+	}
+	// Exclude boilerplate: DTOs, JPA entities, generated config, and the boot entry-point
+	classDirectories.setFrom(
+		files(classDirectories.files.map {
+			fileTree(it) {
+				exclude(
+					"**/dto/**",
+					"**/domain/entity/**",
+					"**/infrastructure/persistence/entity/**",
+					"**/*Application.class",
+					"**/*Configuration.class",
+					"**/*Properties.class"
+				)
+			}
+		})
+	)
+}
+
+tasks.named<Test>("test") {
+	finalizedBy(tasks.jacocoTestReport)
 }
 
 springBoot {
