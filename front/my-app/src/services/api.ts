@@ -4,7 +4,12 @@
  * Unwraps ApiResponse.data on success; 401 redirects to /login.
  */
 
-import axios, { type AxiosInstance } from 'axios'
+import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
+
+// Extend InternalAxiosRequestConfig to carry our retry flag
+interface RetryableConfig extends InternalAxiosRequestConfig {
+  _retried?: boolean
+}
 import type {
   ApiEnvelope,
   BookingDto,
@@ -81,7 +86,7 @@ function readCookie(name: string): string | null {
 
 // Attach token, CSRF (Spring CookieCsrfTokenRepository), and Accept-Language to every request
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   const lang = localStorage.getItem('ziyara-lang')
   if (lang === 'ar' || lang === 'en') config.headers['Accept-Language'] = lang
@@ -96,7 +101,17 @@ client.interceptors.request.use((config) => {
   return config
 })
 
-// Unwrap { success, data } and redirect on 401
+// Flag to prevent infinite refresh loops
+let _refreshing = false
+let _refreshQueue: Array<(token: string | null) => void> = []
+
+function clearSession() {
+  sessionStorage.removeItem('token')
+  sessionStorage.removeItem('user')
+  sessionStorage.removeItem('ziyara_cookie_session')
+}
+
+// Unwrap { success, data }, attempt silent refresh on 401, let MFA errors propagate
 client.interceptors.response.use(
   (response) => {
     const body = response.data as ApiEnvelope<unknown>
@@ -105,13 +120,63 @@ client.interceptors.response.use(
     }
     return response
   },
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      localStorage.removeItem('ziyara_cookie_session')
-      window.location.href = '/login'
+  async (error) => {
+    const status = error.response?.status as number | undefined
+    const errorCode = (error.response?.data as Record<string, unknown> | undefined)?.code as string | undefined
+    const requestUrl = (error.config?.url ?? '') as string
+
+    // MFA challenge — let the login page handle this, do NOT redirect
+    if (status === 401 && errorCode === 'MFA_CODE_REQUIRED') {
+      return Promise.reject(error)
     }
+
+    // Never attempt refresh for auth endpoints themselves
+    const isAuthEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/refresh')
+    const retryableConfig = error.config as RetryableConfig | undefined
+    if (status === 401 && !isAuthEndpoint && !retryableConfig?._retried) {
+      if (_refreshing) {
+        // Queue the retry until refresh completes
+        return new Promise((resolve, reject) => {
+          _refreshQueue.push((newToken) => {
+            if (!newToken) return reject(error)
+            error.config.headers.Authorization = `Bearer ${newToken}`
+            resolve(client(error.config))
+          })
+        })
+      }
+
+      _refreshing = true
+      if (retryableConfig) retryableConfig._retried = true
+
+      try {
+        const res = await client.post<unknown>('/auth/refresh', null)
+        const data = res.data as { accessToken?: string } | null
+        const newToken = data?.accessToken ?? null
+        if (newToken) {
+          sessionStorage.setItem('token', newToken)
+          _refreshQueue.forEach((cb) => cb(newToken))
+          _refreshQueue = []
+          error.config.headers.Authorization = `Bearer ${newToken}`
+          return client(error.config)
+        }
+      } catch {
+        _refreshQueue.forEach((cb) => cb(null))
+        _refreshQueue = []
+      } finally {
+        _refreshing = false
+      }
+
+      // Refresh failed — clear session and redirect
+      clearSession()
+      window.location.href = '/login'
+      return Promise.reject(error)
+    }
+
+    if (status === 401 && isAuthEndpoint) {
+      // Wrong credentials during login — propagate so the form can show the error
+      return Promise.reject(error)
+    }
+
     // Reject the full error so callers can read response.status and response.data
     return Promise.reject(error)
   }
@@ -119,7 +184,7 @@ client.interceptors.response.use(
 
 // --- Auth ---
 export const authAPI = {
-  login: (body: { email: string; password: string; rememberMe?: boolean }) =>
+  login: (body: { email: string; password: string; rememberMe?: boolean; mfaCode?: string }) =>
     client.post<unknown>('/auth/login', body),
   register: (body: { email: string; password: string; phone?: string; role: 'CUSTOMER' }) =>
     client.post<unknown>('/auth/register', body),
@@ -215,6 +280,8 @@ export const portalAPI = {
   listBookings: () => client.get<BookingDto[]>('/portal/bookings'),
   getEarnings: (params?: { start?: string; end?: string }) =>
     client.get<PortalEarningsDto>('/portal/earnings', { params }),
+  requestPayout: (body: { amount: number; notes?: string }) =>
+    client.post<unknown>('/portal/payout-request', body),
 }
 
 /** Provider portal team (migration 023 + /portal/staff) */
@@ -442,13 +509,38 @@ export const reportsAPI = {
     }),
   searchReportCustomers: (q: string, limit = 20) =>
     client.get<unknown>('/reports/customer-search', { params: { q, limit } }),
+  getAnalytics: (start: string, end: string) =>
+    client.get<unknown>('/reports/analytics', { params: { start, end } }),
+  exportReport: (start: string, end: string, type: 'revenue' | 'bookings', format: 'excel' | 'pdf') =>
+    client.get<Blob>('/reports/export', {
+      params: { start, end, type, format },
+      responseType: 'blob',
+    }),
 }
 
 // --- Bookings ---
 export const bookingsAPI = {
+  create: (body: {
+    serviceId: string
+    checkInDate: string
+    checkOutDate?: string
+    guests?: number
+    rooms?: number
+    specialRequests?: string
+    discountCode?: string
+    currency?: string
+  }) => client.post<unknown>('/bookings', body),
   list: (params?: { scope?: string; status?: string; page?: number; size?: number }) =>
     client.get<unknown>('/bookings', { params: { page: 0, size: 20, ...params } }),
-  listAdmin: (params?: { status?: string; page?: number; size?: number }) =>
+  listAdmin: (params?: {
+    status?: string
+    providerId?: string
+    serviceType?: string
+    dateFrom?: string
+    dateTo?: string
+    page?: number
+    size?: number
+  }) =>
     client.get<unknown>('/bookings/admin', { params: { page: 0, size: 20, ...params } }),
   get: (id: string) => client.get<unknown>(`/bookings/${id}`),
   getByReference: (ref: string) => client.get<unknown>(`/bookings/reference/${ref}`),
@@ -456,6 +548,8 @@ export const bookingsAPI = {
   cancel: (id: string, body?: { reason?: string }) =>
     client.post<unknown>(`/bookings/${id}/cancel`, null, { params: body?.reason ? { reason: body.reason } : {} }),
   getVoucher: (id: string) => client.get<unknown>(`/bookings/${id}/voucher`),
+  reject: (id: string, reason?: string) =>
+    client.post<unknown>(`/bookings/${id}/reject`, null, reason ? { params: { reason } } : {}),
 }
 
 // --- Taxi bookings (ops) ---
@@ -468,6 +562,15 @@ export const taxiBookingsAPI = {
     id: string,
     params: { driverId: string; driverName: string; plate: string; model: string },
   ) => client.post<unknown>(`/taxi-bookings/${id}/assign`, null, { params }),
+}
+
+// --- Permission matrix ---
+export const permissionsAPI = {
+  getMatrix: () => client.get<unknown>('/admin/permissions/matrix'),
+  upsert: (body: { roleId: string; module: string; action: string; granted: boolean }) =>
+    client.post<unknown>('/admin/permissions/matrix', body),
+  updateRole: (roleId: string, permissions: Array<{ module: string; action: string; granted: boolean }>) =>
+    client.put<unknown>(`/admin/permissions/roles/${roleId}`, permissions),
 }
 
 // --- Payments ---
@@ -611,6 +714,8 @@ export const adminSuperAPI = {
     client.get<unknown>('/admin/super/deleted/search', { params: { q, limit } }),
   restoreDeleted: (body: { entityType: string; id: string }) =>
     client.post<unknown>('/admin/super/deleted/restore', body),
+  permanentDelete: (body: { entityType: string; id: string }) =>
+    client.delete<unknown>('/admin/super/deleted/permanent', { data: body }),
   customerBookings: (userId: string, params?: { page?: number; size?: number; status?: string }) =>
     client.get<unknown>(`/admin/super/customers/${userId}/bookings`, { params }),
   customerPayments: (userId: string, params?: { page?: number; size?: number }) =>

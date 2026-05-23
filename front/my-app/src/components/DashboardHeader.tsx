@@ -9,6 +9,8 @@ import { isCompanyStaffRole, isSuperAdminRole, type Role } from '../types/auth'
 import { SidebarIcons } from './SidebarIcons'
 import { Avatar, DEFAULT_AVATAR } from './Avatar'
 import { NotificationPanel } from './NotificationPanel'
+import { notificationsAPI } from '../services/api'
+import type { NotificationInboxDto } from '../types/api'
 import { ThemeToggleButton } from './ThemeToggleButton'
 import { LanguageToggleButton } from './LanguageToggleButton'
 import { DeletedArchiveSearchModal, GlobalSearchModal } from './GlobalSearchModals'
@@ -78,6 +80,18 @@ export function DashboardHeader({
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const bellButtonRef = useRef<HTMLButtonElement>(null)
+
+  // Pre-fetch unread count on mount so the badge shows immediately
+  useEffect(() => {
+    if (!showNotifications) return
+    notificationsAPI
+      .list({ page: 0, size: 1 })
+      .then((res) => {
+        const inbox = res.data as NotificationInboxDto | null
+        setUnreadNotificationCount(Number(inbox?.unreadCount ?? 0))
+      })
+      .catch(() => { /* silently ignore — badge stays at 0 */ })
+  }, [showNotifications])
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
   const [deletedSearchOpen, setDeletedSearchOpen] = useState(false)
 

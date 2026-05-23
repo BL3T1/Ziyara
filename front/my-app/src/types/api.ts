@@ -26,6 +26,12 @@ export interface DashboardKpiDto {
   openTickets: number
 }
 
+export interface WeeklyRevenueItem {
+  /** ISO week start date string, e.g. "2025-05-12" */
+  week: string
+  amount: number
+}
+
 /** GET /portal/dashboard */
 export interface PortalDashboardDto {
   serviceCount: number
@@ -33,6 +39,7 @@ export interface PortalDashboardDto {
   activeBookings: number
   totalRevenue: number
   revenueCurrency: string
+  weeklyRevenue?: WeeklyRevenueItem[]
 }
 
 /** GET /portal/earnings */
@@ -549,6 +556,9 @@ export interface PaymentDto {
   processedAt?: string
   gatewayReference?: string
   threeDsStatus?: string
+  entityType?: string
+  entityId?: string
+  category?: string
 }
 
 // Tickets

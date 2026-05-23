@@ -70,6 +70,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     items: [
       { id: 'complaints', label: 'Complaints', href: '/support/complaints' },
       { id: 'reviews', label: 'Reviews', href: '/support/reviews' },
+      { id: 'tickets', label: 'Tickets', href: '/support/tickets' },
     ],
   },
   {

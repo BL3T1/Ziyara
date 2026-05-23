@@ -12,6 +12,8 @@ import type { PortalLoginError } from '../components/HomeRedirect'
 import { ThemeToggleButton } from '../components/ThemeToggleButton'
 import { LanguageToggleButton } from '../components/LanguageToggleButton'
 import { useLanguage } from '../context/LanguageContext'
+import { MfaChallengePage } from './MfaChallengePage'
+import { loginSchema } from '../lib/validation'
 
 const UserIcon = () => (
   <svg className="h-5 w-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -42,7 +44,9 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({})
   const [loading, setLoading] = useState(false)
+  const [mfaCredentials, setMfaCredentials] = useState<{ email: string; password: string } | null>(null)
 
   useEffect(() => {
     const portalError = (location.state as { portalError?: PortalLoginError } | null)?.portalError
@@ -55,6 +59,13 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setFieldErrors({})
+    const parsed = loginSchema.safeParse({ email, password })
+    if (!parsed.success) {
+      const errs = parsed.error.flatten().fieldErrors
+      setFieldErrors({ email: errs.email?.[0], password: errs.password?.[0] })
+      return
+    }
     setLoading(true)
     try {
       const res = await authAPI.login({ email, password, rememberMe })
@@ -104,6 +115,12 @@ export function LoginPage() {
       }
       navigate(safeRedirect(getDashboardRouteForRole(role), '/dashboard'), { replace: true })
     } catch (err: unknown) {
+      // Detect MFA challenge — show TOTP input instead of generic error
+      const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code
+      if (code === 'MFA_CODE_REQUIRED') {
+        setMfaCredentials({ email, password })
+        return
+      }
       setError(getApiErrorMessage(err, 'Login failed'))
     } finally {
       setLoading(false)
@@ -133,7 +150,16 @@ export function LoginPage() {
         />
       </div>
 
-      <div className="relative z-10 w-full max-w-md rounded-3xl border border-slate-200/90 bg-white/85 px-8 py-10 shadow-2xl shadow-slate-900/[0.08] ring-1 ring-slate-900/[0.04] backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-900/75 dark:shadow-[0_24px_64px_-12px_rgba(0,0,0,0.65)] dark:ring-white/[0.06]">
+      {mfaCredentials ? (
+        <MfaChallengePage
+          email={mfaCredentials.email}
+          password={mfaCredentials.password}
+          onBack={() => setMfaCredentials(null)}
+          onSuccess={(route) => navigate(safeRedirect(route, '/dashboard'), { replace: true })}
+        />
+      ) : null}
+
+      {!mfaCredentials ? <div className="relative z-10 w-full max-w-md rounded-3xl border border-slate-200/90 bg-white/85 px-8 py-10 shadow-2xl shadow-slate-900/[0.08] ring-1 ring-slate-900/[0.04] backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-900/75 dark:shadow-[0_24px_64px_-12px_rgba(0,0,0,0.65)] dark:ring-white/[0.06]">
         <div
           className="pointer-events-none absolute inset-x-0 top-0 h-px rounded-t-3xl bg-gradient-to-r from-transparent via-primary/35 to-secondary/25"
           aria-hidden
@@ -161,10 +187,11 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t('login.emailPlaceholder')}
-                className="w-full rounded-xl border border-slate-200/90 bg-slate-50/90 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-primary dark:focus:bg-slate-800/90 dark:focus:ring-primary/30"
-                required
+                className="w-full rounded-xl border bg-slate-50/90 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:bg-white focus:outline-none focus:ring-2 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800/90"
+                style={{ borderColor: fieldErrors.email ? '#f87171' : undefined }}
               />
             </div>
+            {fieldErrors.email ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.email}</p> : null}
           </div>
 
           <div>
@@ -181,10 +208,11 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-slate-200/90 bg-slate-50/90 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-primary dark:focus:bg-slate-800/90 dark:focus:ring-primary/30"
-                required
+                className="w-full rounded-xl border bg-slate-50/90 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:bg-white focus:outline-none focus:ring-2 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800/90"
+                style={{ borderColor: fieldErrors.password ? '#f87171' : undefined }}
               />
             </div>
+            {fieldErrors.password ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.password}</p> : null}
           </div>
 
           <div className="flex items-center justify-between gap-3">
@@ -213,7 +241,7 @@ export function LoginPage() {
             {loading ? t('login.signingIn') : t('login.signIn')}
           </button>
         </form>
-      </div>
+      </div> : null}
     </div>
   )
 }

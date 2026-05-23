@@ -40,6 +40,14 @@ export function PaymentsPage() {
   const [refundReason, setRefundReason] = useState('')
   const [refundSubmitting, setRefundSubmitting] = useState(false)
 
+  const summary = useMemo(() => {
+    const completed = payments.filter((p) => p.status === 'COMPLETED')
+    const pending = payments.filter((p) => p.status === 'PENDING')
+    const refunded = payments.filter((p) => p.status === 'REFUNDED')
+    const sum = (arr: PaymentDto[]) => arr.reduce((s, p) => s + Number(p.amount ?? 0), 0)
+    return { completed: sum(completed), pending: sum(pending), refunded: sum(refunded), currency: payments[0]?.currency ?? 'USD' }
+  }, [payments])
+
   useEffect(() => {
     setLoading(true)
     paymentsAPI
@@ -108,6 +116,19 @@ export function PaymentsPage() {
         ))}
       </div>
 
+      <div className="mt-6 grid grid-cols-3 gap-4">
+        {[
+          { label: 'Collected', amount: summary.completed, color: 'text-green-700 dark:text-green-400' },
+          { label: 'Pending', amount: summary.pending, color: 'text-amber-700 dark:text-amber-400' },
+          { label: 'Refunded', amount: summary.refunded, color: 'text-red-700 dark:text-red-400' },
+        ].map(({ label, amount, color }) => (
+          <div key={label} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+            <p className={`mt-1 text-xl font-bold ${color}`}>{displayInDefault(amount, summary.currency)}</p>
+          </div>
+        ))}
+      </div>
+
       <div className="mt-6 table-shell">
         {loading ? (
           <div className="p-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
@@ -122,6 +143,8 @@ export function PaymentsPage() {
                 <th className="px-4 py-3.5">{t('paymentsPage.colMethod')}</th>
                 <th className="px-4 py-3.5">{t('paymentsPage.colStatus')}</th>
                 <th className="px-4 py-3.5">{t('paymentsPage.col3ds')}</th>
+                <th className="px-4 py-3.5">Entity</th>
+                <th className="px-4 py-3.5">Category</th>
                 <th className="px-4 py-3.5">{t('paymentsPage.colGatewayRef')}</th>
                 <th className="px-4 py-3.5">{t('paymentsPage.colDate')}</th>
                 <th className="px-4 py-3.5">{t('paymentsPage.colActions')}</th>
@@ -143,6 +166,10 @@ export function PaymentsPage() {
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{p.method ?? dash}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{p.status ?? dash}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{p.threeDsStatus ?? dash}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                    {p.entityType ? <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs dark:bg-slate-700">{p.entityType}</span> : dash}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{p.category ?? dash}</td>
                   <td className="max-w-[8rem] truncate whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300" title={p.gatewayReference ?? undefined}>
                     {p.gatewayReference ?? dash}
                   </td>

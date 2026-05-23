@@ -14,6 +14,7 @@ import type {
   CommissionAnalysisDto,
   PayoutsResponseDto,
 } from '../types/api'
+import { useDashboardWebSocket } from '../hooks/useDashboardWebSocket'
 
 function defaultDateRange(): { start: string; end: string } {
   const end = new Date()
@@ -69,6 +70,7 @@ export function DashboardPage() {
   const queryClient = useQueryClient()
   const { t } = useLanguage()
   const { displayInDefault, defaultCurrency } = useDisplayCurrency()
+  const wsConnected = useDashboardWebSocket(bootstrapQueryKey)
 
   const bootstrapQuery = useQuery({
     queryKey: bootstrapQueryKey,
@@ -103,7 +105,7 @@ export function DashboardPage() {
       })
       return live
     },
-    enabled: bootstrapQuery.isSuccess,
+    enabled: bootstrapQuery.isSuccess && !wsConnected,
     staleTime: 60_000,
     refetchInterval: () =>
       typeof document !== 'undefined' && document.visibilityState === 'hidden' ? false : DASHBOARD_LIVE_POLL_MS,

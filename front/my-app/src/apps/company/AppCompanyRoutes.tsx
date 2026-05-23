@@ -55,6 +55,12 @@ const IntegrationsPage = lazy(() =>
 const ContentPagesPage = lazy(() =>
   import('../../pages/admin/ContentPagesPage').then((m) => ({ default: m.ContentPagesPage })),
 )
+const TicketsPage = lazy(() =>
+  import('../../pages/support/TicketsPage').then((m) => ({ default: m.TicketsPage })),
+)
+const TicketDetailPage = lazy(() =>
+  import('../../pages/support/TicketDetailPage').then((m) => ({ default: m.TicketDetailPage })),
+)
 const CustomerSearchPage = lazy(() =>
   import('../../pages/admin/CustomerSearchPage').then((m) => ({ default: m.CustomerSearchPage })),
 )
@@ -63,6 +69,9 @@ const CustomerProfilePage = lazy(() =>
 )
 const DeletedItemsPage = lazy(() =>
   import('../../pages/admin/DeletedItemsPage').then((m) => ({ default: m.DeletedItemsPage })),
+)
+const PermissionMatrixPage = lazy(() =>
+  import('../../pages/admin/PermissionMatrixPage').then((m) => ({ default: m.PermissionMatrixPage })),
 )
 const ComplaintsPage = lazy(() =>
   import('../../pages/support/ComplaintsPage').then((m) => ({ default: m.ComplaintsPage })),
@@ -113,10 +122,13 @@ export function AppCompanyRoutes() {
             <Route path="/management/reports" element={<ReportsPage />} />
             <Route path="/support/complaints" element={<ComplaintsPage />} />
             <Route path="/support/reviews" element={<ReviewsPage />} />
+            <Route path="/support/tickets" element={<TicketsPage />} />
+            <Route path="/support/tickets/:ticketId" element={<TicketDetailPage />} />
             <Route path="/management/taxi-trips" element={<TaxiTripsPage />} />
             <Route path="/management/currency-rates" element={<CurrencyRatesPage />} />
             <Route path="/admin/settings" element={<SettingsPage />} />
             <Route path="/admin/roles" element={<RolesPage />} />
+            <Route path="/admin/permissions" element={<PermissionMatrixPage />} />
             <Route path="/admin/logs" element={<AuditLogsPage />} />
             <Route path="/admin/find-customer" element={<CustomerSearchPage />} />
             <Route path="/admin/customers/:userId" element={<CustomerProfilePage />} />

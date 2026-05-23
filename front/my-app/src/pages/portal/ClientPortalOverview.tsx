@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useLanguage } from '../../context/LanguageContext'
 import { portalAPI } from '../../services/api'
 import type { PortalDashboardDto } from '../../types/api'
@@ -94,6 +95,51 @@ export function ClientPortalOverview() {
           </>
         )}
       </div>
+
+      {/* Weekly Revenue Chart */}
+      {kpis?.weeklyRevenue && kpis.weeklyRevenue.length > 0 && (
+        <Card className="p-5">
+          <h2 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            {t('portalHome.weeklyRevenue')}
+          </h2>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={kpis.weeklyRevenue} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+              <XAxis
+                dataKey="week"
+                tickFormatter={(v: string) => {
+                  const d = new Date(v + 'T00:00:00')
+                  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                }}
+                tick={{ fontSize: 11, fill: 'var(--color-text-muted, #94a3b8)' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))}
+                tick={{ fontSize: 11, fill: 'var(--color-text-muted, #94a3b8)' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                formatter={(value) =>
+                  [`${kpis.revenueCurrency ?? 'USD'} ${Number(value ?? 0).toLocaleString()}`, t('portalHome.revenueCompleted')]
+                }
+                labelFormatter={(label) => {
+                  const d = new Date(String(label) + 'T00:00:00')
+                  return `Week of ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+                }}
+                contentStyle={{
+                  borderRadius: '10px',
+                  border: '1px solid rgba(148,163,184,0.2)',
+                  fontSize: '12px',
+                }}
+              />
+              <Bar dataKey="amount" fill="var(--color-primary, #1e4d6b)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
 
       <div className="flex flex-wrap gap-3 sm:gap-4">
         <Link

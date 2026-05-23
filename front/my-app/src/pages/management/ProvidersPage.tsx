@@ -10,6 +10,7 @@ import { useLanguage } from '../../context/LanguageContext'
 import { providersAPI } from '../../services/api'
 import { getApiErrorMessage } from '../../services/api'
 import type { PageDto, ServiceProviderDto } from '../../types/api'
+import { BulkActionBar } from '../../components/BulkActionBar'
 import {
   canApproveRejectProvider,
   canCreateProvider,
@@ -46,6 +47,7 @@ export function ProvidersPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [commissionRate, setCommissionRate] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const load = () => {
     setLoading(true)
     providersAPI
@@ -108,6 +110,38 @@ export function ProvidersPage() {
     }
   }
 
+  const isAllSelected = providers.length > 0 && providers.every((p) => selectedIds.has(p.id))
+  const toggleAll = () =>
+    setSelectedIds(isAllSelected ? new Set() : new Set(providers.map((p) => p.id)))
+  const toggleOne = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
+  const bulkApprove = async () => {
+    const ids = providers
+      .filter((p) => selectedIds.has(p.id) && (p.status ?? '').toUpperCase() === 'PENDING_APPROVAL')
+      .map((p) => p.id)
+    if (!ids.length) return
+    setError(null)
+    await Promise.allSettled(ids.map((id) => providersAPI.approve(id)))
+    setProviders((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, status: 'ACTIVE' } : p)))
+    setSelectedIds(new Set())
+  }
+
+  const bulkSuspend = async () => {
+    const ids = providers
+      .filter((p) => selectedIds.has(p.id) && (p.status ?? '').toUpperCase() === 'ACTIVE')
+      .map((p) => p.id)
+    if (!ids.length) return
+    setError(null)
+    await Promise.allSettled(ids.map((id) => providersAPI.suspend(id)))
+    setProviders((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, status: 'SUSPENDED' } : p)))
+    setSelectedIds(new Set())
+  }
+
   const handleSaveCommission = async () => {
     if (!editingId || commissionRate === '') return
     const rate = parseFloat(commissionRate)
@@ -142,6 +176,28 @@ export function ProvidersPage() {
           {error}
         </div>
       )}
+
+      <BulkActionBar
+        selectedCount={selectedIds.size}
+        onClearSelection={() => setSelectedIds(new Set())}
+        actions={[
+          {
+            label: t('providersPage.bulkApprove'),
+            onClick: bulkApprove,
+            disabled: ![...selectedIds].some(
+              (id) => (providers.find((p) => p.id === id)?.status ?? '').toUpperCase() === 'PENDING_APPROVAL',
+            ),
+          },
+          {
+            label: t('providersPage.bulkSuspend'),
+            onClick: bulkSuspend,
+            variant: 'danger',
+            disabled: ![...selectedIds].some(
+              (id) => (providers.find((p) => p.id === id)?.status ?? '').toUpperCase() === 'ACTIVE',
+            ),
+          },
+        ]}
+      />
 
       <div className="mt-6 flex flex-wrap gap-4">
         <button
@@ -178,6 +234,14 @@ export function ProvidersPage() {
           <table>
             <thead>
               <tr>
+                <th className="w-10 px-4 py-3.5">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={toggleAll}
+                    className="h-4 w-4 cursor-pointer rounded border-slate-300"
+                  />
+                </th>
                 <th className="px-4 py-3.5">{t('providersPage.colName')}</th>
                 <th className="px-4 py-3.5">{t('providersPage.colType')}</th>
                 <th className="px-4 py-3.5">{t('providersPage.colStatus')}</th>
@@ -187,7 +251,15 @@ export function ProvidersPage() {
             </thead>
             <tbody>
               {providers.map((p) => (
-                <tr key={p.id}>
+                <tr key={p.id} className={selectedIds.has(p.id) ? 'bg-primary/5 dark:bg-primary/10' : ''}>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(p.id)}
+                      onChange={() => toggleOne(p.id)}
+                      className="h-4 w-4 cursor-pointer rounded border-slate-300"
+                    />
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-900 dark:text-slate-100">
                     <Link to={`/management/providers/${p.id}`} className="text-primary hover:underline">
                       {p.name}

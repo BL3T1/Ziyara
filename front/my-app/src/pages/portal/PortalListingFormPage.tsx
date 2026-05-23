@@ -8,6 +8,7 @@ import { useLanguage } from '../../context/LanguageContext'
 import { getApiErrorMessage, portalAPI, providersAPI, servicesAPI } from '../../services/api'
 import { PARTNER_SERVICE_TYPE_VALUES, type ServiceDto, type ServiceStatusDto, type ServiceTypeDto } from '../../types/api'
 import { Card } from '../../components/Card'
+import { portalListingSchema } from '../../lib/validation'
 
 const SERVICE_STATUSES: ServiceStatusDto[] = [
   'ACTIVE',
@@ -40,6 +41,7 @@ export function PortalListingFormPage() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; description?: string; basePrice?: string; currency?: string }>({})
   const [providerId, setProviderId] = useState<string | null>(null)
 
   const [type, setType] = useState<ServiceTypeDto>('HOTEL')
@@ -92,16 +94,21 @@ export function PortalListingFormPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    const price = num(basePrice)
-    if (price == null || price < 0) {
-      setError(t('portalPages.priceRequired'))
-      return
-    }
-    if (!name.trim()) {
-      setError(t('portalPages.nameRequired'))
+    setFieldErrors({})
+
+    const parsed = portalListingSchema.safeParse({ name, description, basePrice, currency })
+    if (!parsed.success) {
+      const errs = parsed.error.flatten().fieldErrors
+      setFieldErrors({
+        name: errs.name?.[0],
+        description: errs.description?.[0],
+        basePrice: errs.basePrice?.[0],
+        currency: errs.currency?.[0],
+      })
       return
     }
 
+    const price = num(basePrice)
     setSaving(true)
     try {
       if (isNew) {
@@ -118,7 +125,7 @@ export function PortalListingFormPage() {
           city: city.trim() || undefined,
           country: country.trim() || undefined,
           address: address.trim() || undefined,
-          basePrice: price,
+          basePrice: price ?? 0,
           currency: currency.trim() || 'USD',
           maxGuests: int(maxGuests),
           totalRooms: int(totalRooms),
@@ -134,7 +141,7 @@ export function PortalListingFormPage() {
           city: city.trim() || undefined,
           country: country.trim() || undefined,
           address: address.trim() || undefined,
-          basePrice: price,
+          basePrice: price ?? 0,
           status,
           maxGuests: int(maxGuests),
           totalRooms: int(totalRooms),
@@ -198,9 +205,10 @@ export function PortalListingFormPage() {
               <input
                 value={name}
                 onChange={(ev) => setName(ev.target.value)}
-                required
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                className="mt-1 w-full rounded-lg border px-3 py-2 text-slate-900 dark:bg-slate-900 dark:text-slate-100"
+                style={{ borderColor: fieldErrors.name ? '#f87171' : undefined }}
               />
+              {fieldErrors.name ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.name}</p> : null}
             </div>
 
             <div>
@@ -209,8 +217,10 @@ export function PortalListingFormPage() {
                 value={description}
                 onChange={(ev) => setDescription(ev.target.value)}
                 rows={3}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                className="mt-1 w-full rounded-lg border px-3 py-2 text-slate-900 dark:bg-slate-900 dark:text-slate-100"
+                style={{ borderColor: fieldErrors.description ? '#f87171' : undefined }}
               />
+              {fieldErrors.description ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.description}</p> : null}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -248,8 +258,10 @@ export function PortalListingFormPage() {
                   value={basePrice}
                   onChange={(ev) => setBasePrice(ev.target.value)}
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-slate-900 dark:text-slate-100"
+                  style={{ borderColor: fieldErrors.basePrice ? '#f87171' : undefined }}
                 />
+                {fieldErrors.basePrice ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.basePrice}</p> : null}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">{t('portalPages.fieldCurrency')}</label>
@@ -258,8 +270,10 @@ export function PortalListingFormPage() {
                   onChange={(ev) => setCurrency(ev.target.value)}
                   disabled={!isNew}
                   title={isNew ? undefined : t('portalPages.currencyLockedHint')}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  className="mt-1 w-full rounded-lg border px-3 py-2 disabled:opacity-60 dark:bg-slate-900 dark:text-slate-100"
+                  style={{ borderColor: fieldErrors.currency ? '#f87171' : undefined }}
                 />
+                {fieldErrors.currency ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.currency}</p> : null}
               </div>
             </div>
 

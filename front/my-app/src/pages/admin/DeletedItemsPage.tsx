@@ -16,9 +16,11 @@ export function DeletedItemsPage() {
   const { user } = useAuth()
   const isSuperAdmin = user?.role === 'super_admin'
   const [q, setQ] = useState('')
+  const [customerOnly, setCustomerOnly] = useState(false)
   const [rows, setRows] = useState<DeletedItemDto[]>([])
   const [loading, setLoading] = useState(false)
   const [restoring, setRestoring] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [listSource, setListSource] = useState<'recent' | 'search'>('recent')
@@ -88,6 +90,22 @@ export function DeletedItemsPage() {
       .finally(() => setLoading(false))
   }
 
+  const permanentDelete = (row: DeletedItemDto) => {
+    if (!window.confirm(`Permanently delete ${row.entityType} "${row.label}"? This cannot be undone.`)) return
+    const key = `${row.entityType}:${row.id}`
+    setDeleting(key)
+    setError(null)
+    setInfo(null)
+    adminSuperAPI
+      .permanentDelete({ entityType: row.entityType, id: row.id })
+      .then(() => {
+        setInfo(`Permanently deleted ${row.entityType}: ${row.label ?? row.id}`)
+        setRows((prev) => prev.filter((r) => r.id !== row.id))
+      })
+      .catch((e) => setError(getApiErrorMessage(e, 'Permanent delete failed')))
+      .finally(() => setDeleting(null))
+  }
+
   const restore = (row: DeletedItemDto) => {
     const key = `${row.entityType}:${row.id}`
     setRestoring(key)
@@ -106,33 +124,45 @@ export function DeletedItemsPage() {
   const dash = t('ui.emDash')
   const emptyMessage =
     listSource === 'search' ? t('deletedItemsPage.noSearchResults') : t('deletedItemsPage.noRecent')
+  const displayRows = customerOnly ? rows.filter((r) => r.entityType?.toUpperCase() === 'USER') : rows
 
   return (
     <>
       <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('deletedItemsPage.title')}</h1>
       <p className="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">{t('deletedItemsPage.intro')}</p>
       <p className="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">{t('deletedItemsPage.recentAutoLoad')}</p>
-      <div className="mt-6 flex flex-wrap gap-2">
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && search()}
-          placeholder={t('deletedItemsPage.placeholder')}
-          className="min-w-[16rem] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-        />
-        <button
-          type="button"
-          onClick={search}
-          disabled={loading}
-          className="dashboard-btn-primary"
-        >
-          {loading && listSource === 'search'
-            ? t('ui.searching')
-            : loading
-              ? t('ui.loading')
-              : t('ui.searchAction')}
-        </button>
+      <div className="mt-6 space-y-3">
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && search()}
+            placeholder={t('deletedItemsPage.placeholder')}
+            className="min-w-[16rem] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <button
+            type="button"
+            onClick={search}
+            disabled={loading}
+            className="dashboard-btn-primary"
+          >
+            {loading && listSource === 'search'
+              ? t('ui.searching')
+              : loading
+                ? t('ui.loading')
+                : t('ui.searchAction')}
+          </button>
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={customerOnly}
+            onChange={(e) => setCustomerOnly(e.target.checked)}
+            className="rounded border-slate-300"
+          />
+          Show customers only
+        </label>
       </div>
 
       {error && (
@@ -147,9 +177,9 @@ export function DeletedItemsPage() {
       )}
 
       <div className="mt-6 table-shell">
-        {rows.length === 0 && !loading ? (
+        {displayRows.length === 0 && !loading ? (
           <div className="p-8 text-center text-slate-500 dark:text-slate-400">{emptyMessage}</div>
-        ) : loading && rows.length === 0 ? (
+        ) : loading && displayRows.length === 0 ? (
           <div className="p-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
         ) : (
           <table>
@@ -162,7 +192,7 @@ export function DeletedItemsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {displayRows.map((r) => (
                 <tr key={`${r.entityType}-${r.id}`}>
                   <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-200">{r.entityType}</td>
                   <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
@@ -173,14 +203,24 @@ export function DeletedItemsPage() {
                     {r.deletedAt ? new Date(r.deletedAt).toLocaleString() : dash}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm">
-                    <button
-                      type="button"
-                      onClick={() => restore(r)}
-                      disabled={restoring !== null}
-                      className="rounded-md bg-green-600 px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
-                    >
-                      {restoring === `${r.entityType}:${r.id}` ? t('ui.restoring') : t('ui.restore')}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => restore(r)}
+                        disabled={restoring !== null || deleting !== null}
+                        className="rounded-md bg-green-600 px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                      >
+                        {restoring === `${r.entityType}:${r.id}` ? t('ui.restoring') : t('ui.restore')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => permanentDelete(r)}
+                        disabled={restoring !== null || deleting !== null}
+                        className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                      >
+                        {deleting === `${r.entityType}:${r.id}` ? 'Deleting…' : 'Delete permanently'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

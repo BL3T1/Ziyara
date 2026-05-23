@@ -10,6 +10,7 @@ import { useDisplayCurrency } from '../../context/DisplayCurrencyContext'
 import { bookingsAPI } from '../../services/api'
 import { getApiErrorMessage } from '../../services/api'
 import type { BookingDto, PageDto } from '../../types/api'
+import { BulkActionBar } from '../../components/BulkActionBar'
 
 function asPage<T>(data: unknown): PageDto<T> | null {
   if (data && typeof data === 'object' && Array.isArray((data as PageDto<T>).content)) {
@@ -32,10 +33,16 @@ export function BookingsPage() {
   const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [providerIdFilter, setProviderIdFilter] = useState('')
+  const [serviceTypeFilter, setServiceTypeFilter] = useState('')
   const [detailId, setDetailId] = useState<string | null>(null)
   const [detail, setDetail] = useState<BookingDto | null>(null)
   const [cancelReason, setCancelReason] = useState('')
+  const [rejectReason, setRejectReason] = useState('')
   const [voucherData, setVoucherData] = useState<Record<string, unknown> | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const load = () => {
     setLoading(true)
@@ -43,6 +50,10 @@ export function BookingsPage() {
     bookingsAPI
       .listAdmin({
         status: selectedStatus ?? undefined,
+        providerId: providerIdFilter || undefined,
+        serviceType: serviceTypeFilter || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
         page,
         size: PAGE_SIZE,
       })
@@ -60,7 +71,7 @@ export function BookingsPage() {
 
   useEffect(() => {
     load()
-  }, [selectedStatus, page])
+  }, [selectedStatus, page, providerIdFilter, serviceTypeFilter, dateFrom, dateTo])
 
   useEffect(() => {
     const bid = searchParams.get('bookingId')
@@ -127,6 +138,53 @@ export function BookingsPage() {
     }
   }
 
+  const handleReject = async (id: string) => {
+    setError(null)
+    try {
+      await bookingsAPI.reject(id, rejectReason || undefined)
+      setBookings((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, status: 'CANCELLED' } : b))
+      )
+      setDetailId(null)
+      setDetail(null)
+      setRejectReason('')
+    } catch (e) {
+      setError(getApiErrorMessage(e))
+    }
+  }
+
+  const isAllSelected = bookings.length > 0 && bookings.every((b) => selectedIds.has(b.id))
+  const toggleAll = () =>
+    setSelectedIds(isAllSelected ? new Set() : new Set(bookings.map((b) => b.id)))
+  const toggleOne = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
+  const bulkConfirm = async () => {
+    const ids = bookings
+      .filter((b) => selectedIds.has(b.id) && (b.status ?? '').toUpperCase() === 'PENDING')
+      .map((b) => b.id)
+    if (!ids.length) return
+    setError(null)
+    await Promise.allSettled(ids.map((id) => bookingsAPI.confirm(id)))
+    setBookings((prev) => prev.map((b) => (ids.includes(b.id) ? { ...b, status: 'CONFIRMED' } : b)))
+    setSelectedIds(new Set())
+  }
+
+  const bulkCancel = async () => {
+    const ids = [...selectedIds]
+    if (!ids.length) return
+    setError(null)
+    await Promise.allSettled(
+      ids.map((id) => bookingsAPI.cancel(id, { reason: t('bookingsPage.cancelledByAdmin') })),
+    )
+    setBookings((prev) => prev.map((b) => (ids.includes(b.id) ? { ...b, status: 'CANCELLED' } : b)))
+    setSelectedIds(new Set())
+  }
+
   return (
     <>
       <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('bookingsPage.title')}</h1>
@@ -135,6 +193,25 @@ export function BookingsPage() {
           {error}
         </div>
       )}
+
+      <BulkActionBar
+        selectedCount={selectedIds.size}
+        onClearSelection={() => setSelectedIds(new Set())}
+        actions={[
+          {
+            label: t('bookingsPage.bulkConfirm'),
+            onClick: bulkConfirm,
+            disabled: ![...selectedIds].some(
+              (id) => (bookings.find((b) => b.id === id)?.status ?? '').toUpperCase() === 'PENDING',
+            ),
+          },
+          {
+            label: t('bookingsPage.bulkCancel'),
+            onClick: bulkCancel,
+            variant: 'danger',
+          },
+        ]}
+      />
 
       <div className="mt-6 flex flex-wrap gap-4">
         <button
@@ -162,6 +239,45 @@ export function BookingsPage() {
         ))}
       </div>
 
+      <div className="mt-4 flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+        <input
+          type="text"
+          value={providerIdFilter}
+          onChange={(e) => { setProviderIdFilter(e.target.value); setPage(0) }}
+          placeholder="Provider ID"
+          className="w-44 rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+        />
+        <select
+          value={serviceTypeFilter}
+          onChange={(e) => { setServiceTypeFilter(e.target.value); setPage(0) }}
+          className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+        >
+          <option value="">All Types</option>
+          {['HOTEL', 'RESORT', 'RESTAURANT', 'TRIP'].map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          From
+          <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(0) }}
+            className="rounded border border-slate-300 px-2 py-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+        </label>
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          To
+          <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(0) }}
+            className="rounded border border-slate-300 px-2 py-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+        </label>
+        {(providerIdFilter || serviceTypeFilter || dateFrom || dateTo) && (
+          <button
+            type="button"
+            onClick={() => { setProviderIdFilter(''); setServiceTypeFilter(''); setDateFrom(''); setDateTo(''); setPage(0) }}
+            className="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
       <div className="mt-6 table-shell">
         {loading ? (
           <div className="p-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
@@ -171,6 +287,14 @@ export function BookingsPage() {
           <table>
             <thead>
               <tr>
+                <th className="w-10 px-4 py-3.5">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={toggleAll}
+                    className="h-4 w-4 cursor-pointer rounded border-slate-300"
+                  />
+                </th>
                 <th className="px-4 py-3.5">{t('bookingsPage.reference')}</th>
                 <th className="px-4 py-3.5">{t('bookingsPage.customer')}</th>
                 <th className="px-4 py-3.5">{t('bookingsPage.checkIn')}</th>
@@ -181,7 +305,15 @@ export function BookingsPage() {
             </thead>
             <tbody>
               {bookings.map((b) => (
-                <tr key={b.id}>
+                <tr key={b.id} className={selectedIds.has(b.id) ? 'bg-primary/5 dark:bg-primary/10' : ''}>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(b.id)}
+                      onChange={() => toggleOne(b.id)}
+                      className="h-4 w-4 cursor-pointer rounded border-slate-300"
+                    />
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100">{b.bookingReference}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
                     {b.customerEmail?.trim() ||
@@ -301,7 +433,7 @@ export function BookingsPage() {
                   </div>
                 )}
                 {(detail.status ?? '').toUpperCase() === 'PENDING' && (
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="mt-4 space-y-3">
                     <button
                       type="button"
                       onClick={() => handleConfirm(detail.id)}
@@ -309,20 +441,38 @@ export function BookingsPage() {
                     >
                       {t('ui.confirm')}
                     </button>
-                    <input
-                      type="text"
-                      placeholder={t('ui.cancelReasonPlaceholder')}
-                      value={cancelReason}
-                      onChange={(e) => setCancelReason(e.target.value)}
-                      className="rounded border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleCancel(detail.id)}
-                      className="rounded-xl bg-amber-600 px-3 py-1.5 text-sm text-white hover:opacity-90"
-                    >
-                      {t('ui.cancelBooking')}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        type="text"
+                        placeholder={t('ui.cancelReasonPlaceholder')}
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        className="rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleCancel(detail.id)}
+                        className="rounded-xl bg-amber-600 px-3 py-1.5 text-sm text-white hover:opacity-90"
+                      >
+                        {t('ui.cancelBooking')}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        type="text"
+                        placeholder="Rejection reason (optional)"
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        className="rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleReject(detail.id)}
+                        className="rounded-xl bg-red-600 px-3 py-1.5 text-sm text-white hover:opacity-90"
+                      >
+                        Reject
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

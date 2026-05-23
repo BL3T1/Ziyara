@@ -15,6 +15,10 @@ export function CustomerSearchPage() {
   const { user } = useAuth()
   const isSuperAdmin = user?.role === 'super_admin'
   const [q, setQ] = useState('')
+  const [nameFilter, setNameFilter] = useState('')
+  const [phoneFilter, setPhoneFilter] = useState('')
+  const [emailFilter, setEmailFilter] = useState('')
+  const [idFilter, setIdFilter] = useState('')
   const [rows, setRows] = useState<UserDto[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -40,7 +44,7 @@ export function CustomerSearchPage() {
   }
 
   const search = () => {
-    const term = q.trim()
+    const term = idFilter.trim() || emailFilter.trim() || phoneFilter.trim() || nameFilter.trim() || q.trim()
     if (!term) {
       setError(t('customerSearchPage.enterQuery'))
       return
@@ -51,7 +55,12 @@ export function CustomerSearchPage() {
       .searchCustomers(term)
       .then((res) => {
         const data = res.data
-        setRows(Array.isArray(data) ? (data as UserDto[]) : [])
+        let results = Array.isArray(data) ? (data as UserDto[]) : []
+        if (nameFilter.trim()) results = results.filter((r) => r.fullName?.toLowerCase().includes(nameFilter.toLowerCase()))
+        if (phoneFilter.trim()) results = results.filter((r) => r.phone?.includes(phoneFilter.trim()))
+        if (emailFilter.trim()) results = results.filter((r) => r.email?.toLowerCase().includes(emailFilter.toLowerCase()))
+        if (idFilter.trim()) results = results.filter((r) => r.id === idFilter.trim())
+        setRows(results)
       })
       .catch((e) => {
         setError(getApiErrorMessage(e, 'Search failed'))
@@ -66,23 +75,55 @@ export function CustomerSearchPage() {
     <>
       <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('customerSearchPage.title')}</h1>
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && search()}
-          placeholder={t('customerSearchPage.placeholder')}
-          className="min-w-[16rem] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-        />
-        <button
-          type="button"
-          onClick={search}
-          disabled={loading}
-          className="dashboard-btn-primary disabled:opacity-50"
-        >
-          {loading ? t('ui.searching') : t('ui.searchAction')}
-        </button>
+      <div className="mt-6 space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && search()}
+            placeholder={t('customerSearchPage.placeholder')}
+            className="min-w-[16rem] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="text"
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            placeholder="Filter by name"
+            className="w-40 rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <input
+            type="text"
+            value={emailFilter}
+            onChange={(e) => setEmailFilter(e.target.value)}
+            placeholder="Filter by email"
+            className="w-44 rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <input
+            type="text"
+            value={phoneFilter}
+            onChange={(e) => setPhoneFilter(e.target.value)}
+            placeholder="Filter by phone"
+            className="w-36 rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <input
+            type="text"
+            value={idFilter}
+            onChange={(e) => setIdFilter(e.target.value)}
+            placeholder="Exact customer ID"
+            className="w-56 rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <button
+            type="button"
+            onClick={search}
+            disabled={loading}
+            className="dashboard-btn-primary disabled:opacity-50"
+          >
+            {loading ? t('ui.searching') : t('ui.searchAction')}
+          </button>
+        </div>
       </div>
 
       {error && (

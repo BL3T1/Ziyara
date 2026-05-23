@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { authAPI, getApiErrorMessage } from '../../services/api'
 import { useLanguage } from '../../context/LanguageContext'
 import { LanguageToggleButton } from '../../components/LanguageToggleButton'
+import { signUpSchema } from '../../lib/validation'
 import './landing-public.css'
 
 export function LandingSignUpPage() {
@@ -15,6 +16,7 @@ export function LandingSignUpPage() {
   const [confirm, setConfirm] = useState('')
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({})
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -33,12 +35,16 @@ export function LandingSignUpPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (password.length < 6) {
-      setError(t('landingAuth.passwordTooShort'))
-      return
-    }
-    if (password !== confirm) {
-      setError(t('landingAuth.passwordsMismatch'))
+    setFieldErrors({})
+    const parsed = signUpSchema.safeParse({ email, password, confirmPassword: confirm })
+    if (!parsed.success) {
+      const errs = parsed.error.flatten().fieldErrors
+      const formErrors = parsed.error.flatten().formErrors
+      setFieldErrors({
+        email: errs.email?.[0],
+        password: errs.password?.[0],
+        confirmPassword: errs.confirmPassword?.[0] ?? formErrors[0],
+      })
       return
     }
     setLoading(true)
@@ -91,10 +97,10 @@ export function LandingSignUpPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
                 className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2"
-                style={{ borderColor: 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
+                style={{ borderColor: fieldErrors.email ? '#f87171' : 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
               />
+              {fieldErrors.email ? <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p> : null}
             </div>
             <div>
               <label htmlFor="landing-signup-phone" className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--ink-muted)' }}>
@@ -120,11 +126,10 @@ export function LandingSignUpPage() {
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
                 className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2"
-                style={{ borderColor: 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
+                style={{ borderColor: fieldErrors.password ? '#f87171' : 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
               />
+              {fieldErrors.password ? <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p> : null}
             </div>
             <div>
               <label htmlFor="landing-signup-confirm" className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--ink-muted)' }}>
@@ -136,10 +141,10 @@ export function LandingSignUpPage() {
                 autoComplete="new-password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                required
                 className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2"
-                style={{ borderColor: 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
+                style={{ borderColor: fieldErrors.confirmPassword ? '#f87171' : 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
               />
+              {fieldErrors.confirmPassword ? <p className="mt-1 text-xs text-red-600">{fieldErrors.confirmPassword}</p> : null}
             </div>
             <button type="submit" disabled={loading} className="lp-btn lp-btn-primary w-full py-3 text-center">
               {loading ? t('landingAuth.registering') : t('landingAuth.createAccount')}

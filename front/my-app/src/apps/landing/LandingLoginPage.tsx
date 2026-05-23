@@ -8,6 +8,7 @@ import { backendRoleToFrontend, isCompanyStaffRole, isProviderPortalRole } from 
 import { safeRedirect } from '../../utils/safeRedirect'
 import { useLanguage } from '../../context/LanguageContext'
 import { LanguageToggleButton } from '../../components/LanguageToggleButton'
+import { loginSchema } from '../../lib/validation'
 import './landing-public.css'
 
 function staffDashboardHint(): string {
@@ -29,6 +30,7 @@ export function LandingLoginPage() {
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({})
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -48,6 +50,13 @@ export function LandingLoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setFieldErrors({})
+    const parsed = loginSchema.safeParse({ email, password })
+    if (!parsed.success) {
+      const errs = parsed.error.flatten().fieldErrors
+      setFieldErrors({ email: errs.email?.[0], password: errs.password?.[0] })
+      return
+    }
     setLoading(true)
     try {
       const res = await authAPI.login({ email, password, rememberMe })
@@ -135,10 +144,10 @@ export function LandingLoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
                 className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2"
-                style={{ borderColor: 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
+                style={{ borderColor: fieldErrors.email ? '#f87171' : 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
               />
+              {fieldErrors.email ? <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p> : null}
             </div>
             <div>
               <div className="mb-1 flex items-center justify-between gap-2">
@@ -155,10 +164,10 @@ export function LandingLoginPage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
                 className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2"
-                style={{ borderColor: 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
+                style={{ borderColor: fieldErrors.password ? '#f87171' : 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
               />
+              {fieldErrors.password ? <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p> : null}
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm" style={{ color: 'var(--ink-muted)' }}>
               <input

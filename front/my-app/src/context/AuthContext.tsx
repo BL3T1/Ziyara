@@ -1,10 +1,14 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import type { User } from '../types/auth'
 
+// Token stored in sessionStorage (clears on tab-close, reducing XSS persistence window).
+// Refresh token lives in an HttpOnly cookie managed by the browser automatically.
 const TOKEN_KEY = 'token'
 const USER_KEY = 'user'
 /** Set when backend uses HttpOnly cookie auth without returning accessToken in JSON. */
 const COOKIE_SESSION_KEY = 'ziyara_cookie_session'
+
+const store = sessionStorage
 
 export interface SidebarNavigationState {
   visibleItemIds: string[]
@@ -13,7 +17,7 @@ export interface SidebarNavigationState {
 
 function loadStoredUser(): User | null {
   try {
-    const raw = localStorage.getItem(USER_KEY)
+    const raw = store.getItem(USER_KEY)
     if (!raw) return null
     const u = JSON.parse(raw) as User
     return u && u.id && u.email ? u : null
@@ -46,32 +50,32 @@ export function AuthProvider({ children, defaultUser = null }: AuthProviderProps
   const [sidebarNav, setSidebarNav] = useState<SidebarNavigationState | null>(null)
 
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY)
-    const cookieSession = localStorage.getItem(COOKIE_SESSION_KEY)
+    const token = store.getItem(TOKEN_KEY)
+    const cookieSession = store.getItem(COOKIE_SESSION_KEY)
     if (!token && !cookieSession && user) {
       setUserState(null)
-      localStorage.removeItem(USER_KEY)
+      store.removeItem(USER_KEY)
     }
   }, [user])
 
   const setUser = useCallback((u: User | null) => {
     setUserState(u)
-    if (u) localStorage.setItem(USER_KEY, JSON.stringify(u))
-    else localStorage.removeItem(USER_KEY)
+    if (u) store.setItem(USER_KEY, JSON.stringify(u))
+    else store.removeItem(USER_KEY)
   }, [])
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(USER_KEY)
-    localStorage.removeItem(COOKIE_SESSION_KEY)
+    store.removeItem(TOKEN_KEY)
+    store.removeItem(USER_KEY)
+    store.removeItem(COOKIE_SESSION_KEY)
     setUserState(null)
     setSidebarNav(null)
   }, [])
 
   const clearAuth = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(USER_KEY)
-    localStorage.removeItem(COOKIE_SESSION_KEY)
+    store.removeItem(TOKEN_KEY)
+    store.removeItem(USER_KEY)
+    store.removeItem(COOKIE_SESSION_KEY)
     setUserState(null)
     setSidebarNav(null)
   }, [])
@@ -96,9 +100,9 @@ export function useAuth() {
 }
 
 export function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
+  return sessionStorage.getItem(TOKEN_KEY)
 }
 
 export function setStoredToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token)
+  sessionStorage.setItem(TOKEN_KEY, token)
 }
