@@ -1,7 +1,6 @@
 /**
  * Provider dashboard overview (command center).
  * KPIs scoped to the provider: upcoming bookings, revenue, pending tasks.
- * KPIs from GET /portal/dashboard (provider-scoped).
  */
 
 import { useEffect, useState } from 'react'
@@ -10,13 +9,32 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useLanguage } from '../../context/LanguageContext'
 import { portalAPI } from '../../services/api'
 import type { PortalDashboardDto } from '../../types/api'
-import { Card } from '../../components/Card'
+import { Card, StatCard, StatCardIcons } from '../../components'
+
+const CalendarIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <path d="M16 2v4M8 2v4M3 10h18" />
+  </svg>
+)
+
+const ListingsIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <polyline points="9 22 9 12 15 12 15 22" />
+  </svg>
+)
 
 function StatSkeleton() {
   return (
     <Card>
-      <div className="h-4 w-28 animate-pulse rounded-md bg-slate-200/90 dark:bg-slate-700/80" aria-hidden />
-      <div className="mt-3 h-8 w-20 animate-pulse rounded-md bg-slate-200/90 dark:bg-slate-700/80" aria-hidden />
+      <div className="flex flex-col gap-4 animate-pulse [container-type:inline-size]">
+        <div className="h-11 w-11 rounded-xl bg-slate-200/90 dark:bg-slate-700/80" aria-hidden />
+        <div className="flex flex-col gap-1">
+          <div className="h-3 w-20 rounded-md bg-slate-200/90 dark:bg-slate-700/80" aria-hidden />
+          <div className="h-8 w-24 rounded-md bg-slate-200/90 dark:bg-slate-700/80" aria-hidden />
+        </div>
+      </div>
     </Card>
   )
 }
@@ -30,19 +48,15 @@ export function ClientPortalOverview() {
     let cancelled = false
     portalAPI
       .getDashboard()
-      .then((res) => {
-        if (!cancelled) setKpis(res.data as PortalDashboardDto)
-      })
-      .catch(() => {
-        if (!cancelled) setKpis(null)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
+      .then((res) => { if (!cancelled) setKpis(res.data as PortalDashboardDto) })
+      .catch(() => { if (!cancelled) setKpis(null) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [])
+
+  const revenueDisplay = kpis != null
+    ? `${kpis.revenueCurrency ?? 'USD'} ${Number(kpis.totalRevenue ?? 0).toLocaleString()}`
+    : '—'
 
   return (
     <>
@@ -50,74 +64,64 @@ export function ClientPortalOverview() {
         <h1 className="app-page-title">{t('portalHome.welcomeTitle')}</h1>
       </header>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4" aria-busy={loading}>
+      {/* KPI grid */}
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4" aria-busy={loading}>
         {loading ? (
-          <>
-            <StatSkeleton />
-            <StatSkeleton />
-            <StatSkeleton />
-            <StatSkeleton />
-          </>
+          Array.from({ length: 4 }, (_, i) => <StatSkeleton key={i} />)
         ) : (
           <>
-            <Card>
-              <div className="[container-type:inline-size]">
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('portalHome.activeBookings')}</p>
-              <p className="mt-1 font-bold leading-tight text-slate-900 [font-size:clamp(1.125rem,14cqw,1.5rem)] [overflow-wrap:anywhere] dark:text-slate-100">
-                {kpis?.activeBookings ?? '—'}
-              </p>
-              </div>
-            </Card>
-            <Card>
-              <div className="[container-type:inline-size]">
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('portalHome.revenueCompleted')}</p>
-              <p className="mt-1 font-bold leading-tight text-slate-900 [font-size:clamp(1.125rem,14cqw,1.5rem)] [overflow-wrap:anywhere] dark:text-slate-100">
-                {kpis != null ? `${kpis.revenueCurrency ?? 'USD'} ${Number(kpis.totalRevenue ?? 0).toLocaleString()}` : '—'}
-              </p>
-              </div>
-            </Card>
-            <Card>
-              <div className="[container-type:inline-size]">
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('portalHome.totalBookings')}</p>
-              <p className="mt-1 font-bold leading-tight text-slate-900 [font-size:clamp(1.125rem,14cqw,1.5rem)] [overflow-wrap:anywhere] dark:text-slate-100">
-                {kpis?.totalBookings ?? '—'}
-              </p>
-              </div>
-            </Card>
-            <Card>
-              <div className="[container-type:inline-size]">
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('portalHome.myListings')}</p>
-              <p className="mt-1 font-bold leading-tight text-slate-900 [font-size:clamp(1.125rem,14cqw,1.5rem)] [overflow-wrap:anywhere] dark:text-slate-100">
-                {kpis?.serviceCount ?? '—'}
-              </p>
-              </div>
-            </Card>
+            <StatCard
+              icon={<StatCardIcons.ActivityIcon />}
+              label={t('portalHome.activeBookings')}
+              value={String(kpis?.activeBookings ?? '—')}
+              trend={t('portalHome.activeLabel')}
+              trendPositive
+            />
+            <StatCard
+              icon={<StatCardIcons.ServerIcon />}
+              label={t('portalHome.revenueCompleted')}
+              value={revenueDisplay}
+              trend={t('portalHome.revenueLabel')}
+              trendPositive
+            />
+            <StatCard
+              icon={<CalendarIcon />}
+              label={t('portalHome.totalBookings')}
+              value={String(kpis?.totalBookings ?? '—')}
+              trend={t('portalHome.allTimeLabel')}
+              trendPositive
+            />
+            <StatCard
+              icon={<ListingsIcon />}
+              label={t('portalHome.myListings')}
+              value={String(kpis?.serviceCount ?? '—')}
+              trend={t('portalHome.activeLabel')}
+              trendPositive
+            />
           </>
         )}
       </div>
 
-      {/* Weekly Revenue Chart */}
+      {/* Weekly revenue chart */}
       {kpis?.weeklyRevenue && kpis.weeklyRevenue.length > 0 && (
-        <Card className="p-5">
-          <h2 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-200">
-            {t('portalHome.weeklyRevenue')}
-          </h2>
+        <Card className="!p-5">
+          <h2 className="dashboard-card-title mb-4">{t('portalHome.weeklyRevenue')}</h2>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={kpis.weeklyRevenue} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.12)" />
               <XAxis
                 dataKey="week"
                 tickFormatter={(v: string) => {
                   const d = new Date(v + 'T00:00:00')
                   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
                 }}
-                tick={{ fontSize: 11, fill: 'var(--color-text-muted, #94a3b8)' }}
+                tick={{ fontSize: 11, fill: '#64748b' }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
                 tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))}
-                tick={{ fontSize: 11, fill: 'var(--color-text-muted, #94a3b8)' }}
+                tick={{ fontSize: 11, fill: '#64748b' }}
                 axisLine={false}
                 tickLine={false}
               />
@@ -130,34 +134,31 @@ export function ClientPortalOverview() {
                   return `Week of ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
                 }}
                 contentStyle={{
-                  borderRadius: '10px',
-                  border: '1px solid rgba(148,163,184,0.2)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(148,163,184,0.15)',
+                  background: 'rgba(15, 23, 42, 0.92)',
+                  color: '#e2e8f0',
                   fontSize: '12px',
+                  backdropFilter: 'blur(8px)',
                 }}
+                itemStyle={{ color: '#90caff' }}
+                labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
               />
-              <Bar dataKey="amount" fill="var(--color-primary, #1e4d6b)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              <Bar dataKey="amount" fill="#1e4d6b" radius={[4, 4, 0, 0]} maxBarSize={36} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
       )}
 
-      <div className="flex flex-wrap gap-3 sm:gap-4">
-        <Link
-          to="/portal/listings"
-          className="dashboard-btn-primary shrink-0 shadow-primary/20"
-        >
+      {/* Quick actions */}
+      <div className="flex flex-wrap gap-3">
+        <Link to="/portal/listings" className="dashboard-btn-primary shrink-0">
           {t('nav.listings')}
         </Link>
-        <Link
-          to="/portal/bookings"
-          className="rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary outline-none transition hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-slate-950"
-        >
+        <Link to="/portal/bookings" className="dashboard-btn-secondary shrink-0">
           {t('nav.bookings')}
         </Link>
-        <Link
-          to="/portal/support"
-          className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800 dark:focus-visible:ring-offset-slate-950"
-        >
+        <Link to="/portal/support" className="dashboard-btn-ghost shrink-0">
           {t('nav.support')}
         </Link>
       </div>

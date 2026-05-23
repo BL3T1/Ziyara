@@ -1271,6 +1271,9 @@ const en = {
     totalBookings: 'Total bookings',
     myListings: 'My listings',
     weeklyRevenue: 'Weekly Revenue (last 8 weeks)',
+    activeLabel: 'Currently active',
+    revenueLabel: 'From completed payments',
+    allTimeLabel: 'All time',
   },
   portalStaffPage: {
     intro:
@@ -2725,6 +2728,9 @@ const ar: typeof en = {
     totalBookings: 'إجمالي الحجوزات',
     myListings: 'قوائمي',
     weeklyRevenue: 'الإيرادات الأسبوعية (آخر 8 أسابيع)',
+    activeLabel: 'نشط حالياً',
+    revenueLabel: 'من المدفوعات المكتملة',
+    allTimeLabel: 'الكل',
   },
   portalStaffPage: {
     intro:

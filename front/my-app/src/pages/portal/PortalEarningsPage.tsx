@@ -43,15 +43,15 @@ function PayoutRequestModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-        <h3 className="mb-4 text-base font-semibold text-slate-900 dark:text-slate-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/[0.08] dark:bg-[#0d1117]">
+        <h3 className="mb-5 text-base font-semibold text-slate-900 dark:text-slate-50">
           Request Payout
         </h3>
         {success ? (
           <div className="space-y-4">
-            <p className="text-sm text-emerald-600 dark:text-emerald-400">
-              Payout request submitted successfully. Our team will process it within 3–5 business days.
+            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300">
+              Payout request submitted. Our team will process it within 3–5 business days.
             </p>
             <button type="button" onClick={onClose} className="dashboard-btn-primary w-full">
               Close
@@ -60,7 +60,7 @@ function PayoutRequestModal({
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
                 Amount ({currency})
               </label>
               <input
@@ -71,36 +71,30 @@ function PayoutRequestModal({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder={`Max ${maxAmount.toLocaleString()}`}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className="dashboard-date-input w-full"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
                 Notes (optional)
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows={2}
+                rows={3}
                 placeholder="Bank account, reference, or any note for our team"
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className="dashboard-date-input w-full resize-none"
               />
             </div>
-            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && (
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            )}
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
+              <button type="button" onClick={onClose} className="flex-1 dashboard-btn-secondary">
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex-1 dashboard-btn-primary disabled:opacity-50"
-              >
+              <button type="submit" disabled={submitting} className="flex-1 dashboard-btn-primary disabled:opacity-50">
                 {submitting ? 'Submitting…' : 'Submit Request'}
               </button>
             </div>
@@ -124,50 +118,50 @@ export function PortalEarningsPage() {
     setLoading(true)
     setError(null)
     portalAPI
-      .getEarnings({
-        start: start.trim() || undefined,
-        end: end.trim() || undefined,
-      })
+      .getEarnings({ start: start.trim() || undefined, end: end.trim() || undefined })
       .then((res) => setData(res.data as PortalEarningsDto))
-      .catch((e) => {
-        setData(null)
-        setError(getApiErrorMessage(e))
-      })
+      .catch((e) => { setData(null); setError(getApiErrorMessage(e)) })
       .finally(() => setLoading(false))
   }, [start, end])
 
-  useEffect(() => {
-    load()
-  }, [])
+  useEffect(() => { load() }, [])
+
+  const totalEarnings = Number(data?.totalEarnings ?? 0)
 
   return (
     <>
       <h1 className="app-page-title">{t('title.earnings')}</h1>
-      <Card className="mt-6 p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">{t('portalPages.earningsStart')}</label>
+
+      <Card className="!p-5">
+        {/* Date filter */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              {t('portalPages.earningsStart')}
+            </label>
             <input
               type="date"
               value={start}
               onChange={(e) => setStart(e.target.value)}
-              className="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              className="dashboard-date-input"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">{t('portalPages.earningsEnd')}</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              {t('portalPages.earningsEnd')}
+            </label>
             <input
               type="date"
               value={end}
               onChange={(e) => setEnd(e.target.value)}
-              className="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              className="dashboard-date-input"
             />
           </div>
           <button
             type="button"
             onClick={load}
             disabled={loading}
-            className="dashboard-btn-primary disabled:opacity-50"
+            className="dashboard-btn-primary disabled:opacity-50 self-end"
           >
             {loading ? t('ui.loading') : t('portalPages.applyRange')}
           </button>
@@ -178,20 +172,18 @@ export function PortalEarningsPage() {
         )}
 
         {data && !loading && (
-          <div className="mt-8">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+          <div className="mt-8 border-t border-slate-100 pt-6 dark:border-white/[0.05]">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
               {data.start && data.end
                 ? t('portalPages.earningsPeriod', { start: data.start, end: data.end })
                 : t('portalPages.earningsAllTime')}
             </p>
-            <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
-              <p className="text-3xl font-bold text-slate-900 dark:text-slate-50">
-                {data.currency ?? 'USD'}{' '}
-                {typeof data.totalEarnings === 'number'
-                  ? data.totalEarnings.toLocaleString()
-                  : Number(data.totalEarnings ?? 0).toLocaleString()}
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+              <p className="font-bold tabular-nums leading-none tracking-tight text-slate-900 dark:text-white" style={{ fontSize: 'clamp(1.75rem, 5vw, 2.75rem)' }}>
+                <span className="text-base font-semibold text-slate-400 dark:text-slate-500 mr-1">{data.currency ?? 'USD'}</span>
+                {totalEarnings.toLocaleString()}
               </p>
-              {Number(data.totalEarnings ?? 0) > 0 && (
+              {totalEarnings > 0 && (
                 <button
                   type="button"
                   onClick={() => setShowPayoutModal(true)}
@@ -212,11 +204,9 @@ export function PortalEarningsPage() {
       {showPayoutModal && data && (
         <PayoutRequestModal
           currency={data.currency ?? 'USD'}
-          maxAmount={Number(data.totalEarnings ?? 0)}
+          maxAmount={totalEarnings}
           onClose={() => setShowPayoutModal(false)}
-          onSubmit={async (amount, notes) => {
-            await portalAPI.requestPayout({ amount, notes })
-          }}
+          onSubmit={async (amount, notes) => { await portalAPI.requestPayout({ amount, notes }) }}
         />
       )}
     </>

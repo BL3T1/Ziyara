@@ -6,7 +6,15 @@ import { useEffect, useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import { getApiErrorMessage, portalAPI } from '../../services/api'
 import type { BookingDto } from '../../types/api'
-import { Card } from '../../components/Card'
+
+function statusBadge(status?: string | null) {
+  if (!status) return <span className="badge badge-neutral">—</span>
+  const s = status.toLowerCase()
+  if (s === 'confirmed' || s === 'completed') return <span className="badge badge-success">{status}</span>
+  if (s === 'pending') return <span className="badge badge-warning">{status}</span>
+  if (s === 'cancelled' || s === 'rejected') return <span className="badge badge-danger">{status}</span>
+  return <span className="badge badge-neutral">{status}</span>
+}
 
 export function PortalBookingsPage() {
   const { t } = useLanguage()
@@ -30,59 +38,66 @@ export function PortalBookingsPage() {
           setError(getApiErrorMessage(e))
         }
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [])
 
   return (
     <>
       <h1 className="app-page-title">{t('title.bookings')}</h1>
+
       {error && (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
           {error}
-        </p>
+        </div>
       )}
 
-      <Card className="mt-6 overflow-x-auto p-0">
+      <div className="table-shell">
         {loading ? (
-          <p className="p-6 text-slate-500 dark:text-slate-400">{t('ui.loading')}</p>
+          <div className="flex flex-col gap-2 p-6">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-white/[0.04]" />
+            ))}
+          </div>
         ) : rows.length === 0 ? (
-          <p className="p-6 text-slate-600 dark:text-slate-300">{t('portalPages.noBookings')}</p>
+          <div className="dashboard-empty-state">
+            <div className="dashboard-empty-state__icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+            </div>
+            <p className="dashboard-empty-state__title">{t('portalPages.noBookings')}</p>
+          </div>
         ) : (
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50">
+          <table>
+            <thead>
               <tr>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{t('bookingsPage.reference')}</th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{t('bookingsPage.service')}</th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{t('bookingsPage.checkIn')}</th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{t('bookingsPage.checkOut')}</th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{t('bookingsPage.amount')}</th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{t('bookingsPage.status')}</th>
+                <th>{t('bookingsPage.reference')}</th>
+                <th>{t('bookingsPage.service')}</th>
+                <th>{t('bookingsPage.checkIn')}</th>
+                <th>{t('bookingsPage.checkOut')}</th>
+                <th>{t('bookingsPage.amount')}</th>
+                <th>{t('bookingsPage.status')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+            <tbody>
               {rows.map((b) => (
-                <tr key={b.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
-                  <td className="px-4 py-3 font-mono text-xs text-slate-800 dark:text-slate-100">{b.bookingReference}</td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                    {b.serviceName?.trim() || t('ui.emDash')}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{b.checkInDate ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{b.checkOutDate ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                <tr key={b.id}>
+                  <td className="font-mono text-xs">{b.bookingReference}</td>
+                  <td className="text-slate-600 dark:text-slate-300">{b.serviceName?.trim() || '—'}</td>
+                  <td className="tabular-nums text-slate-600 dark:text-slate-300">{b.checkInDate ?? '—'}</td>
+                  <td className="tabular-nums text-slate-600 dark:text-slate-300">{b.checkOutDate ?? '—'}</td>
+                  <td className="tabular-nums text-slate-600 dark:text-slate-300">
                     {b.totalAmount != null ? `${b.currency ?? ''} ${b.totalAmount}`.trim() : '—'}
                   </td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{b.status}</td>
+                  <td>{statusBadge(b.status)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-      </Card>
+      </div>
     </>
   )
 }

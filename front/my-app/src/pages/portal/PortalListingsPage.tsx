@@ -7,13 +7,21 @@ import { Link } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
 import { getApiErrorMessage, portalAPI } from '../../services/api'
 import type { PageDto, ServiceDto } from '../../types/api'
-import { Card } from '../../components/Card'
 
 function asPage(data: unknown): PageDto<ServiceDto> | null {
   if (data && typeof data === 'object' && Array.isArray((data as PageDto<ServiceDto>).content)) {
     return data as PageDto<ServiceDto>
   }
   return null
+}
+
+function statusBadge(status?: string | null) {
+  if (!status) return <span className="badge badge-neutral">—</span>
+  const s = status.toLowerCase()
+  if (s === 'active' || s === 'approved') return <span className="badge badge-success">{status}</span>
+  if (s === 'pending') return <span className="badge badge-warning">{status}</span>
+  if (s === 'inactive' || s === 'rejected') return <span className="badge badge-danger">{status}</span>
+  return <span className="badge badge-neutral">{status}</span>
 }
 
 export function PortalListingsPage() {
@@ -43,9 +51,7 @@ export function PortalListingsPage() {
       .finally(() => setLoading(false))
   }, [page])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  useEffect(() => { load() }, [load])
 
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(t('portalPages.confirmDeleteListing', { name }))) return
@@ -64,53 +70,61 @@ export function PortalListingsPage() {
   return (
     <>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="app-page-title">{t('title.listings')}</h1>
-        </div>
-        <Link
-          to="/portal/listings/new"
-          className="dashboard-btn-primary inline-flex shrink-0"
-        >
+        <h1 className="app-page-title">{t('title.listings')}</h1>
+        <Link to="/portal/listings/new" className="dashboard-btn-primary shrink-0">
           {t('portalPages.addListing')}
         </Link>
       </div>
 
       {error && (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
           {error}
-        </p>
+        </div>
       )}
 
-      <Card className="mt-6 overflow-x-auto p-0">
+      <div className="table-shell">
         {loading ? (
-          <p className="p-6 text-slate-500 dark:text-slate-400">{t('ui.loading')}</p>
+          <div className="flex flex-col gap-2 p-6">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-white/[0.04]" />
+            ))}
+          </div>
         ) : rows.length === 0 ? (
-          <p className="p-6 text-slate-600 dark:text-slate-300">{t('portalPages.noListings')}</p>
+          <div className="dashboard-empty-state">
+            <div className="dashboard-empty-state__icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+            </div>
+            <p className="dashboard-empty-state__title">{t('portalPages.noListings')}</p>
+            <p className="dashboard-empty-state__body">{t('portalPages.addListing')}</p>
+          </div>
         ) : (
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50">
+          <table>
+            <thead>
               <tr>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{t('portalPages.colName')}</th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{t('portalPages.colType')}</th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{t('portalPages.colStatus')}</th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{t('portalPages.colPrice')}</th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{t('portalPages.colActions')}</th>
+                <th>{t('portalPages.colName')}</th>
+                <th>{t('portalPages.colType')}</th>
+                <th>{t('portalPages.colStatus')}</th>
+                <th>{t('portalPages.colPrice')}</th>
+                <th>{t('portalPages.colActions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+            <tbody>
               {rows.map((s) => (
-                <tr key={s.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
-                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{s.name}</td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{s.type}</td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{s.status ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                <tr key={s.id}>
+                  <td>{s.name}</td>
+                  <td className="text-slate-600 dark:text-slate-300">{s.type}</td>
+                  <td>{statusBadge(s.status)}</td>
+                  <td className="tabular-nums text-slate-600 dark:text-slate-300">
                     {s.basePrice != null ? `${s.currency ?? 'USD'} ${s.basePrice}` : '—'}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
+                  <td>
+                    <div className="flex flex-wrap gap-3">
                       <Link
                         to={`/portal/listings/${s.id}`}
-                        className="text-sm font-medium text-primary hover:underline"
+                        className="text-sm font-semibold text-[#1e4d6b] hover:underline dark:text-[#90caff]"
                       >
                         {t('portalPages.edit')}
                       </Link>
@@ -118,7 +132,7 @@ export function PortalListingsPage() {
                         type="button"
                         disabled={deletingId === s.id}
                         onClick={() => handleDelete(s.id, s.name)}
-                        className="text-sm font-medium text-red-600 hover:underline disabled:opacity-50 dark:text-red-400"
+                        className="text-sm font-semibold text-red-600 hover:underline disabled:opacity-40 dark:text-red-400"
                       >
                         {t('portalPages.delete')}
                       </button>
@@ -129,26 +143,26 @@ export function PortalListingsPage() {
             </tbody>
           </table>
         )}
-      </Card>
+      </div>
 
       {totalPages > 1 && (
-        <div className="mt-4 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             disabled={page <= 0 || loading}
             onClick={() => setPage((p) => Math.max(0, p - 1))}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-600"
+            className="dashboard-btn-secondary disabled:opacity-40"
           >
             {t('portalPages.prev')}
           </button>
-          <span className="text-sm text-slate-600 dark:text-slate-300">
+          <span className="text-sm text-slate-500 dark:text-slate-400">
             {t('portalPages.pageOf', { current: page + 1, total: totalPages })}
           </span>
           <button
             type="button"
             disabled={page >= totalPages - 1 || loading}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-600"
+            className="dashboard-btn-secondary disabled:opacity-40"
           >
             {t('portalPages.next')}
           </button>
