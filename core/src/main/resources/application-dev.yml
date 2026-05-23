@@ -1,18 +1,27 @@
-# Dev profile: Hibernate creates/updates schema so tables exist without full Flyway migrations.
-# To run without Docker, add: spring.docker.compose.enabled=false (requires Postgres on localhost)
+# Dev profile: Flyway is the sole schema authority — ddl-auto: none everywhere.
+# Fresh dev databases are fully created by V0__initial_schema.sql + V1-V13 migrations.
+# To run without Docker: spring.docker.compose.enabled=false (requires Postgres on localhost)
 spring:
   datasource:
     hikari:
       leak-detection-threshold: 60000
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
   flyway:
-    # Run first; Hibernate update will add any missing tables from entities
     enabled: true
+    out-of-order: false    # Strict ordering even in dev to catch versioning issues early
 
 # Align with default application.yml and Vite proxy (/api -> :8080): API lives under /api/v1.
 server:
   servlet:
     context-path: /api/v1
+
+# SQL and security debug logging — dev only to prevent PII leakage in staging/prod
+logging:
+  level:
+    com.ziyara.backend: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 

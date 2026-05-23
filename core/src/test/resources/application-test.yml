@@ -21,6 +21,8 @@ spring:
 
   flyway:
     enabled: true
+    baseline-on-migrate: false  # Testcontainers: fresh DB runs every migration from V0 forward
+    validate-on-migrate: true
 
 server:
   servlet:

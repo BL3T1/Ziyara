@@ -1,5 +1,12 @@
 # Production profile: activate with -Dspring.profiles.active=prod
 # Disables demo super admin seeding. Other demo users are already skipped by @Profile("!prod").
+spring:
+  flyway:
+    enabled: true
+    baseline-on-migrate: false  # Production DB must have full migration history — no shortcuts
+    validate-on-migrate: true
+    out-of-order: false
+
 app:
   demo:
     super-admin:
@@ -15,6 +22,15 @@ ziyara:
   security:
     headers:
       hsts-enabled: true
+  # P2-A: RLS must be enabled in production for multi-tenant data isolation
+  rls:
+    enabled: ${ZIYARA_RLS_ENABLED:true}
+  # P2-B: PII field encryption — ZIYARA_PII_ENCRYPTION_KEY_BASE64 is REQUIRED in production
+  # Generate: openssl rand -base64 32
+  pii:
+    encryption-key-base64: ${ZIYARA_PII_ENCRYPTION_KEY_BASE64}
+  data-retention:
+    enabled: ${ZIYARA_DATA_RETENTION_ENABLED:true}
 
 jwt:
   cookie:
@@ -25,3 +41,33 @@ management:
   tracing:
     sampling:
       probability: ${MANAGEMENT_TRACING_SAMPLING_PROBABILITY:0.05}
+
+# Disable OpenAPI / Swagger in production — never expose schema publicly
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
+
+# Never leak internal error messages or stack traces to API consumers
+server:
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+# Expose actuator on a separate port so it stays off the public-facing 8080
+management:
+  server:
+    port: ${MANAGEMENT_PORT:8081}
+  otlp:
+    tracing:
+      endpoint: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:}
+
+# Silence verbose logging in production
+logging:
+  level:
+    root: WARN
+    com.ziyara.backend: INFO
+    org.springframework.security: WARN

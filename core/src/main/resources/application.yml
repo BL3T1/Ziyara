@@ -14,6 +14,15 @@ spring:
       connection-timeout: 20000
       max-lifetime: 1200000
 
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true   # For existing DBs without flyway_schema_history: mark V0 as applied, then run V1+
+    baseline-version: 0
+    validate-on-migrate: true
+    out-of-order: false
+    mixed: false                # Require all migrations to be either versioned or repeatable, not both
+
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
@@ -61,9 +70,9 @@ server:
     include-message: always
     include-binding-errors: always
 
-# JWT Configuration
+# JWT Configuration — JWT_SECRET must be set in the environment (no default fallback)
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-for-jwt-token-generation-please-change-in-production}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
   header: Authorization
@@ -76,14 +85,12 @@ jwt:
     secure: ${JWT_COOKIE_SECURE:false}
     also-return-token-in-body: ${JWT_ALSO_RETURN_TOKEN_IN_BODY:true}
 
-# Logging Configuration
+# Logging Configuration — SQL/parameter tracing moved to application-dev.yml to avoid PII leakage
 logging:
   level:
     root: INFO
-    com.ziyara.backend: DEBUG
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.ziyara.backend: INFO
+    org.springframework.security: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
@@ -117,7 +124,7 @@ app:
       provider: ${PAYMENT_GATEWAY_PROVIDER:stub}
       api-key: ${PAYMENT_GATEWAY_API_KEY:}
       api-base-url: ${PAYMENT_GATEWAY_BASE_URL:https://api.stripe.com}
-      webhook-secret: ${PAYMENT_WEBHOOK_SECRET:whsec_change_me}
+      webhook-secret: ${PAYMENT_WEBHOOK_SECRET:}
       # Header used for webhook signature (e.g. Stripe-Signature, X-Webhook-Signature)
       webhook-signature-header: ${PAYMENT_WEBHOOK_SIGNATURE_HEADER:X-Webhook-Signature}
   demo:
@@ -147,10 +154,15 @@ app:
     enabled: ${APP_RBAC_CATALOG_VALIDATION_ENABLED:true}
 
   media:
+    # local (default) or s3 — selects MediaStorageService implementation
+    storage-backend: ${APP_MEDIA_STORAGE_BACKEND:local}
     # Local uploads (POST .../images/upload); served at {context-path}/media/**
     storage-root: ${APP_MEDIA_STORAGE_ROOT:./data/media}
-    # Optional full public base for stored URLs (e.g. https://cdn.example.com/api/v1). Empty = use context-path + /media
+    # Optional full public base for stored URLs (e.g. https://cdn.example.com or https://your-bucket.s3.region.amazonaws.com)
     public-base-url: ${APP_MEDIA_PUBLIC_BASE_URL:}
+    # S3 configuration (used when storage-backend=s3)
+    s3-bucket: ${APP_MEDIA_S3_BUCKET:}
+    s3-region: ${APP_MEDIA_S3_REGION:us-east-1}
 
   notifications:
     email:
@@ -180,6 +192,10 @@ ziyara:
   security:
     headers:
       hsts-enabled: ${ZIYARA_SECURITY_HSTS_ENABLED:false}
+    # Comma-separated UserRole names that must have TOTP enrolled before they can log in.
+    # Leave empty in dev to avoid locking seeded accounts that haven't enrolled yet.
+    # Production example: SUPER_ADMIN,CEO,FINANCE_MANAGER,GENERAL_MANAGER
+    mfa-required-roles: ${ZIYARA_SECURITY_MFA_REQUIRED_ROLES:}
   rls:
     # When true, wraps the primary DataSource and sets app.* session GUCs per connection (see Flyway V13 policies).
     enabled: ${ZIYARA_RLS_ENABLED:false}
@@ -198,6 +214,13 @@ ziyara:
   reporting:
     materialized-view-refresh-enabled: ${ZIYARA_REPORTING_MV_REFRESH_ENABLED:false}
     materialized-view-cron: ${ZIYARA_REPORTING_MV_CRON:0 20 2 * * *}
+  fx:
+    refresh:
+      enabled: ${ZIYARA_FX_REFRESH_ENABLED:false}
+      cron: ${ZIYARA_FX_REFRESH_CRON:0 0 6 * * *}
+      api-key: ${ZIYARA_FX_REFRESH_API_KEY:}
+      base-currency: ${ZIYARA_FX_REFRESH_BASE_CURRENCY:USD}
+      target-currencies: ${ZIYARA_FX_REFRESH_TARGET_CURRENCIES:EUR,SAR,GBP,AED}
   notifications:
     kafka:
       enabled: ${ZIYARA_NOTIFICATIONS_KAFKA_ENABLED:false}

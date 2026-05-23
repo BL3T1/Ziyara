@@ -33,8 +33,10 @@ RUN apk add --no-cache curl su-exec
 # Create non-root user for security
 RUN addgroup -S ziyarah && adduser -S ziyarah -G ziyarah
 
-# Copy boot jar from build stage (exclude *-plain.jar)
-COPY --from=build /app/build/libs/*-SNAPSHOT.jar app.jar
+# Copy boot jar from build stage.
+# Matches both versioned releases (core-1.0.0.jar) and snapshots (core-1.0.0-SNAPSHOT.jar).
+# The plain jar produced by the standard 'jar' task is excluded because its name never matches core-*.jar alone.
+COPY --from=build /app/build/libs/core-*.jar app.jar
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh && chown -R ziyarah:ziyarah /app

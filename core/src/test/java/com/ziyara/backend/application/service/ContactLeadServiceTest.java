@@ -1,8 +1,9 @@
 package com.ziyara.backend.application.service;
 
 import com.ziyara.backend.application.dto.request.PublicContactRequest;
-import com.ziyara.backend.infrastructure.persistence.repository.ContactLeadJpaRepository;
-import com.ziyara.backend.presentation.exception.RateLimitedException;
+import com.ziyara.backend.domain.entity.ContactLead;
+import com.ziyara.backend.domain.repository.ContactLeadRepository;
+import com.ziyara.backend.application.exception.RateLimitedException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -21,14 +22,15 @@ import static org.mockito.Mockito.when;
 class ContactLeadServiceTest {
 
     @Mock
-    ContactLeadJpaRepository repository;
+    ContactLeadRepository repository;
 
     @InjectMocks
     ContactLeadService service;
 
     @Test
     void submit_persistsWhenUnderRateLimit() {
-        when(repository.countByEmailIgnoreCaseAndCreatedAtAfter(eq("a@b.com"), any())).thenReturn(0L);
+        when(repository.countByEmailSince(eq("a@b.com"), any())).thenReturn(0L);
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         PublicContactRequest req = PublicContactRequest.builder()
                 .name("Alice")
@@ -39,8 +41,7 @@ class ContactLeadServiceTest {
 
         service.submit(req, "203.0.113.1");
 
-        ArgumentCaptor<com.ziyara.backend.infrastructure.persistence.entity.ContactLeadJpaEntity> cap =
-                ArgumentCaptor.forClass(com.ziyara.backend.infrastructure.persistence.entity.ContactLeadJpaEntity.class);
+        ArgumentCaptor<ContactLead> cap = ArgumentCaptor.forClass(ContactLead.class);
         verify(repository).save(cap.capture());
         assertThat(cap.getValue().getEmail()).isEqualTo("a@b.com");
         assertThat(cap.getValue().getClientIp()).isEqualTo("203.0.113.1");
@@ -48,7 +49,7 @@ class ContactLeadServiceTest {
 
     @Test
     void submit_throwsWhenSameEmailWithinCooldown() {
-        when(repository.countByEmailIgnoreCaseAndCreatedAtAfter(eq("a@b.com"), any())).thenReturn(1L);
+        when(repository.countByEmailSince(eq("a@b.com"), any())).thenReturn(1L);
 
         PublicContactRequest req = PublicContactRequest.builder()
                 .name("Alice")

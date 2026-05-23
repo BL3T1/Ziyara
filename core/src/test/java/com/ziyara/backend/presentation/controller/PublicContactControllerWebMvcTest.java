@@ -96,7 +96,7 @@ class PublicContactControllerWebMvcTest {
 
     @Test
     void postContact_rateLimited_returns429() throws Exception {
-        doThrow(new com.ziyara.backend.presentation.exception.RateLimitedException("slow down"))
+        doThrow(new com.ziyara.backend.application.exception.RateLimitedException("slow down"))
                 .when(contactLeadService).submit(any(), anyString());
 
         mockMvc.perform(post("/public/contact")

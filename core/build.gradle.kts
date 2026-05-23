@@ -1,10 +1,11 @@
 plugins {
 	java
 	id("org.springframework.boot") version "3.5.12"
+	id("nu.studer.jooq") version "9.0"
 }
 
 group = "com.ziyara"
-version = "0.0.1-SNAPSHOT"
+version = "1.0.0"
 description = "Demo project for Spring Boot"
 
 java {
@@ -64,8 +65,12 @@ dependencies {
 	testImplementation(platform("org.springframework.boot:spring-boot-dependencies:3.5.12"))
 
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
+	implementation("org.springframework.boot:spring-boot-starter-websocket")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-jooq")
+	// Flyway — versioned DB migrations (flyway-database-postgresql required for Flyway 10+ PostgreSQL support)
+	implementation("org.flywaydb:flyway-core")
+	runtimeOnly("org.flywaydb:flyway-database-postgresql")
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	// Custom JWT (JwtAuthenticationFilter); oauth2-resource-server would register BearerToken handling and conflict.
 	implementation("org.springframework.boot:spring-boot-starter-validation")
@@ -84,6 +89,14 @@ dependencies {
 	// Spring Boot 3.5.x: springdoc 2.6.x is not compatible (OpenAPI generation / runtime errors).
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.16")
 	
+	// AWS S3 SDK v2 (optional — only loaded when APP_MEDIA_STORAGE_BACKEND=s3)
+	implementation(platform("software.amazon.awssdk:bom:2.26.29"))
+	implementation("software.amazon.awssdk:s3")
+
+	// Report exports: Excel (Apache POI) and PDF (OpenPDF)
+	implementation("org.apache.poi:poi-ooxml:5.2.5")
+	implementation("com.github.librepdf:openpdf:1.3.35")
+
 	compileOnly("org.projectlombok:lombok:1.18.38")
 	annotationProcessor("org.projectlombok:lombok:1.18.38")
 	runtimeOnly("org.postgresql:postgresql")

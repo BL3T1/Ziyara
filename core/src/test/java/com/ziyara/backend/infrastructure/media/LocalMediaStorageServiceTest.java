@@ -1,7 +1,7 @@
 package com.ziyara.backend.infrastructure.media;
 
 import com.ziyara.backend.infrastructure.config.MediaStorageProperties;
-import com.ziyara.backend.presentation.exception.BusinessException;
+import com.ziyara.backend.application.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
