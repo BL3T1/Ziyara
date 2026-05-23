@@ -18,8 +18,7 @@ import java.util.UUID;
 @Schema(description = "Request to create a service")
 public class CreateServiceRequest {
 
-    @NotNull
-    @Schema(description = "Provider ID", required = true)
+    @Schema(description = "Provider ID (required for /services; injected automatically for /portal/services)")
     private UUID providerId;
 
     @NotNull

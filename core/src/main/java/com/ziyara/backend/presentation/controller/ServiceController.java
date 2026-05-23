@@ -24,14 +24,11 @@ import com.ziyara.backend.application.service.RestaurantMenuService;
 import com.ziyara.backend.application.service.HotelRoomService;
 import com.ziyara.backend.application.service.ServiceImageService;
 import com.ziyara.backend.application.service.ServiceService;
-import com.ziyara.backend.domain.entity.Booking;
-import com.ziyara.backend.domain.enums.BookingStatus;
 import com.ziyara.backend.domain.enums.ServiceImageCategory;
 import com.ziyara.backend.domain.enums.ServiceStatus;
 import com.ziyara.backend.domain.enums.ServiceType;
-import com.ziyara.backend.domain.repository.BookingRepository;
-import com.ziyara.backend.presentation.exception.BusinessException;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.BusinessException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -56,7 +53,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -77,10 +73,6 @@ public class ServiceController {
     private final ServiceImageService serviceImageService;
     private final RestaurantMenuService restaurantMenuService;
     private final HotelRoomService hotelRoomService;
-    private final BookingRepository bookingRepository;
-
-    private static final Set<BookingStatus> NON_OCCUPYING_STATUSES = Set.of(
-            BookingStatus.CANCELLED, BookingStatus.REFUNDED, BookingStatus.EXPIRED, BookingStatus.CLOSED);
 
     @GetMapping
     @Operation(summary = "List services", description = "Paginated list with optional filters")
@@ -149,34 +141,7 @@ public class ServiceController {
             @PathVariable UUID id,
             @RequestParam(required = false) LocalDate date,
             @RequestParam(required = false, defaultValue = "1") int nights) {
-        ServiceResponse service = serviceQueryHandler.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Service not found"));
-        boolean available;
-        String message = null;
-        if (date != null && nights > 0) {
-            LocalDate checkOut = date.plusDays(nights);
-            List<Booking> overlapping = bookingRepository.findOverlappingBookings(id, date, checkOut);
-            int occupiedRooms = overlapping.stream()
-                    .filter(b -> !NON_OCCUPYING_STATUSES.contains(b.getStatus()))
-                    .mapToInt(Booking::getRooms)
-                    .sum();
-            Integer totalRooms = service.getTotalRooms();
-            if (totalRooms != null && totalRooms > 0) {
-                available = (totalRooms - occupiedRooms) >= 1;
-                if (!available) {
-                    message = "No rooms available for the selected dates";
-                }
-            } else {
-                available = occupiedRooms == 0;
-                if (!available) message = "Fully booked for the selected dates";
-            }
-        } else {
-            Integer avail = service.getAvailableRooms();
-            available = (avail != null && avail > 0) || service.getTotalRooms() == null;
-            if (!available) message = "No availability";
-        }
-        return ResponseEntity.ok(ApiResponse.success(
-                ServiceAvailabilityResponse.builder().available(available).message(message).build()));
+        return ResponseEntity.ok(ApiResponse.success(serviceService.checkAvailability(id, date, nights)));
     }
 
     @GetMapping("/{id}/images")
@@ -391,6 +356,20 @@ public class ServiceController {
             @PathVariable UUID id,
             @Valid @RequestBody UpdateServiceRequest request) {
         return ResponseEntity.ok(ApiResponse.success(serviceService.update(id, request)));
+    }
+
+    @PostMapping("/{id}/approve")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Approve service", description = "Set service status to ACTIVE (company staff)")
+    public ResponseEntity<ApiResponse<ServiceResponse>> approve(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success("Service approved", serviceService.approve(id)));
+    }
+
+    @PostMapping("/{id}/suspend")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Suspend service", description = "Set service status to SUSPENDED (company staff)")
+    public ResponseEntity<ApiResponse<ServiceResponse>> suspend(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success("Service suspended", serviceService.suspend(id)));
     }
 
     @DeleteMapping("/{id}")
