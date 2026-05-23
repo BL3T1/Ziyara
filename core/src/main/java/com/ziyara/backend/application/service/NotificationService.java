@@ -68,6 +68,11 @@ public class NotificationService {
         return new NotificationInboxResponse(mapped, unread);
     }
 
+    @Transactional(readOnly = true)
+    public long countUnread(UUID userId) {
+        return notificationRepository.countByUserIdAndReadAtIsNull(userId);
+    }
+
     @Transactional
     public void markAsRead(UUID notificationId) {
         notificationRepository.findById(notificationId).ifPresent(notification -> {

@@ -42,6 +42,27 @@ public class NotificationController {
         UUID userId = extractUserId(authHeader);
         return ResponseEntity.ok(ApiResponse.success(notificationService.getUserNotificationsInbox(userId, page, size)));
     }
+
+    @GetMapping("/me")
+    @Operation(summary = "My notifications (paged)", description = "Alias for GET /notifications — returns paged inbox with unread count")
+    public ResponseEntity<ApiResponse<NotificationInboxResponse>> getMyNotificationsAlias(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        UUID userId = extractUserId(authHeader);
+        return ResponseEntity.ok(ApiResponse.success(notificationService.getUserNotificationsInbox(userId, page, size)));
+    }
+
+    @GetMapping("/me/unread-count")
+    @Operation(summary = "Unread notification count", description = "Returns the number of unread notifications for the authenticated user")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Long>>> getUnreadCount(
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        UUID userId = extractUserId(authHeader);
+        long count = notificationService.countUnread(userId);
+        return ResponseEntity.ok(ApiResponse.success(java.util.Map.of("unreadCount", count)));
+    }
     
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN')")
