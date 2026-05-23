@@ -14,8 +14,8 @@ import com.ziyara.backend.domain.repository.DiscountCodeRepository;
 import com.ziyara.backend.domain.repository.ServiceRepository;
 import com.ziyara.backend.infrastructure.security.SecurityContextUserId;
 import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
-import com.ziyara.backend.presentation.exception.BusinessException;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.BusinessException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,7 +29,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Service: DiscountCodeService (Phase 2 – Commands)
+ * Service: DiscountCodeService (Phase 2 â€“ Commands)
  * Handles create, update, delete, approve, deactivate, validate, recordUsage.
  */
 @Service
@@ -125,8 +125,9 @@ public class DiscountCodeService {
         }
         DiscountCode dc = discountCodeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Discount not found"));
-        if (dc.getStatus() != DiscountStatus.PENDING_APPROVAL) {
-            throw new IllegalArgumentException("Only discounts pending approval can be approved");
+        // Idempotent: already active is fine; also allow activating INACTIVE discounts
+        if (dc.getStatus() == DiscountStatus.ACTIVE) {
+            return toResponse(dc);
         }
         dc.setStatus(DiscountStatus.ACTIVE);
         return toResponse(discountCodeRepository.save(dc));

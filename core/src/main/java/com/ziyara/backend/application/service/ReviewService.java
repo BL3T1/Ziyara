@@ -8,7 +8,7 @@ import com.ziyara.backend.domain.enums.ReviewStatus;
 import com.ziyara.backend.domain.repository.ReviewRepository;
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -42,6 +42,7 @@ public class ReviewService {
         Review review = new Review();
         review.setBookingId(request.getBookingId());
         review.setUserId(userId);
+        review.setServiceId(request.getServiceId());
         review.setRating(request.getRating());
         review.setComment(request.getComment());
         review.setStatus(ReviewStatus.PENDING);
