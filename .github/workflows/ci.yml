@@ -1,0 +1,196 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - V1
+      - development
+  workflow_dispatch:
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Backend: build, test, type-check
+  # ─────────────────────────────────────────────
+  backend:
+    name: Backend (Java 17 / Spring Boot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: ziyarah_test
+          POSTGRES_USER: ziyarah_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Run unit tests (no Docker)
+        working-directory: core
+        env:
+          JWT_SECRET: ci-test-jwt-secret-key-must-be-at-least-32-bytes-long
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/ziyarah_test
+          SPRING_DATASOURCE_USERNAME: ziyarah_user
+          SPRING_DATASOURCE_PASSWORD: test_password
+        run: ./gradlew test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: core/build/reports/tests/
+
+  # ─────────────────────────────────────────────
+  # Frontend: type-check, lint, test, build
+  # ─────────────────────────────────────────────
+  frontend:
+    name: Frontend (React / Vite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: front/my-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: front/my-app
+        run: npm ci
+
+      - name: Type check
+        working-directory: front/my-app
+        run: npx tsc --noEmit
+
+      - name: Lint
+        working-directory: front/my-app
+        run: npm run lint
+
+      - name: Run tests
+        working-directory: front/my-app
+        run: npm test
+
+      - name: Build (company surface)
+        working-directory: front/my-app
+        env:
+          VITE_APP_SURFACE: company
+          VITE_API_URL: /api/v1
+        run: npm run build
+
+      - name: Build (provider surface)
+        working-directory: front/my-app
+        env:
+          VITE_APP_SURFACE: provider
+          VITE_API_URL: /api/v1
+        run: npm run build
+
+      - name: Build (landing surface)
+        working-directory: front/my-app
+        env:
+          VITE_APP_SURFACE: landing
+          VITE_API_URL: /api/v1
+        run: npm run build
+
+  # ─────────────────────────────────────────────
+  # Flutter: analyze + test
+  # ─────────────────────────────────────────────
+  flutter:
+    name: Flutter mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.0"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: mobile
+        run: flutter analyze
+
+      - name: Run tests
+        working-directory: mobile
+        run: flutter test
+
+      - name: Build APK (debug)
+        working-directory: mobile
+        run: >
+          flutter build apk --debug
+          --dart-define=ZIYARA_API_URL=${{ vars.API_URL || 'http://10.0.2.2:8080/api/v1' }}
+
+  # ─────────────────────────────────────────────
+  # Database: validate Flyway migration chain
+  # schema.sql / seed.sql are retired — Flyway
+  # runs automatically via CoreApplicationTests
+  # ─────────────────────────────────────────────
+  database:
+    name: Database migrations (Flyway)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: ziyarah
+          POSTGRES_USER: ziyarah_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Validate Flyway migration chain
+        working-directory: core
+        env:
+          JWT_SECRET: ci-test-jwt-secret-must-be-at-least-32-bytes-long-here
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/ziyarah
+          SPRING_DATASOURCE_USERNAME: ziyarah_user
+          SPRING_DATASOURCE_PASSWORD: test_password
+        run: ./gradlew test --tests "*.CoreApplicationTests" --rerun-tasks
