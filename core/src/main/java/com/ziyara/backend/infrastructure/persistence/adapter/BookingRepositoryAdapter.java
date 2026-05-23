@@ -88,6 +88,19 @@ public class BookingRepositoryAdapter implements BookingRepository {
                 .map(bookingMapper::toDomainEntity)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public Page<Booking> findFilteredAdmin(BookingStatus status, java.time.LocalDate dateFrom, java.time.LocalDate dateTo, Pageable pageable) {
+        return bookingJpaRepository.findFilteredAdmin(status, dateFrom, dateTo, pageable)
+                .map(bookingMapper::toDomainEntity);
+    }
+
+    @Override
+    public Page<Booking> findByServiceIdIn(java.util.List<UUID> serviceIds, Pageable pageable) {
+        if (serviceIds == null || serviceIds.isEmpty()) return org.springframework.data.domain.Page.empty(pageable);
+        return bookingJpaRepository.findByServiceIdIn(serviceIds, pageable)
+                .map(bookingMapper::toDomainEntity);
+    }
     
     @Override
     public List<Booking> findByStatus(BookingStatus status) {

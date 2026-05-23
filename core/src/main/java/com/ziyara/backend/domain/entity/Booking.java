@@ -37,6 +37,11 @@ public class Booking {
     private LocalDateTime cancelledAt;
     private String cancellationReason;
     private UUID cancelledBy;
+    private String rejectionReason;
+    private String delayReason;
+    private String internalNotes;
+    private LocalDateTime rejectedAt;
+    private UUID rejectedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     /** Snapshot for discount scope when applying codes (restaurant / room-type). */
@@ -101,6 +106,13 @@ public class Booking {
         if (status == BookingStatus.PENDING) {
             this.status = BookingStatus.EXPIRED;
         }
+    }
+
+    public void reject(UUID rejectedBy, String reason) {
+        this.status = BookingStatus.CANCELLED;
+        this.rejectionReason = reason;
+        this.rejectedBy = rejectedBy;
+        this.rejectedAt = LocalDateTime.now();
     }
 
     public BigDecimal calculateRefundAmount() {
@@ -336,6 +348,21 @@ public class Booking {
     public void setCancelledBy(UUID cancelledBy) {
         this.cancelledBy = cancelledBy;
     }
+
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+
+    public String getDelayReason() { return delayReason; }
+    public void setDelayReason(String delayReason) { this.delayReason = delayReason; }
+
+    public String getInternalNotes() { return internalNotes; }
+    public void setInternalNotes(String internalNotes) { this.internalNotes = internalNotes; }
+
+    public LocalDateTime getRejectedAt() { return rejectedAt; }
+    public void setRejectedAt(LocalDateTime rejectedAt) { this.rejectedAt = rejectedAt; }
+
+    public UUID getRejectedBy() { return rejectedBy; }
+    public void setRejectedBy(UUID rejectedBy) { this.rejectedBy = rejectedBy; }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;

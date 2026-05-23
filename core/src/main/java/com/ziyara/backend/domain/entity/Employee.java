@@ -19,10 +19,21 @@ public class Employee {
     private LocalDateTime joiningDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime offboardedAt;
+    private UUID offboardedBy;
+    private String offboardReason;
 
     // Domain behavior methods
+
+    /** True when the employee has joined and has not been offboarded. */
     public boolean isActive() {
-        return joiningDate != null && joiningDate.isBefore(LocalDateTime.now());
+        return joiningDate != null
+                && joiningDate.isBefore(LocalDateTime.now())
+                && offboardedAt == null;
+    }
+
+    public boolean isOffboarded() {
+        return offboardedAt != null;
     }
 
     // Constructors
@@ -58,4 +69,10 @@ public class Employee {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public LocalDateTime getOffboardedAt() { return offboardedAt; }
+    public void setOffboardedAt(LocalDateTime offboardedAt) { this.offboardedAt = offboardedAt; }
+    public UUID getOffboardedBy() { return offboardedBy; }
+    public void setOffboardedBy(UUID offboardedBy) { this.offboardedBy = offboardedBy; }
+    public String getOffboardReason() { return offboardReason; }
+    public void setOffboardReason(String offboardReason) { this.offboardReason = offboardReason; }
 }

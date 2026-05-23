@@ -81,6 +81,21 @@ public class DiscountCodeJpaEntity {
     @Column(name = "provider_id")
     private UUID providerId;
 
+    @Column(name = "company_share_pct", precision = 5, scale = 2)
+    private BigDecimal companySharePct = new BigDecimal("100.00");
+
+    @Column(name = "provider_share_pct", precision = 5, scale = 2)
+    private BigDecimal providerSharePct = new BigDecimal("0.00");
+
+    @Column(name = "approval_status", length = 30, nullable = false)
+    private String approvalStatus = "DRAFT";
+
+    @Column(name = "approved_by")
+    private UUID approvedBy;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "applicable_service_ids", columnDefinition = "jsonb")
     private List<String> applicableServiceIds;

@@ -1,8 +1,9 @@
 package com.ziyara.backend.infrastructure.media;
 
 import com.ziyara.backend.infrastructure.config.MediaStorageProperties;
-import com.ziyara.backend.presentation.exception.BusinessException;
+import com.ziyara.backend.application.exception.BusinessException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -15,9 +16,11 @@ import java.util.UUID;
 
 /**
  * Persists uploaded bytes under {@link MediaStorageProperties#getStorageRoot()} and returns a public URL path.
+ * Active when APP_MEDIA_STORAGE_BACKEND=local (default).
  */
 @Service
-public class LocalMediaStorageService {
+@ConditionalOnProperty(name = "app.media.storage-backend", havingValue = "local", matchIfMissing = true)
+public class LocalMediaStorageService implements MediaStorageService {
 
     private static final int MAX_BYTES = 10 * 1024 * 1024;
     private static final Set<String> ALLOWED_TYPES = Set.of(

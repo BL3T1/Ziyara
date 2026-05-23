@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -55,6 +56,18 @@ public class AuditLogRepositoryAdapter implements AuditLogRepository {
     @Override
     public Page<AuditLog> findRecent(Pageable pageable) {
         return auditLogJpaRepository.findAllByOrderByCreatedAtDesc(pageable)
+                .map(auditLogMapper::toDomainEntity);
+    }
+
+    @Override
+    public Page<AuditLog> findFiltered(String entityType,
+                                       String action,
+                                       UUID userId,
+                                       LocalDateTime dateFrom,
+                                       LocalDateTime dateTo,
+                                       Pageable pageable) {
+        return auditLogJpaRepository
+                .findFiltered(entityType, action, userId, dateFrom, dateTo, pageable)
                 .map(auditLogMapper::toDomainEntity);
     }
 }

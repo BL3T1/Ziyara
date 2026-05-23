@@ -25,7 +25,7 @@ public class ServiceProvider {
     private String logoUrl;
     private String description;
     private String descriptionAr;
-    private double rating;
+    private BigDecimal rating;
     private int reviewCount;
     private ProviderStatus status;
     private boolean verified;
@@ -42,7 +42,7 @@ public class ServiceProvider {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         this.status = ProviderStatus.PENDING_APPROVAL;
-        this.rating = 0.0;
+        this.rating = BigDecimal.ZERO;
         this.reviewCount = 0;
     }
 
@@ -75,8 +75,8 @@ public class ServiceProvider {
     public void setDescription(String description) { this.description = description; }
     public String getDescriptionAr() { return descriptionAr; }
     public void setDescriptionAr(String descriptionAr) { this.descriptionAr = descriptionAr; }
-    public double getRating() { return rating; }
-    public void setRating(double rating) { this.rating = rating; }
+    public BigDecimal getRating() { return rating; }
+    public void setRating(BigDecimal rating) { this.rating = rating; }
     public int getReviewCount() { return reviewCount; }
     public void setReviewCount(int reviewCount) { this.reviewCount = reviewCount; }
     public ProviderStatus getStatus() { return status; }

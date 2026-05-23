@@ -38,6 +38,10 @@ public class DiscountCode {
     private List<UUID> applicableMenuItemIds;
     /** Hotel/resort: restrict to these room-type IDs when the client sends {@code roomTypeId} on checkout. */
     private List<UUID> applicableRoomTypeIds;
+    /** DRAFT | PENDING_APPROVAL | APPROVED | REJECTED */
+    private String approvalStatus = "DRAFT";
+    private UUID approvedBy;
+    private LocalDateTime approvedAt;
 
     // Domain behavior methods
     public boolean isValid() {
@@ -254,4 +258,13 @@ public class DiscountCode {
     public void setApplicableRoomTypeIds(List<UUID> applicableRoomTypeIds) {
         this.applicableRoomTypeIds = applicableRoomTypeIds;
     }
+
+    public String getApprovalStatus() { return approvalStatus; }
+    public void setApprovalStatus(String approvalStatus) { this.approvalStatus = approvalStatus; }
+
+    public UUID getApprovedBy() { return approvedBy; }
+    public void setApprovedBy(UUID approvedBy) { this.approvedBy = approvedBy; }
+
+    public LocalDateTime getApprovedAt() { return approvedAt; }
+    public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
 }

@@ -35,4 +35,10 @@ public interface PaymentJpaRepository extends JpaRepository<PaymentJpaEntity, UU
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM PaymentJpaEntity p WHERE p.status = :status AND p.bookingId IN :bookingIds")
     BigDecimal sumCompletedAmountByBookingIds(@Param("status") PaymentStatus status, @Param("bookingIds") List<UUID> bookingIds);
+
+    @Query("SELECT p FROM PaymentJpaEntity p WHERE p.status = :status AND p.bookingId IN :bookingIds AND p.createdAt >= :since")
+    List<PaymentJpaEntity> findCompletedByBookingIdsSince(
+            @Param("status") PaymentStatus status,
+            @Param("bookingIds") List<UUID> bookingIds,
+            @Param("since") LocalDateTime since);
 }

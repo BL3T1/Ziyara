@@ -94,10 +94,25 @@ public class BookingJpaEntity {
     
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
-    
+
     @Column(name = "cancelled_by")
     private UUID cancelledBy;
-    
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    @Column(name = "delay_reason", columnDefinition = "TEXT")
+    private String delayReason;
+
+    @Column(name = "internal_notes", columnDefinition = "TEXT")
+    private String internalNotes;
+
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+
+    @Column(name = "rejected_by")
+    private UUID rejectedBy;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
     

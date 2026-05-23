@@ -2,6 +2,8 @@ package com.ziyara.backend.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -43,6 +45,7 @@ public class DataExportRequestJpaEntity {
     @Column(name = "failure_reason", columnDefinition = "TEXT")
     private String failureReason;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload_json", columnDefinition = "jsonb")
     private String payloadJson;
 

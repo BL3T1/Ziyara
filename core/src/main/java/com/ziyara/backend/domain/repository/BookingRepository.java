@@ -50,6 +50,10 @@ public interface BookingRepository {
     List<Booking> findOverlappingBookings(UUID serviceId, LocalDate checkIn, LocalDate checkOut);
     boolean hasConflictingBooking(UUID serviceId, LocalDate checkIn, LocalDate checkOut);
     
+    Page<Booking> findFilteredAdmin(BookingStatus status, java.time.LocalDate dateFrom, java.time.LocalDate dateTo, Pageable pageable);
+
+    Page<Booking> findByServiceIdIn(java.util.List<UUID> serviceIds, Pageable pageable);
+
     // Statistics
     long count();
     long countByStatus(BookingStatus status);

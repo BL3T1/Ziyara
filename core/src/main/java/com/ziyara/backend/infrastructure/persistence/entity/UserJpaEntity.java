@@ -131,6 +131,9 @@ public class UserJpaEntity implements Persistable<UUID> {
     @Column(name = "right_to_erasure_completed_at")
     private LocalDateTime rightToErasureCompletedAt;
 
+    @Column(name = "fcm_token", length = 512)
+    private String fcmToken;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

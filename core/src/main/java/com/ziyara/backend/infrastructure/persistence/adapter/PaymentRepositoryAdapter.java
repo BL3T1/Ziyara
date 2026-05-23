@@ -110,4 +110,14 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
         BigDecimal result = paymentJpaRepository.sumCompletedAmountByBookingIds(PaymentStatus.COMPLETED, bookingIds);
         return result != null ? result : BigDecimal.ZERO;
     }
+
+    @Override
+    public List<Payment> findCompletedByBookingIdsSince(List<UUID> bookingIds, LocalDateTime since) {
+        if (bookingIds == null || bookingIds.isEmpty()) return List.of();
+        return paymentJpaRepository
+                .findCompletedByBookingIdsSince(PaymentStatus.COMPLETED, bookingIds, since)
+                .stream()
+                .map(paymentMapper::toDomainEntity)
+                .collect(Collectors.toList());
+    }
 }

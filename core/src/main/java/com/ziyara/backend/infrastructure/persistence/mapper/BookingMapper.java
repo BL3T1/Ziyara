@@ -44,6 +44,11 @@ public class BookingMapper {
         booking.setCancelledAt(entity.getCancelledAt());
         booking.setCancellationReason(entity.getCancellationReason());
         booking.setCancelledBy(entity.getCancelledBy());
+        booking.setRejectionReason(entity.getRejectionReason());
+        booking.setDelayReason(entity.getDelayReason());
+        booking.setInternalNotes(entity.getInternalNotes());
+        booking.setRejectedAt(entity.getRejectedAt());
+        booking.setRejectedBy(entity.getRejectedBy());
         booking.setCreatedAt(entity.getCreatedAt());
         booking.setUpdatedAt(entity.getUpdatedAt());
         booking.setDiscountContextMenuItemIds(fromStringList(entity.getDiscountContextMenuItemIds()));
@@ -82,6 +87,11 @@ public class BookingMapper {
                 .cancelledAt(booking.getCancelledAt())
                 .cancellationReason(booking.getCancellationReason())
                 .cancelledBy(booking.getCancelledBy())
+                .rejectionReason(booking.getRejectionReason())
+                .delayReason(booking.getDelayReason())
+                .internalNotes(booking.getInternalNotes())
+                .rejectedAt(booking.getRejectedAt())
+                .rejectedBy(booking.getRejectedBy())
                 .createdAt(booking.getCreatedAt())
                 .updatedAt(booking.getUpdatedAt())
                 .discountContextMenuItemIds(toStringList(booking.getDiscountContextMenuItemIds()))

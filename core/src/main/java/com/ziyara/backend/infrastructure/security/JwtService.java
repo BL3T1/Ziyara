@@ -3,6 +3,7 @@ package com.ziyara.backend.infrastructure.security;
 import com.ziyara.backend.domain.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,6 +37,20 @@ public class JwtService {
     @Value("${jwt.refresh-expiration}")
     private long refreshExpiration;
     
+    @PostConstruct
+    void validateSecret() {
+        if (secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException(
+                    "JWT_SECRET environment variable is not set. " +
+                    "Set a random secret of at least 32 characters before starting the application.");
+        }
+        if (secretKey.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException(
+                    "JWT_SECRET is too short (minimum 32 bytes required for HMAC-SHA256). " +
+                    "Generate a secure secret: openssl rand -hex 48");
+        }
+    }
+
     private SecretKey getSigningKey() {
         byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);

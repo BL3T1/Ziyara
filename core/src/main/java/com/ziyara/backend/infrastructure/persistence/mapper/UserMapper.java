@@ -46,6 +46,7 @@ public class UserMapper {
         user.setMarketingOptIn(Boolean.TRUE.equals(entity.getMarketingOptIn()));
         user.setRightToErasureRequested(Boolean.TRUE.equals(entity.getRightToErasureRequested()));
         user.setRightToErasureCompletedAt(entity.getRightToErasureCompletedAt());
+        user.setFcmToken(entity.getFcmToken());
 
         return user;
     }
@@ -85,6 +86,7 @@ public class UserMapper {
                 .marketingOptIn(user.isMarketingOptIn())
                 .rightToErasureRequested(user.isRightToErasureRequested())
                 .rightToErasureCompletedAt(user.getRightToErasureCompletedAt())
+                .fcmToken(user.getFcmToken())
                 .build();
     }
 }

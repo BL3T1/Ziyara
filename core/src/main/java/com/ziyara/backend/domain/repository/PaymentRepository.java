@@ -35,4 +35,7 @@ public interface PaymentRepository {
 
     BigDecimal sumCompletedAmountBetween(LocalDateTime from, LocalDateTime to);
     BigDecimal sumCompletedAmountByBookingIds(java.util.List<UUID> bookingIds);
+
+    /** Completed payments for the given booking IDs on or after {@code since}. Used for weekly chart. */
+    List<Payment> findCompletedByBookingIdsSince(List<UUID> bookingIds, LocalDateTime since);
 }

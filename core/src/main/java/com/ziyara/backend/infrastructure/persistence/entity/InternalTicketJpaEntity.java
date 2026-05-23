@@ -4,6 +4,8 @@ import com.ziyara.backend.domain.enums.TicketPriority;
 import com.ziyara.backend.domain.enums.TicketStatus;
 import com.ziyara.backend.domain.enums.TicketType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -69,7 +71,8 @@ public class InternalTicketJpaEntity {
     @Column(name = "actual_behavior", columnDefinition = "TEXT")
     private String actualBehavior;
     
-    @Column(name = "attachments", columnDefinition = "JSONB")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "attachments", columnDefinition = "jsonb")
     private String attachments;
     
     @Column(name = "assigned_to_id")

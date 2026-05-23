@@ -58,8 +58,9 @@ public class ServiceProviderJpaEntity {
     @Column(name = "registration_number", length = 128)
     private String registrationNumber;
     
-    @Column(name = "rating")
-    private Double rating = 0.0;
+    /** NUMERIC(3,2): exact rating 0.00–5.00 (V16 type change from DOUBLE PRECISION). */
+    @Column(name = "rating", precision = 3, scale = 2)
+    private BigDecimal rating = BigDecimal.ZERO;
     
     @Column(name = "review_count")
     private Integer reviewCount = 0;

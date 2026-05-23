@@ -47,6 +47,9 @@ public class User {
     private boolean rightToErasureRequested;
     private LocalDateTime rightToErasureCompletedAt;
 
+    /** FCM push token registered by the mobile app on login. Nullable — desktop/web sessions have none. */
+    private String fcmToken;
+
     // Domain behavior methods
     public boolean isActive() {
         return status == UserStatus.ACTIVE && deletedAt == null;
@@ -348,5 +351,13 @@ public class User {
 
     public void setRightToErasureCompletedAt(LocalDateTime rightToErasureCompletedAt) {
         this.rightToErasureCompletedAt = rightToErasureCompletedAt;
+    }
+
+    public String getFcmToken() {
+        return fcmToken;
+    }
+
+    public void setFcmToken(String fcmToken) {
+        this.fcmToken = fcmToken;
     }
 }

@@ -41,6 +41,9 @@ public class DiscountCodeMapper {
         discountCode.setApplicableMenuSectionIds(fromStringUuidList(entity.getApplicableMenuSectionIds()));
         discountCode.setApplicableMenuItemIds(fromStringUuidList(entity.getApplicableMenuItemIds()));
         discountCode.setApplicableRoomTypeIds(fromStringUuidList(entity.getApplicableRoomTypeIds()));
+        discountCode.setApprovalStatus(entity.getApprovalStatus());
+        discountCode.setApprovedBy(entity.getApprovedBy());
+        discountCode.setApprovedAt(entity.getApprovedAt());
 
         return discountCode;
     }
@@ -72,6 +75,9 @@ public class DiscountCodeMapper {
                 .applicableMenuSectionIds(toStringUuidList(discountCode.getApplicableMenuSectionIds()))
                 .applicableMenuItemIds(toStringUuidList(discountCode.getApplicableMenuItemIds()))
                 .applicableRoomTypeIds(toStringUuidList(discountCode.getApplicableRoomTypeIds()))
+                .approvalStatus(discountCode.getApprovalStatus())
+                .approvedBy(discountCode.getApprovedBy())
+                .approvedAt(discountCode.getApprovedAt())
                 .build();
     }
 
