@@ -10,7 +10,10 @@ class BookingRepositoryImpl implements BookingRepository {
   @override
   Future<List<BookingModel>> getMyBookings() async {
     final response = await apiClient.get('/bookings/my');
-    return (response.data as List).map((e) => BookingModel.fromJson(e)).toList();
+    // Backend wraps responses: { "data": { "content": [...] } } or { "data": [...] }
+    final raw = response.data['data'];
+    final list = raw is Map ? (raw['content'] as List? ?? []) : (raw as List? ?? []);
+    return list.map((e) => BookingModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   @override

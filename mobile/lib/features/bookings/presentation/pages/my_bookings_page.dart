@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/api/api_client.dart';
-import '../../data/repositories/booking_repository_impl.dart';
+import '../../../../core/di/injection_container.dart';
+import '../../domain/repositories/booking_repository.dart';
 import '../widgets/booking_card_item.dart';
 import '../bloc/booking_bloc.dart';
 import '../bloc/booking_event.dart';
@@ -15,9 +15,8 @@ class MyBookingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => BookingBloc(
-        repository: BookingRepositoryImpl(apiClient: ApiClient()),
-      )..add(FetchBookings()),
+      create: (context) => BookingBloc(repository: sl<BookingRepository>())
+        ..add(FetchBookings()),
       child: const MyBookingsView(),
     );
   }

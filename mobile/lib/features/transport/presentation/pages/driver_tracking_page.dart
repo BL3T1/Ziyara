@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/di/injection_container.dart';
+import '../../domain/repositories/transport_repository.dart';
 import '../bloc/transport_bloc.dart';
 import '../bloc/transport_event.dart';
 import '../bloc/transport_state.dart';
-import '../../data/repositories/fake_transport_repository.dart';
 
 class DriverTrackingPage extends StatelessWidget {
   final String? bookingId;
@@ -14,9 +15,8 @@ class DriverTrackingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => TransportBloc(
-        repository: FakeTransportRepository(),
-      )..add(StartTracking(bookingId ?? 'dummy')),
+      create: (context) => TransportBloc(repository: sl<TransportRepository>())
+        ..add(StartTracking(bookingId ?? '')),
       child: const DriverTrackingView(),
     );
   }

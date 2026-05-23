@@ -11,14 +11,16 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   @override
   Future<ProfileModel> getProfile() async {
-    final response = await apiClient.get('/profile');
-    return ProfileModel.fromJson(response.data);
+    final response = await apiClient.get('/users/me');
+    final data = response.data['data'] as Map<String, dynamic>? ?? response.data as Map<String, dynamic>;
+    return ProfileModel.fromJson(data);
   }
 
   @override
   Future<ProfileModel> updateProfile(Map<String, dynamic> data) async {
-    final response = await apiClient.put('/profile', data: data);
-    return ProfileModel.fromJson(response.data);
+    final response = await apiClient.put('/users/me', data: data);
+    final responseData = response.data['data'] as Map<String, dynamic>? ?? response.data as Map<String, dynamic>;
+    return ProfileModel.fromJson(responseData);
   }
 
   @override
@@ -27,6 +29,6 @@ class ProfileRepositoryImpl implements ProfileRepository {
       'id_front': await MultipartFile.fromFile(idFront.path),
       'id_back': await MultipartFile.fromFile(idBack.path),
     });
-    await apiClient.post('/profile/verify', data: formData);
+    await apiClient.post('/users/me/verification', data: formData);
   }
 }

@@ -18,6 +18,22 @@ class LoginRequested extends AuthEvent {
   List<Object?> get props => [email, password];
 }
 
+/// Submitted when the user enters their 6-digit TOTP code on the MFA challenge screen.
+class SubmitMfaCode extends AuthEvent {
+  final String email;
+  final String password;
+  final String mfaCode;
+
+  const SubmitMfaCode({
+    required this.email,
+    required this.password,
+    required this.mfaCode,
+  });
+
+  @override
+  List<Object?> get props => [email, password, mfaCode];
+}
+
 class LogoutRequested extends AuthEvent {}
 
 abstract class AuthState extends Equatable {

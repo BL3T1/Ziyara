@@ -12,6 +12,22 @@ class HotelModel {
   final List<String> facilities;
 
   HotelModel({required this.id, required this.name, required this.location, required this.address, required this.rating, required this.stars, required this.pricePerNight, required this.imageUrl, required this.facilities});
+
+  factory HotelModel.fromJson(Map<String, dynamic> json) {
+    return HotelModel(
+      id: json['id']?.toString() ?? '',
+      name: json['name'] as String? ?? '',
+      location: json['city'] as String? ?? json['location'] as String? ?? '',
+      address: json['address'] as String? ?? '',
+      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+      stars: (json['stars'] as num?)?.toInt() ?? (json['category'] as num?)?.toInt() ?? 0,
+      pricePerNight: (json['pricePerNight'] as num?)?.toDouble() ??
+          (json['basePrice'] as num?)?.toDouble() ?? 0.0,
+      imageUrl: json['imageUrl'] as String? ?? json['thumbnailUrl'] as String? ?? '',
+      facilities: (json['facilities'] as List?)?.map((e) => e.toString()).toList() ??
+          (json['amenities'] as List?)?.map((e) => e.toString()).toList() ?? [],
+    );
+  }
   
   static List<HotelModel> get dummyHotels => [
     HotelModel(id: '1', name: 'فندق شيراتون دمشق', location: 'دمشق', address: 'ساحة الأمويين', rating: 4.8, stars: 5, pricePerNight: 2500000, 

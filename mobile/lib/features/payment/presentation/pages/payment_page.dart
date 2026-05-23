@@ -5,12 +5,12 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/launcher_helper.dart';
-import '../../../../core/api/api_client.dart';
+import '../../../../core/di/injection_container.dart';
+import '../../domain/repositories/payment_repository.dart';
 import '../widgets/payment_summary_card.dart';
 import '../bloc/payment_bloc.dart';
 import '../bloc/payment_event.dart';
 import '../bloc/payment_state.dart';
-import '../../data/repositories/payment_repository_impl.dart';
 
 class PaymentPage extends StatelessWidget {
   final String title;
@@ -23,7 +23,7 @@ class PaymentPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => PaymentBloc(
-        repository: PaymentRepositoryImpl(apiClient: ApiClient()),
+        repository: sl<PaymentRepository>(),
         basePrice: price,
       ),
       child: PaymentView(title: title, basePrice: price, imageUrl: imageUrl),

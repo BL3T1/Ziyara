@@ -1,19 +1,39 @@
 import '../../../../core/api/api_client.dart';
+import '../../../../core/services/push_notification_service.dart';
+import '../../../../core/services/token_storage_service.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../models/user_model.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final ApiClient apiClient;
+  final TokenStorageService tokenStorage;
 
-  AuthRepositoryImpl({required this.apiClient});
+  AuthRepositoryImpl({
+    required this.apiClient,
+    required this.tokenStorage,
+  });
 
   @override
-  Future<UserModel> login(String email, String password) async {
-    final response = await apiClient.post('/auth/login', data: {
-      'email': email,
-      'password': password,
+  Future<UserModel> login(String email, String password, {String? mfaCode}) async {
+    final body = <String, dynamic>{'email': email, 'password': password};
+    if (mfaCode != null && mfaCode.isNotEmpty) body['mfaCode'] = mfaCode;
+
+    final response = await apiClient.post('/auth/login', data: body);
+    final data = response.data as Map<String, dynamic>;
+
+    // Persist tokens to secure storage immediately after successful login
+    final accessToken = data['accessToken'] as String?;
+    final refreshToken = data['refreshToken'] as String?;
+    if (accessToken != null) await tokenStorage.saveAccessToken(accessToken);
+    if (refreshToken != null) await tokenStorage.saveRefreshToken(refreshToken);
+
+    // Register FCM push token with the backend (non-blocking, fails silently)
+    PushNotificationService.requestPermissionAndGetToken().then((token) {
+      if (token != null) PushNotificationService.registerTokenWithBackend(token);
     });
-    return UserModel.fromJson(response.data);
+
+    final userData = data['user'] as Map<String, dynamic>? ?? data;
+    return UserModel.fromJson(userData);
   }
 
   @override
@@ -26,14 +46,39 @@ class AuthRepositoryImpl implements AuthRepository {
     final response = await apiClient.post('/auth/register', data: {
       'email': email,
       'password': password,
-      'first_name': firstName,
-      'last_name': lastName,
+      'firstName': firstName,
+      'lastName': lastName,
     });
-    return UserModel.fromJson(response.data);
+    final data = response.data as Map<String, dynamic>;
+    final userData = data['user'] as Map<String, dynamic>? ?? data;
+    return UserModel.fromJson(userData);
   }
 
   @override
   Future<void> logout() async {
-    // Implement logout logic (e.g., clear tokens)
+    try {
+      // Notify backend to blocklist the current token
+      await apiClient.post('/auth/logout');
+    } catch (_) {
+      // Ignore errors — local credential removal must always succeed
+    } finally {
+      await tokenStorage.clearAll();
+    }
+  }
+
+  @override
+  Future<void> forgotPassword(String email) async {
+    await apiClient.post('/auth/forgot-password', data: {'email': email});
+  }
+
+  @override
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    await apiClient.post('/auth/reset-password', data: {
+      'token': token,
+      'newPassword': newPassword,
+    });
   }
 }

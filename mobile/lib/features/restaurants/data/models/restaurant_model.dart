@@ -12,6 +12,21 @@ class RestaurantModel {
   final List<String> menuHighlights;
 
   RestaurantModel({required this.id, required this.name, required this.location, required this.type, required this.rating, required this.imageUrl, required this.isOpenNow, required this.workingHours, required this.menuHighlights});
+
+  factory RestaurantModel.fromJson(Map<String, dynamic> json) {
+    return RestaurantModel(
+      id: json['id']?.toString() ?? '',
+      name: json['name'] as String? ?? '',
+      location: json['city'] as String? ?? json['location'] as String? ?? '',
+      type: json['cuisineType'] as String? ?? json['type'] as String? ?? '',
+      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+      imageUrl: json['imageUrl'] as String? ?? json['thumbnailUrl'] as String? ?? '',
+      isOpenNow: json['isOpenNow'] as bool? ?? json['openNow'] as bool? ?? false,
+      workingHours: json['workingHours'] as String? ?? json['openingHours'] as String? ?? '',
+      menuHighlights: (json['menuHighlights'] as List?)?.map((e) => e.toString()).toList() ??
+          (json['highlights'] as List?)?.map((e) => e.toString()).toList() ?? [],
+    );
+  }
   
   static List<RestaurantModel> get dummyRestaurants => [
     RestaurantModel(id: '1', name: 'مطعم نارنج', location: 'دمشق القديمة', type: 'مأكولات شرقية فاخرة', rating: 4.9, 

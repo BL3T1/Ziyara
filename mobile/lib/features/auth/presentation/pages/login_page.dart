@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/biometric_helper.dart';
 import '../../../../core/widgets/responsive/responsive_wrapper.dart';
-import '../../../../core/api/api_client.dart';
-import '../../data/repositories/auth_repository_impl.dart';
+import '../../../../core/services/token_storage_service.dart';
+import '../../../../core/di/injection_container.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -16,9 +16,7 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => AuthBloc(
-        repository: AuthRepositoryImpl(apiClient: ApiClient()),
-      ),
+      create: (context) => AuthBloc(repository: sl()),
       child: const LoginView(),
     );
   }
@@ -51,6 +49,20 @@ class _LoginViewState extends State<LoginView> {
   }
 
   Future<void> _loginWithBiometrics() async {
+    // Security: biometric is only a local unlock. A real JWT must already be
+    // present in secure storage (i.e. user has logged in with password before).
+    final existingToken = await sl<TokenStorageService>().getAccessToken();
+    if (existingToken == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('يرجى تسجيل الدخول بكلمة المرور أولاً لتفعيل البصمة'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
     if (await BiometricHelper.authenticate() && mounted) {
       context.go('/home');
     }
@@ -62,6 +74,12 @@ class _LoginViewState extends State<LoginView> {
       listener: (context, state) {
         if (state is AuthAuthenticated) {
           context.go('/home');
+        } else if (state is AuthMfaRequired) {
+          // Navigate to TOTP challenge screen — pass credentials for re-submission
+          context.push('/mfa_challenge', extra: {
+            'email': state.email,
+            'password': state.password,
+          });
         } else if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message), backgroundColor: AppColors.error),

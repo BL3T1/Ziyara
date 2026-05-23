@@ -23,6 +23,10 @@ dependencies:
   # Networking
   dio: ^5.9.0
   connectivity_plus: ^7.0.0
+  stomp_dart_client: ^3.1.0
+
+  # Secure token storage (Keychain on iOS, EncryptedSharedPreferences on Android)
+  flutter_secure_storage: ^9.2.4
 
   # Navigation
   go_router: ^17.0.0
@@ -46,10 +50,15 @@ dependencies:
   flutter_localization: ^0.3.3
   intl: ^0.20.2
 
+  # Push Notifications (Firebase Cloud Messaging)
+  firebase_core: ^3.13.0
+  firebase_messaging: ^15.2.5
+  flutter_local_notifications: ^18.0.1
+
   # Biometrics (Authentication)
   local_auth: ^2.3.0
   local_auth_android: ^1.0.52
-  local_auth_ios: any # وضعنا any ليعمل مع الـ override بالأسفل
+  local_auth_ios: any # 'any' allows the dependency_overrides below to pin the intl version
   pdf: ^3.11.3
   printing: ^5.14.2
   share_plus: ^12.0.1
@@ -62,8 +71,7 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.4
 
-# --- هذا القسم هو الحل السحري لمشكلة الإصدارات ---
-# يجبر جميع المكتبات على استخدام نسخة intl الحديثة
+# Force all packages to use the same intl version (resolves version conflicts)
 dependency_overrides:
   intl: ^0.20.2
 

@@ -4,6 +4,7 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/signup_page.dart';
 import '../../features/auth/presentation/pages/otp_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
+import '../../features/auth/presentation/pages/mfa_challenge_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/hotels/presentation/pages/hotels_page.dart';
 import '../../features/restaurants/presentation/pages/restaurants_page.dart';
@@ -28,6 +29,16 @@ class AppRouter {
         GoRoute(path: '/signup', builder: (context, state) => const SignupPage()),
         GoRoute(path: '/otp_verify', builder: (context, state) => const OtpPage()),
         GoRoute(path: '/forgot_password', builder: (context, state) => const ForgotPasswordPage()),
+        GoRoute(
+          path: '/mfa_challenge',
+          builder: (context, state) {
+            final extra = state.extra as Map<String, String>;
+            return MfaChallengePage(
+              email: extra['email']!,
+              password: extra['password']!,
+            );
+          },
+        ),
         
         GoRoute(path: '/home', builder: (context, state) => const HomePage()),
         GoRoute(path: '/hotels', builder: (context, state) => const HotelsPage()),

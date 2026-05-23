@@ -14,6 +14,24 @@ class TourModel {
 
   TourModel({required this.id, required this.title, required this.location, required this.price, required this.durationDays, required this.rating, required this.imageUrl, required this.description, required this.activities, required this.date});
 
+  factory TourModel.fromJson(Map<String, dynamic> json) {
+    return TourModel(
+      id: json['id']?.toString() ?? '',
+      title: json['name'] as String? ?? json['title'] as String? ?? '',
+      location: json['city'] as String? ?? json['location'] as String? ?? '',
+      price: (json['basePrice'] as num?)?.toDouble() ??
+          (json['price'] as num?)?.toDouble() ?? 0.0,
+      durationDays: (json['durationDays'] as num?)?.toInt() ??
+          (json['duration'] as num?)?.toInt() ?? 1,
+      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+      imageUrl: json['imageUrl'] as String? ?? json['thumbnailUrl'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      activities: (json['activities'] as List?)?.map((e) => e.toString()).toList() ??
+          (json['highlights'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      date: json['startDate'] as String? ?? json['date'] as String? ?? '',
+    );
+  }
+
   static List<TourModel> get dummyTours => [
     TourModel(id: '1', title: 'رحلة القلاع والحصون', location: 'وادي النصارى - الحصن', price: 450000, durationDays: 2, rating: 4.8, 
       imageUrl: DummyImageManager.tourKrak,

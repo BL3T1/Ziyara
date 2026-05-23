@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../data/repositories/fake_tours_repository.dart';
 import '../../../../core/widgets/shimmer/tour_card_shimmer.dart';
+import '../../../../core/di/injection_container.dart';
+import '../../domain/repositories/tours_repository.dart';
 import '../widgets/tour_card.dart';
 import 'tour_details_page.dart';
 import '../bloc/tour_bloc.dart';
@@ -15,9 +16,7 @@ class ToursPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => TourBloc(
-        repository: FakeToursRepository(),
-      )..add(FetchTours()),
+      create: (context) => TourBloc(repository: sl<ToursRepository>())..add(FetchTours()),
       child: const ToursView(),
     );
   }

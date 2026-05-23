@@ -11,11 +11,13 @@ class PaymentRepositoryImpl implements PaymentRepository {
 
   @override
   Future<double> applyCoupon(String code, double basePrice) async {
-    final response = await apiClient.post('/payments/coupon/validate', data: {
+    final response = await apiClient.post('/discount-codes/validate', data: {
       'code': code,
-      'base_price': basePrice,
+      'basePrice': basePrice,
     });
-    return response.data['discounted_price'].toDouble();
+    // Backend ApiResponse wrapper: data is at response.data['data']
+    final data = response.data['data'] as Map<String, dynamic>? ?? response.data as Map<String, dynamic>;
+    return (data['discountedPrice'] ?? data['discounted_price'] ?? basePrice).toDouble();
   }
 
   @override
@@ -23,10 +25,11 @@ class PaymentRepositoryImpl implements PaymentRepository {
     final formData = FormData.fromMap({
       'amount': amount,
       ...details,
-      'id_image': await MultipartFile.fromFile(idImage.path),
+      'idImage': await MultipartFile.fromFile(idImage.path),
     });
 
-    final response = await apiClient.post('/payments/process', data: formData);
-    return PaymentModel.fromJson(response.data);
+    final response = await apiClient.post('/payments', data: formData);
+    final data = response.data['data'] as Map<String, dynamic>? ?? response.data as Map<String, dynamic>;
+    return PaymentModel.fromJson(data);
   }
 }

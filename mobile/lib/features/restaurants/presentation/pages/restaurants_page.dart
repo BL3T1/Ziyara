@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../data/repositories/fake_restaurants_repository.dart';
 import '../../../../core/widgets/shimmer/restaurant_card_shimmer.dart';
+import '../../../../core/di/injection_container.dart';
+import '../../domain/repositories/restaurants_repository.dart';
 import '../widgets/restaurant_card.dart';
 import 'restaurant_details_page.dart';
 import '../bloc/restaurant_bloc.dart';
@@ -15,9 +16,8 @@ class RestaurantsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => RestaurantBloc(
-        repository: FakeRestaurantsRepository(),
-      )..add(FetchRestaurants()),
+      create: (context) => RestaurantBloc(repository: sl<RestaurantsRepository>())
+        ..add(FetchRestaurants()),
       child: const RestaurantsView(),
     );
   }

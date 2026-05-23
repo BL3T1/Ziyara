@@ -1,27 +1,48 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // مهم للتحقق
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/app_router.dart';
 import 'core/utils/app_settings.dart';
 import 'core/services/favorites_service.dart';
+import 'core/services/push_notification_service.dart';
 import 'core/services/search_history_service.dart';
+import 'core/services/token_storage_service.dart';
+import 'core/di/injection_container.dart';
 
 void main() async {
   // ضمان تهيئة النظام
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. تحميل البيانات الضرورية أثناء ظهور السبلاش الأصلي (Native Splash)
+  // 0. Register FCM background handler BEFORE Firebase.initializeApp()
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // 1. تهيئة حاوية الاعتماديات (GetIt)
+  await initDependencies();
+
+  // 2. تهيئة Firebase والإشعارات (تتدهور بأمان إذا لم يتم إعداد google-services.json)
+  await PushNotificationService.initialize();
+
+  // 3. تحميل البيانات الضرورية أثناء ظهور السبلاش الأصلي (Native Splash)
   await FavoritesService.loadFavorites();
   await SearchHistoryService.loadHistory();
 
-  // 2. التحقق: هل هذه أول مرة يفتح فيها المستخدم التطبيق؟
+  // 4. التحقق: هل هذه أول مرة يفتح فيها المستخدم التطبيق؟
   final prefs = await SharedPreferences.getInstance();
   final isFirstTime = prefs.getBool('isFirstTime') ?? true;
-  
-  // تحديد الوجهة: إذا أول مرة -> ترحيب، وإلا -> تسجيل دخول
-  final String startRoute = isFirstTime ? '/onboarding' : '/login';
+
+  // 5. التحقق من وجود رمز مصادقة محفوظ (جلسة نشطة سابقة)
+  final tokenStorage = sl<TokenStorageService>();
+  final hasActiveSession = await tokenStorage.getAccessToken() != null;
+
+  // تحديد الوجهة: أول مرة -> ترحيب | جلسة نشطة -> الرئيسية | غير ذلك -> تسجيل دخول
+  final String startRoute = isFirstTime
+      ? '/onboarding'
+      : hasActiveSession
+          ? '/home'
+          : '/login';
 
   // إعدادات واجهة النظام
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

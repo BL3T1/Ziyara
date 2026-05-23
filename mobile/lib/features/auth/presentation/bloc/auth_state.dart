@@ -31,3 +31,16 @@ class AuthError extends AuthState {
   @override
   List<Object?> get props => [message];
 }
+
+/// Emitted when the backend requires a TOTP code (account has MFA enabled).
+/// The login page navigates to [MfaChallengeScreen] on this state.
+/// Stores credentials so they can be re-submitted with the code.
+class AuthMfaRequired extends AuthState {
+  final String email;
+  final String password;
+
+  const AuthMfaRequired({required this.email, required this.password});
+
+  @override
+  List<Object?> get props => [email, password];
+}

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../data/repositories/fake_hotels_repository.dart';
 import '../../../../core/widgets/shimmer/hotel_card_shimmer.dart';
 import '../../../../core/services/search_history_service.dart';
+import '../../../../core/di/injection_container.dart';
+import '../../domain/repositories/hotels_repository.dart';
 import '../widgets/hotel_card.dart';
 import 'hotel_details_page.dart';
 import '../bloc/hotel_bloc.dart';
@@ -16,7 +17,7 @@ class HotelsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => HotelBloc(repository: FakeHotelsRepository())..add(FetchHotels()),
+      create: (context) => HotelBloc(repository: sl<HotelsRepository>())..add(FetchHotels()),
       child: const HotelsView(),
     );
   }

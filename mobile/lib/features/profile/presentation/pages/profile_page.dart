@@ -6,22 +6,30 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/launcher_helper.dart';
 import '../../../../core/utils/app_settings.dart';
 import '../../../../core/utils/biometric_helper.dart';
-import '../../../../core/api/api_client.dart';
+import '../../../../core/di/injection_container.dart';
 import '../widgets/profile_header.dart';
 import '../bloc/profile_bloc.dart';
 import '../bloc/profile_event.dart';
 import '../bloc/profile_state.dart';
-import '../../data/repositories/profile_repository_impl.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_event.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => ProfileBloc(
-        repository: ProfileRepositoryImpl(apiClient: ApiClient()),
-      )..add(FetchProfile()),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => ProfileBloc(repository: sl())..add(FetchProfile()),
+        ),
+        BlocProvider(
+          create: (context) => AuthBloc(repository: sl<AuthRepository>()),
+        ),
+      ],
       child: const ProfileView(),
     );
   }
@@ -32,10 +40,16 @@ class ProfileView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<Locale>(
-      valueListenable: AppSettings.localeNotifier,
-      builder: (context, locale, child) {
-        bool isAr = locale.languageCode == 'ar';
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthUnauthenticated) {
+          context.go('/login');
+        }
+      },
+      child: ValueListenableBuilder<Locale>(
+        valueListenable: AppSettings.localeNotifier,
+        builder: (context, locale, child) {
+          bool isAr = locale.languageCode == 'ar';
         return Scaffold(
           appBar: AppBar(
             title: Text(isAr ? 'الإعدادات والملف الشخصي' : 'Settings'),
@@ -88,7 +102,11 @@ class ProfileView extends StatelessWidget {
                       _buildProfileTile(Icons.info_outline, isAr ? 'الشروط والأحكام' : 'Terms', () {}),
                       const SizedBox(height: 30),
                       TextButton.icon(
-                        onPressed: () => context.go('/login'),
+                        onPressed: () {
+                          // Dispatches LogoutRequested → AuthRepositoryImpl calls
+                          // POST /auth/logout (blocklists JWT) then clears secure storage.
+                          context.read<AuthBloc>().add(LogoutRequested());
+                        },
                         icon: const Icon(Icons.logout, color: AppColors.error),
                         label: Text(isAr ? 'تسجيل الخروج' : 'Logout', style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
                       ),
@@ -101,6 +119,7 @@ class ProfileView extends StatelessWidget {
           ),
         );
       }
+    ),
     );
   }
 
