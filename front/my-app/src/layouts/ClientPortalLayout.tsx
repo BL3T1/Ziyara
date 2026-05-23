@@ -42,9 +42,9 @@ function PortalSidebar() {
 
   return (
     <aside
-      className={`fixed inset-y-0 z-40 flex h-full flex-col border-slate-800/90 bg-gradient-to-b from-slate-900/92 via-slate-900/88 to-slate-950/94 supports-[backdrop-filter]:backdrop-blur-2xl ${railShadow} transition-[width] duration-300 ease-out motion-reduce:transition-none ${
+      className={`fixed inset-y-0 z-40 flex h-full flex-col border-white/[0.05] bg-[#0a0e14] ${railShadow} transition-[width] duration-300 ease-out motion-reduce:transition-none ${
         isRtl ? 'right-0 border-l' : 'left-0 border-r'
-      } ${sidebarCollapsed ? 'w-16' : 'w-60'}`}
+      } ${sidebarCollapsed ? 'w-[3.75rem]' : 'w-60'}`}
     >
       <div
         aria-hidden
@@ -135,8 +135,8 @@ function ClientPortalLayoutInner() {
   const { sidebarCollapsed } = useLayout()
   const { t, locale } = useLanguage()
   const isRtl = locale === 'ar'
-  const contentPadding = sidebarCollapsed ? 'pl-16' : 'pl-60'
-  const contentPaddingRtl = sidebarCollapsed ? 'pr-16' : 'pr-60'
+  const contentPadding = sidebarCollapsed ? 'pl-[3.75rem]' : 'pl-60'
+  const contentPaddingRtl = sidebarCollapsed ? 'pr-[3.75rem]' : 'pr-60'
   const pageTitle = t(getPageTitleKeyForPath(pathname))
 
   const companyToolbarLink = (
@@ -149,7 +149,7 @@ function ClientPortalLayoutInner() {
   )
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100 text-black transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
+    <div className="flex min-h-screen flex-col bg-white text-black transition-colors duration-300 dark:bg-[#020409] dark:text-slate-100">
       <PortalSidebar />
       <div
         className={`flex flex-1 flex-col transition-[padding] duration-200 ${isRtl ? contentPaddingRtl : contentPadding}`}

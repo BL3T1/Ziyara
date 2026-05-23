@@ -7,6 +7,28 @@ import type { SidebarSection as SidebarSectionType, SidebarItem } from '../confi
 import { Logo } from './Logo'
 import { SidebarIcons, type SidebarIconId } from './SidebarIcons'
 
+const CollapseIcon = ({ collapsed, rtl }: { collapsed: boolean; rtl: boolean }) => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{
+      transform: collapsed
+        ? rtl ? 'rotate(180deg)' : 'rotate(0deg)'
+        : rtl ? 'rotate(0deg)' : 'rotate(180deg)',
+      transition: 'transform 300ms ease',
+    }}
+  >
+    <path d="M11 19l-7-7 7-7" />
+    <path d="M18 19l-7-7 7-7" />
+  </svg>
+)
+
 const SIDEBAR_ITEM_ICON: Partial<Record<string, SidebarIconId>> = {
   main_find_customer: 'search_user',
   main_deleted_items: 'search_deleted',
@@ -15,11 +37,9 @@ const SIDEBAR_ITEM_ICON: Partial<Record<string, SidebarIconId>> = {
 
 function getIconForItem(item: SidebarItem) {
   const iconId = (SIDEBAR_ITEM_ICON[item.id] ?? item.id) as SidebarIconId
-  const Icon = SidebarIcons[iconId]
-  return Icon ?? SidebarIcons.dashboard
+  return SidebarIcons[iconId] ?? SidebarIcons.dashboard
 }
 
-/** Overlap chunk decode with hover/focus before navigating to /dashboard */
 function prefetchDashboardRouteChunks() {
   void import('../pages/DashboardPage')
   void import('../pages/SalesDashboardPage')
@@ -28,26 +48,22 @@ function prefetchDashboardRouteChunks() {
 function SidebarSection({
   section,
   collapsed,
-  isDark,
   isRtl,
   t,
 }: {
   section: SidebarSectionType
   collapsed: boolean
-  isDark: boolean
   isRtl: boolean
   t: (key: string) => string
 }) {
-  const sectionLabel = t(`section.${section.id}`)
   return (
-    <div className="mb-7 last:mb-2">
+    <div className="mb-6 last:mb-2">
       {!collapsed && (
-        <div className="mb-2.5 flex items-center gap-2 px-3">
-          <span className="h-px w-5 shrink-0 rounded-full bg-gradient-to-r from-secondary/70 to-primary/40" aria-hidden />
+        <div className="mb-1.5 flex items-center gap-2 px-3">
           <span
-            className={`text-[0.65rem] font-bold uppercase tracking-[0.14em] ${isDark ? 'text-slate-500' : 'text-slate-500'}`}
+            className="text-[0.6rem] font-bold uppercase tracking-[0.18em] text-slate-600"
           >
-            {sectionLabel}
+            {t(`section.${section.id}`)}
           </span>
         </div>
       )}
@@ -64,35 +80,31 @@ function SidebarSection({
               onFocus={item.href === '/dashboard' ? prefetchDashboardRouteChunks : undefined}
             >
               {({ isActive }) => {
-                const base =
-                  'group relative flex w-full items-center gap-3 rounded-xl py-2 text-sm font-medium transition-all duration-200 ease-out outline-none focus-visible:ring-2 focus-visible:ring-secondary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950'
-                const pad = collapsed ? 'justify-center px-2' : 'px-2.5'
-                let rowClass = `${base} ${pad} `
-                if (!isDark) {
-                  rowClass += `hover:bg-slate-100 hover:text-slate-900 ${isActive ? 'bg-slate-200 text-slate-900 shadow-sm' : 'text-slate-600'}`
-                } else {
-                  rowClass += isActive
-                    ? 'bg-gradient-to-r from-slate-800/95 to-slate-800/40 text-white shadow-md shadow-black/25 ring-1 ring-white/[0.06] '
-                    : 'text-slate-400 hover:bg-slate-800/55 hover:text-slate-100 '
-                  if (isActive) {
-                    rowClass += isRtl
-                      ? 'before:absolute before:inset-y-1.5 before:end-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-secondary before:to-primary before:shadow-[0_0_12px_rgba(172,158,120,0.35)] '
-                      : 'before:absolute before:inset-y-1.5 before:start-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-secondary before:to-primary before:shadow-[0_0_12px_rgba(172,158,120,0.35)] '
-                  }
-                }
-                const iconClass =
-                  `flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#a48c71] transition-[color,filter,background-color] duration-200 ` +
-                  (isDark
-                    ? isActive
-                      ? 'bg-primary/20 [filter:drop-shadow(0_0_7px_rgba(164,140,113,0.98))_drop-shadow(0_0_18px_rgba(164,140,113,0.42))]'
-                      : 'bg-slate-800/40 opacity-80 group-hover:bg-slate-700/60 group-hover:opacity-100'
-                    : isActive
-                      ? 'bg-white shadow-sm [filter:drop-shadow(0_0_7px_rgba(164,140,113,0.85))_drop-shadow(0_0_16px_rgba(164,140,113,0.38))]'
-                      : 'opacity-75 group-hover:opacity-100')
+                const pad = collapsed ? 'justify-center px-0' : 'px-2'
+                const baseRow = `group relative flex w-full items-center gap-3 rounded-xl py-2 text-sm font-medium transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-secondary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-950 ${pad}`
+
+                const rowActive = isActive
+                  ? 'bg-white/[0.07] text-white shadow-sm shadow-black/20 ring-1 ring-white/[0.07] '
+                  : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 '
+
+                const activeRail = isActive
+                  ? isRtl
+                    ? 'before:absolute before:inset-y-2 before:end-0 before:w-0.5 before:rounded-full before:bg-gradient-to-b before:from-secondary/90 before:to-primary/70 before:shadow-[0_0_10px_rgba(172,158,120,0.4)] '
+                    : 'before:absolute before:inset-y-2 before:start-0 before:w-0.5 before:rounded-full before:bg-gradient-to-b before:from-secondary/90 before:to-primary/70 before:shadow-[0_0_10px_rgba(172,158,120,0.4)] '
+                  : ''
+
+                const iconWrap =
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-150 ' +
+                  (isActive
+                    ? 'text-secondary/90 [filter:drop-shadow(0_0_6px_rgba(172,158,120,0.55))]'
+                    : 'text-slate-500 group-hover:text-slate-300')
+
                 return (
-                  <span className={rowClass}>
-                    <span className={iconClass}>{getIconForItem(item)}</span>
-                    {!collapsed && <span className="truncate">{itemLabel}</span>}
+                  <span className={`${baseRow}${rowActive}${activeRail}`}>
+                    <span className={iconWrap}>{getIconForItem(item)}</span>
+                    {!collapsed && (
+                      <span className="truncate text-[0.8125rem]">{itemLabel}</span>
+                    )}
                   </span>
                 )
               }}
@@ -114,36 +126,34 @@ export function Sidebar() {
     sidebarNav?.source === 'rbac_role' && sidebarNav.visibleItemIds.length > 0
       ? filterSectionsByVisibleIds(SIDEBAR_SECTIONS, sidebarNav.visibleItemIds)
       : getSidebarSectionsForRole(role)
-  /** Sidebar chrome is always dark (slate-900) — classic dashboard rail; theme toggle affects main content only. */
-  const sidebarNavDark = true
 
-  if (sections.length === 0) {
-    return null
-  }
+  if (sections.length === 0) return null
 
+  const railBorder = isRtl ? 'right-0 border-l' : 'left-0 border-r'
   const railShadow = isRtl
-    ? 'shadow-[-6px_0_32px_-10px_rgba(0,0,0,0.55)]'
-    : 'shadow-[6px_0_32px_-10px_rgba(0,0,0,0.55)]'
+    ? 'shadow-[-1px_0_0_0_rgba(255,255,255,0.04),-8px_0_32px_-8px_rgba(0,0,0,0.6)]'
+    : 'shadow-[1px_0_0_0_rgba(255,255,255,0.04),8px_0_32px_-8px_rgba(0,0,0,0.6)]'
 
   return (
     <aside
-      className={`fixed inset-y-0 z-40 flex h-full flex-col border-slate-800/90 bg-gradient-to-b from-slate-900/92 via-slate-900/88 to-slate-950/94 supports-[backdrop-filter]:backdrop-blur-2xl ${railShadow} transition-[width] duration-300 ease-out motion-reduce:transition-none ${
-        isRtl ? 'right-0 border-l' : 'left-0 border-r'
-      } ${sidebarCollapsed ? 'w-16' : 'w-60'}`}
+      className={`fixed inset-y-0 z-40 flex h-full flex-col border-white/[0.05] bg-[#0a0e14] ${railShadow} ${railBorder} transition-[width] duration-300 ease-out motion-reduce:transition-none ${
+        sidebarCollapsed ? 'w-[3.75rem]' : 'w-60'
+      }`}
     >
+      {/* Subtle vertical accent line */}
       <div
         aria-hidden
-        className={`pointer-events-none absolute inset-y-0 w-px bg-gradient-to-b from-primary/50 via-secondary/30 to-transparent opacity-80 ${
+        className={`pointer-events-none absolute inset-y-0 w-px bg-gradient-to-b from-transparent via-[#1e4d6b]/60 to-transparent opacity-60 ${
           isRtl ? 'left-0' : 'right-0'
         }`}
       />
+
+      {/* Logo area */}
       <div
-        className={`relative flex h-[4.25rem] shrink-0 items-center border-b border-slate-800/60 bg-slate-900/50 ${sidebarCollapsed ? 'justify-center px-0' : 'px-4'}`}
+        className={`relative flex h-[4.25rem] shrink-0 items-center border-b border-white/[0.05] ${
+          sidebarCollapsed ? 'justify-center px-0' : 'px-4'
+        }`}
       >
-        <div
-          className="pointer-events-none absolute inset-x-3 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent"
-          aria-hidden
-        />
         <Logo
           compact
           className="relative z-[1] drop-shadow-sm"
@@ -155,22 +165,39 @@ export function Sidebar() {
         />
       </div>
 
+      {/* Nav */}
       <nav
-        className="sidebar-nav relative z-[1] min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-6 sm:px-3.5"
+        className="sidebar-nav relative z-[1] min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 py-5 sm:px-2.5"
         aria-label="Sidebar navigation"
-        style={{ scrollBehavior: 'smooth' }}
       >
         {sections.map((section) => (
           <SidebarSection
             key={section.id}
             section={section}
             collapsed={sidebarCollapsed}
-            isDark={sidebarNavDark}
             isRtl={isRtl}
             t={t}
           />
         ))}
       </nav>
+
+      {/* Collapse toggle at bottom */}
+      <div className="shrink-0 border-t border-white/[0.05] p-2">
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className={`flex w-full items-center rounded-xl px-2 py-2.5 text-slate-500 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/40 ${
+            sidebarCollapsed ? 'justify-center' : 'gap-3'
+          }`}
+          aria-label={sidebarCollapsed ? t('common.expandSidebar') : t('common.collapseSidebar')}
+          title={sidebarCollapsed ? t('common.expandSidebar') : t('common.collapseSidebar')}
+        >
+          <CollapseIcon collapsed={sidebarCollapsed} rtl={isRtl} />
+          {!sidebarCollapsed && (
+            <span className="text-[0.75rem] font-medium">{t('common.collapseSidebar')}</span>
+          )}
+        </button>
+      </div>
     </aside>
   )
 }

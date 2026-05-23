@@ -3,7 +3,7 @@
 /* Manual theme: dark:* utilities follow <html class="dark"> (not only prefers-color-scheme) */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Global styles – whole page follows theme: light = white bg + black text, dark = dark bg + light text */
+/* ─── Base ──────────────────────────────────────────────────────────────── */
 @layer base {
   html {
     font-size: 16px;
@@ -26,24 +26,39 @@
   }
 
   .dark body {
-    @apply bg-slate-900 text-slate-100;
+    @apply bg-slate-950 text-slate-100;
   }
 
   ::selection {
-    background-color: rgb(30 77 107 / 0.22);
+    background-color: rgb(30 77 107 / 0.2);
     color: #0f172a;
   }
 
   .dark ::selection {
-    background-color: rgb(30 77 107 / 0.4);
+    background-color: rgb(30 77 107 / 0.45);
     color: #f8fafc;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "DM Sans", Inter, sans-serif;
+    letter-spacing: -0.02em;
   }
 }
 
-/* Dashboard main: soft wash + optional orbs (used by MainLayout / ClientPortalLayout) */
+/* ─── Layout ─────────────────────────────────────────────────────────────── */
 @layer components {
+  /* Main content surface: subtle dot grid in light, pure dark in dark */
   .layout-main-surface {
-    @apply relative flex-1 overflow-x-hidden bg-slate-50 px-4 py-8 transition-colors duration-300 sm:px-6 sm:py-10 lg:px-10 lg:py-12 dark:bg-slate-950;
+    @apply relative flex-1 overflow-x-hidden px-4 py-8 transition-colors duration-300 sm:px-6 sm:py-10 lg:px-10 lg:py-12;
+    background-color: #f8fafc;
+    background-image: radial-gradient(rgb(148 163 184 / 0.18) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .dark .layout-main-surface {
+    background-color: #020409;
+    background-image: radial-gradient(rgb(255 255 255 / 0.028) 1px, transparent 1px);
+    background-size: 24px 24px;
   }
 
   .layout-main-surface__glow {
@@ -55,82 +70,126 @@
   }
 
   .layout-page-enter {
-    animation: layout-page-enter 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation: layout-page-enter 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
 
-  /** Company + provider dashboards: vertical rhythm between top-level route sections */
+  /* Vertical rhythm between top-level route sections */
   .app-page-stack {
     @apply flex flex-col gap-6 sm:gap-8;
   }
 
-  /** In-page hero title (complements sticky DashboardHeader); DM Sans matches landing/marketing */
+  /* Page hero title */
   .app-page-title {
     font-family: "DM Sans", Inter, sans-serif;
-    @apply text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-slate-50;
+    @apply text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white;
+    letter-spacing: -0.025em;
   }
 
   .app-page-lead {
-    @apply mt-2 max-w-3xl text-base leading-relaxed text-slate-600 dark:text-slate-300;
+    @apply mt-2 max-w-2xl text-[0.9375rem] leading-relaxed text-slate-500 dark:text-slate-400;
   }
 
-  /** Shared dashboard pages: section + card headings */
+  /* Section & card titles */
   .dashboard-section-title {
-    @apply text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100;
+    @apply text-base font-semibold tracking-tight text-slate-800 dark:text-slate-100;
+    letter-spacing: -0.015em;
   }
 
   .dashboard-card-title {
-    @apply text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100;
+    @apply text-[0.9375rem] font-semibold tracking-tight text-slate-800 dark:text-slate-100;
+    letter-spacing: -0.015em;
   }
 
-  /** Toolbar strip (filters, date range, table actions) */
+  /* Toolbar strip */
   .dashboard-toolbar-surface {
-    @apply flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-slate-50/80 px-4 py-4 dark:border-slate-700/80 dark:bg-slate-900/40 sm:flex-row sm:items-center sm:justify-between;
+    @apply flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3.5 shadow-sm shadow-slate-900/[0.03] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03] dark:shadow-none sm:flex-row sm:items-center sm:justify-between;
   }
 
-  /**
-   * Primary / secondary actions — use consistently on Dashboard, Sales, Analytics.
-   * Use hex here (not theme `primary`): @tailwindcss/vite does not resolve custom theme colors inside @apply in this file.
-   * Keep aligned with tailwind.config.ts theme.extend.colors.primary (#1e4d6b).
-   */
+  /* Buttons */
   .dashboard-btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-[#163d56] bg-[#1e4d6b] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-slate-900/20 transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-[#2a5f82] dark:shadow-black/30 dark:focus-visible:ring-offset-slate-900;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-[#163d56] bg-[#1e4d6b] px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-[#1e4d6b]/25 transition-all hover:bg-[#1a4460] hover:shadow-md hover:shadow-[#1e4d6b]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] dark:border-[#2a5f82] dark:shadow-black/30 dark:focus-visible:ring-offset-slate-950;
   }
 
   .dashboard-btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border-2 border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/25 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200 dark:hover:border-white/[0.12] dark:hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/30 focus-visible:ring-offset-2 active:scale-[0.98];
   }
 
   .dashboard-btn-secondary:disabled {
-    @apply cursor-not-allowed opacity-50 hover:border-slate-300 hover:bg-white dark:hover:border-slate-600 dark:hover:bg-slate-800/60;
+    @apply cursor-not-allowed opacity-40 hover:border-slate-200 hover:bg-white hover:shadow-none dark:hover:border-white/[0.08] dark:hover:bg-white/[0.04];
   }
 
-  /** Filter / tab pills (light: strong border + text so edges and labels stay visible on slate-50 surfaces) */
+  .dashboard-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.06] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/30 active:scale-[0.98];
+  }
+
+  /* Filter / tab pills */
   .dashboard-pill {
-    @apply rounded-xl border-2 border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm transition-colors hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-800/90;
+    @apply rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:bg-white/[0.07];
   }
 
   .dashboard-pill--active {
-    @apply border-[#1e4d6b] bg-[#1e4d6b] text-white shadow-md shadow-slate-900/15 hover:opacity-95 dark:border-[#1e4d6b] dark:bg-[#1e4d6b] dark:text-white;
+    @apply border-[#1e4d6b] bg-[#1e4d6b] text-white shadow-sm shadow-[#1e4d6b]/30 hover:opacity-95 dark:border-[#2563a0] dark:bg-[#1e4d6b];
   }
 
-  /** Text-style navigation actions at card footers (optional) */
   .dashboard-btn-text {
-    @apply inline-flex items-center justify-center rounded-lg px-2 py-1.5 text-sm font-semibold text-[#1e4d6b] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/30;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-[#1e4d6b] underline-offset-4 transition-all hover:underline dark:text-[#5baef0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/30;
   }
 
   .dashboard-card-actions {
-    @apply mt-4 flex flex-wrap gap-2 border-t border-slate-200/80 pt-4 dark:border-slate-700/60;
+    @apply mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4 dark:border-white/[0.05];
   }
 
   .dashboard-date-input {
-    @apply rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition-colors focus:border-[#1e4d6b] focus:outline-none focus:ring-2 focus:ring-[#1e4d6b]/20 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-100 dark:focus:ring-[#1e4d6b]/25;
+    @apply rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition-all focus:border-[#1e4d6b] focus:outline-none focus:ring-2 focus:ring-[#1e4d6b]/20 focus:shadow-md dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-100 dark:focus:ring-[#1e4d6b]/30;
+  }
+
+  /* Status badges */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-wide;
+  }
+
+  .badge-success {
+    @apply bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300;
+  }
+
+  .badge-warning {
+    @apply bg-amber-500/10 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300;
+  }
+
+  .badge-danger {
+    @apply bg-red-500/10 text-red-700 dark:bg-red-400/10 dark:text-red-300;
+  }
+
+  .badge-neutral {
+    @apply bg-slate-100 text-slate-600 dark:bg-white/[0.06] dark:text-slate-300;
+  }
+
+  .badge-primary {
+    @apply bg-[#1e4d6b]/10 text-[#1e4d6b] dark:bg-[#1e4d6b]/20 dark:text-[#90caff];
+  }
+
+  /* Empty state */
+  .dashboard-empty-state {
+    @apply flex flex-col items-center justify-center gap-3 py-16 text-center;
+  }
+
+  .dashboard-empty-state__icon {
+    @apply flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-white/[0.05] dark:text-slate-500;
+  }
+
+  .dashboard-empty-state__title {
+    @apply text-base font-semibold text-slate-700 dark:text-slate-300;
+  }
+
+  .dashboard-empty-state__body {
+    @apply max-w-xs text-sm text-slate-500 dark:text-slate-500;
   }
 }
 
-/* Dashboard data tables: wrap with .table-shell, or add class="data-table" on <table> inside cards */
+/* ─── Tables ─────────────────────────────────────────────────────────────── */
 @layer components {
   .table-shell {
-    @apply overflow-x-auto rounded-2xl border border-slate-200/90 bg-white/95 shadow-md shadow-slate-900/[0.045] ring-1 ring-slate-900/[0.03] backdrop-blur-[2px] dark:border-slate-700/80 dark:bg-slate-900/55 dark:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.45)] dark:ring-white/[0.06];
+    @apply overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-900/[0.04] dark:border-white/[0.06] dark:bg-[#0d1117];
   }
 
   .table-shell table,
@@ -140,17 +199,17 @@
 
   .table-shell thead tr,
   table.data-table thead tr {
-    @apply border-b border-slate-200/90 bg-gradient-to-b from-slate-100 via-slate-50/95 to-white dark:border-slate-600/70 dark:from-slate-800 dark:via-slate-800/95 dark:to-slate-900/70;
+    @apply border-b border-slate-100 bg-slate-50 dark:border-white/[0.05] dark:bg-white/[0.02];
   }
 
   .table-shell thead th,
   table.data-table thead th {
-    @apply text-start text-[0.65rem] font-bold uppercase tracking-[0.09em] text-slate-500 dark:text-slate-400;
+    @apply px-4 py-3 text-start text-[0.65rem] font-bold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500;
   }
 
   .table-shell tbody tr,
   table.data-table tbody tr {
-    @apply border-b border-slate-100/90 transition-colors duration-150 dark:border-slate-700/35;
+    @apply border-b border-slate-100/80 transition-colors duration-100 dark:border-white/[0.04];
   }
 
   .table-shell tbody tr:last-child,
@@ -160,87 +219,66 @@
 
   .table-shell tbody tr:hover,
   table.data-table tbody tr:hover {
-    @apply bg-slate-50/95 dark:bg-slate-800/45;
+    @apply bg-slate-50 dark:bg-white/[0.025];
   }
 
   .table-shell tbody td,
   table.data-table tbody td {
-    @apply text-slate-700 dark:text-slate-200;
+    @apply px-4 py-3 text-slate-700 dark:text-slate-300;
+  }
+
+  .table-shell tbody td:first-child,
+  table.data-table tbody td:first-child {
+    @apply font-medium text-slate-900 dark:text-slate-100;
   }
 }
 
-/* Sidebar nav scrollbar */
+/* ─── Sidebar scrollbar ──────────────────────────────────────────────────── */
 .sidebar-nav {
   scrollbar-width: thin;
-  scrollbar-color: rgb(71 85 105) transparent;
+  scrollbar-color: rgb(51 65 85 / 0.8) transparent;
 }
 .sidebar-nav::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 .sidebar-nav::-webkit-scrollbar-track {
   background: transparent;
 }
 .sidebar-nav::-webkit-scrollbar-thumb {
-  background-color: rgb(71 85 105);
-  border-radius: 3px;
+  background-color: rgb(51 65 85 / 0.8);
+  border-radius: 4px;
 }
 .sidebar-nav::-webkit-scrollbar-thumb:hover {
-  background-color: rgb(100 116 139);
+  background-color: rgb(71 85 105);
 }
 
+/* ─── Keyframes ──────────────────────────────────────────────────────────── */
 @keyframes landing-float {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-  50% {
-    transform: translate3d(0, -10px, 0);
-  }
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%       { transform: translate3d(0, -10px, 0); }
 }
 
 @keyframes landing-fade-up {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 22px, 0) scale(0.985);
-  }
-  100% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
+  0%   { opacity: 0; transform: translate3d(0, 22px, 0) scale(0.985); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
 @keyframes landing-orbit {
-  0% {
-    transform: rotate(0deg) translateX(10px) rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg) translateX(10px) rotate(-360deg);
-  }
+  0%   { transform: rotate(0deg) translateX(10px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(10px) rotate(-360deg); }
 }
 
 @keyframes landing-aurora {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-    opacity: 0.65;
-  }
-  50% {
-    transform: translate3d(10px, -8px, 0) scale(1.06);
-    opacity: 0.95;
-  }
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.65; }
+  50%       { transform: translate3d(10px, -8px, 0) scale(1.06); opacity: 0.95; }
 }
 
 @keyframes layout-page-enter {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 8px, 0);
-  }
-  100% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
+  0%   { opacity: 0; transform: translate3d(0, 6px, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
+/* ─── Landing animations ─────────────────────────────────────────────────── */
 @layer components {
   .landing-parallax-root {
     --landing-mx: 0;
@@ -252,26 +290,16 @@
     animation: landing-fade-up 640ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
 
-  .landing-fade-up-delay-1 {
-    animation-delay: 120ms;
-  }
-
-  .landing-fade-up-delay-2 {
-    animation-delay: 220ms;
-  }
-
-  .landing-fade-up-delay-3 {
-    animation-delay: 320ms;
-  }
+  .landing-fade-up-delay-1 { animation-delay: 120ms; }
+  .landing-fade-up-delay-2 { animation-delay: 220ms; }
+  .landing-fade-up-delay-3 { animation-delay: 320ms; }
 
   .landing-float {
     animation: landing-float 5.5s ease-in-out infinite;
     will-change: transform;
   }
 
-  .landing-float-slow {
-    animation-duration: 8s;
-  }
+  .landing-float-slow { animation-duration: 8s; }
 
   .landing-orbit {
     animation: landing-orbit 7s linear infinite;

@@ -13,23 +13,21 @@ function MainLayoutInner({ children, pageTitle }: MainLayoutProps) {
   const { sidebarCollapsed } = useLayout()
   const { locale } = useLanguage()
   const isRtl = locale === 'ar'
-  const contentPadding = sidebarCollapsed ? 'pl-16' : 'pl-60'
-  const contentPaddingRtl = sidebarCollapsed ? 'pr-16' : 'pr-60'
+  const contentPadding = sidebarCollapsed ? 'pl-[3.75rem]' : 'pl-60'
+  const contentPaddingRtl = sidebarCollapsed ? 'pr-[3.75rem]' : 'pr-60'
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100 text-black transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
+    <div className="flex min-h-screen flex-col bg-white text-black transition-colors duration-300 dark:bg-[#020409] dark:text-slate-100">
       <CompanyNavBootstrap />
       <Sidebar />
-      <div className={`flex flex-1 flex-col transition-[padding] duration-200 ${isRtl ? contentPaddingRtl : contentPadding}`}>
+      <div className={`flex flex-1 flex-col transition-[padding] duration-300 ease-out-expo ${isRtl ? contentPaddingRtl : contentPadding}`}>
         <DashboardHeader pageTitle={pageTitle} />
         <main className="layout-main-surface text-slate-900 dark:text-slate-100">
           <div className="layout-main-surface__glow" aria-hidden>
-            <div className="absolute -start-24 top-0 h-[28rem] w-[28rem] rounded-full bg-primary/[0.07] blur-3xl dark:bg-primary/[0.14]" />
-            <div className="absolute -end-20 top-24 h-72 w-72 rounded-full bg-secondary/[0.12] blur-3xl dark:bg-secondary/[0.08]" />
-            <div className="absolute bottom-0 start-1/3 h-64 w-96 -translate-x-1/2 rounded-full bg-slate-200/60 blur-3xl dark:bg-slate-800/40 rtl:translate-x-1/2" />
+            <div className="absolute -start-32 top-0 h-96 w-96 rounded-full bg-[#1e4d6b]/[0.06] blur-3xl dark:bg-[#1e4d6b]/[0.12]" />
+            <div className="absolute -end-24 top-32 h-64 w-64 rounded-full bg-[#ac9e78]/[0.08] blur-3xl dark:bg-[#ac9e78]/[0.06]" />
           </div>
           <div className="layout-main-surface__content">{children}</div>
         </main>
-
         <DashboardFooter />
       </div>
     </div>

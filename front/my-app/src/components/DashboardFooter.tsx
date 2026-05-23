@@ -7,7 +7,7 @@ const FOOTER_HREFS = ['/privacy', '/terms', '/contact'] as const
 export function DashboardFooter() {
   const { t } = useLanguage()
   return (
-    <footer className="relative border-t border-slate-200/80 bg-slate-50/95 text-black backdrop-blur-md dark:border-slate-800/70 dark:bg-slate-950/95 dark:text-slate-100">
+    <footer className="relative border-t border-slate-200/60 bg-white text-black dark:border-white/[0.05] dark:bg-[#0a0e14] dark:text-slate-400">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent dark:via-primary/25"
         aria-hidden

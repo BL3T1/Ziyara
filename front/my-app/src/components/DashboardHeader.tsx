@@ -110,48 +110,50 @@ export function DashboardHeader({
     return () => window.removeEventListener('keydown', onKey)
   }, [showSearchTools])
 
+  const btnCls = 'flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-white/[0.06] hover:text-slate-200 active:scale-95'
+
   return (
-    <header className="sticky top-0 z-50 h-[4.25rem] border-b border-slate-800/60 bg-slate-900/92 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.45)] backdrop-blur-xl supports-[backdrop-filter]:bg-slate-900/88">
+    <header className="sticky top-0 z-50 h-[4.25rem] border-b border-white/[0.05] bg-[#0a0e14]/95 shadow-[0_1px_0_rgba(255,255,255,0.04),0_4px_24px_-4px_rgba(0,0,0,0.5)] backdrop-blur-xl">
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-secondary/25"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#1e4d6b]/50 to-[#ac9e78]/30"
         aria-hidden
       />
       <div className="relative mx-auto flex h-full max-w-[100rem] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {!sidebarCollapsed && (
-            <>
-              <button
-                type="button"
-                onClick={toggleSidebar}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-300 outline-none transition-all hover:bg-slate-800/90 hover:text-white focus-visible:ring-2 focus-visible:ring-[rgb(172_158_120/0.45)] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:scale-95 dark:focus-visible:ring-offset-slate-950"
-                aria-label={t('common.toggleSidebar')}
-              >
-                <MenuIcon />
-              </button>
-              <span className="hidden h-8 w-px shrink-0 bg-gradient-to-b from-transparent via-slate-600 to-transparent sm:block" aria-hidden />
-            </>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className={btnCls}
+              aria-label={t('common.toggleSidebar')}
+            >
+              <MenuIcon />
+            </button>
           )}
-          <div className="flex min-w-0 items-center gap-3 sm:gap-3.5">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-800/50 text-slate-100 shadow-inner shadow-black/20 ring-1 ring-slate-600/40">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-slate-400 ring-1 ring-white/[0.06]">
               {PageIcon}
             </span>
             <div className="min-w-0 flex flex-col gap-0.5">
-              <span className="truncate text-[0.65rem] font-bold uppercase tracking-[0.12em] text-slate-500">
+              <span className="truncate text-[0.6rem] font-bold uppercase tracking-[0.16em] text-slate-600">
                 {roleLabel}
               </span>
-              <span className="truncate text-base font-semibold tracking-tight text-slate-50 sm:text-lg">{displayPageTitle}</span>
+              <span className="truncate text-[0.9375rem] font-semibold leading-tight tracking-tight text-slate-100">
+                {displayPageTitle}
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-0.5 rounded-2xl border border-slate-700/50 bg-slate-800/35 p-1 shadow-inner shadow-black/20">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          {/* Tool pill */}
+          <div className="flex items-center gap-0.5 rounded-xl border border-white/[0.06] bg-white/[0.03] p-0.5">
             {showSearchTools && (
               <>
                 <button
                   type="button"
                   onClick={() => setGlobalSearchOpen(true)}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-300 transition-all hover:bg-slate-700/80 hover:text-white active:scale-95"
+                  className={btnCls}
                   aria-label={t('globalSearch.openAria')}
                   title={`${t('globalSearch.openAria')} (Ctrl+K)`}
                 >
@@ -161,38 +163,37 @@ export function DashboardHeader({
                   <button
                     type="button"
                     onClick={() => setDeletedSearchOpen(true)}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-300 transition-all hover:bg-slate-700/80 hover:text-white active:scale-95"
+                    className={btnCls}
                     aria-label={t('globalSearch.deletedAria')}
                     title={t('globalSearch.deletedAria')}
                   >
                     <DeletedSearchIcon />
                   </button>
                 )}
-                <span className="hidden h-5 w-px shrink-0 bg-slate-600/55 sm:block" aria-hidden />
+                <span className="hidden h-4 w-px shrink-0 bg-white/[0.08] sm:block mx-0.5" aria-hidden />
               </>
             )}
             <ThemeToggleButton
-              className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-300 transition-all hover:bg-slate-700/80 hover:text-white active:scale-95"
+              className={btnCls}
               ariaLabel={theme === 'dark' ? t('common.switchToLightMode') : t('common.switchToDarkMode')}
             />
-            <span className="hidden h-5 w-px shrink-0 bg-slate-600/55 sm:block" aria-hidden />
+            <span className="hidden h-4 w-px shrink-0 bg-white/[0.08] sm:block mx-0.5" aria-hidden />
             <LanguageToggleButton
-              className="flex h-9 min-w-[2.5rem] items-center justify-center rounded-xl px-1.5 text-slate-300 transition-all hover:bg-slate-700/80 hover:text-white active:scale-95"
+              className={`${btnCls} min-w-[2rem] px-1`}
               ariaLabel={t('common.changeLanguage')}
             />
-
             {showNotifications ? (
               <div className="relative">
                 <button
                   ref={bellButtonRef}
                   type="button"
                   onClick={() => setNotificationsOpen((v) => !v)}
-                  className="relative flex h-9 w-9 items-center justify-center rounded-xl text-slate-300 transition-all hover:bg-slate-700/80 hover:text-white active:scale-95"
+                  className={`${btnCls} relative`}
                   aria-label={t('common.notifications')}
                 >
                   <BellIcon />
                   {unreadNotificationCount > 0 && (
-                    <span className="absolute right-0.5 top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-red-600 px-0.5 text-[10px] font-bold text-white shadow-sm" aria-hidden>
+                    <span className="absolute right-0.5 top-0.5 flex h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full bg-rose-500 px-0.5 text-[9px] font-bold text-white" aria-hidden>
                       {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
                     </span>
                   )}
@@ -210,20 +211,16 @@ export function DashboardHeader({
             )}
           </div>
 
-          <span className="hidden h-8 w-px bg-gradient-to-b from-transparent via-slate-600 to-transparent sm:block" aria-hidden />
-
-          <div className="flex items-center gap-2 rounded-2xl border border-slate-700/50 bg-slate-800/25 py-1 pl-1 pr-1.5 shadow-inner shadow-black/10">
+          {/* User pill */}
+          <div className="flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] py-1 pl-1 pr-2">
+            <Avatar src={avatarUrl} size="md" className="ring-1 ring-[#ac9e78]/25 ring-offset-1 ring-offset-[#0a0e14]" />
             <button
               type="button"
-              onClick={() => {
-                logout()
-                navigate('/')
-              }}
-              className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-700/70 hover:text-white"
+              onClick={() => { logout(); navigate('/') }}
+              className="text-xs font-semibold text-slate-400 transition-colors hover:text-slate-200 hidden sm:block"
             >
               {t('common.logOut')}
             </button>
-            <Avatar src={avatarUrl} size="md" className="ring-2 ring-secondary/30 ring-offset-2 ring-offset-slate-900" />
           </div>
         </div>
       </div>
