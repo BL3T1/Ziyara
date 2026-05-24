@@ -5,8 +5,26 @@
 #  (none)       – backend + infra only (postgres, redis, kafka, pgadmin)
 #  full         – base + company dashboard on port 80
 #  legacy       – base + company dashboard on port 3000
-#  multidomain  – base + nginx proxy routing by Host header (app.local / partners.local / www.local)
-#  ipmode       – base + single gateway nginx with TLS termination on BIND_IP
+#
+#  portmode     – ★ RECOMMENDED FOR LOCAL DEV ★
+#                 All 3 surfaces on separate HTTP ports — no TLS, no /etc/hosts.
+#                 Works from localhost AND from any LAN IP (10.x, 192.168.x, etc.).
+#                 docker compose --profile portmode up -d --build
+#                 http://localhost:7050   → Company dashboard
+#                 http://localhost:7060   → Provider portal
+#                 http://localhost:7070   → Landing page
+#                 http://localhost:8080   → API (direct)
+#                 From LAN: replace localhost with PORTMODE_HOST in .env, then rebuild.
+#
+#  multidomain  – nginx proxy routing by Host header (requires /etc/hosts entries):
+#                   127.0.0.1  app.local
+#                   127.0.0.1  partners.local
+#                   127.0.0.1  www.local
+#                 Does NOT work with a raw IP address — use portmode instead.
+#
+#  ipmode       – single gateway nginx with TLS termination on BIND_IP (for mobile/Android).
+#                 Requires running infra/certs/generate.sh first (needs openssl + bash/WSL).
+#                 Must use https:// — the gateway rejects plain HTTP.
 #                 Required .env vars for ipmode:
 #                   BIND_IP=10.45.30.145
 #                   BACKEND_BIND_IP=127.0.0.1
@@ -18,7 +36,6 @@
 #                   PGADMIN_PORT=7075
 #                   API_EXTERNAL_URL=https://10.45.30.145:9000/api/v1
 #                   ZIYARA_CORS_ALLOWED_ORIGINS=https://10.45.30.145:7050,https://10.45.30.145:7060,https://10.45.30.145:7070
-#                 Run infra/certs/generate.sh first to create server.crt / server.key.
 # ───────────────────────────────────────────────────────────────────────────────
 services:
   # =============================================================================
@@ -321,6 +338,102 @@ services:
         condition: service_healthy
     networks:
       - ziyarah-network
+
+  # =============================================================================
+  # PORT MODE — 3 surfaces on separate HTTP ports. No TLS, no Host-header routing.
+  # Works from localhost or any LAN IP without any extra config.
+  # Each container proxies /api/ → backend:8080 internally, so no CORS issues.
+  #
+  # Start:  docker compose --profile portmode up -d --build
+  # Access (localhost):
+  #   http://localhost:7050  — Company dashboard
+  #   http://localhost:7060  — Provider portal
+  #   http://localhost:7070  — Landing / booking
+  #   http://localhost:8080  — API
+  # Access (LAN): set PORTMODE_HOST=<your-lan-ip> in .env and rebuild.
+  # =============================================================================
+  company-portmode:
+    profiles:
+      - portmode
+    build:
+      context: ./front/my-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_APP_SURFACE: company
+    image: ziyarah-company-portmode:latest
+    container_name: ziyarah-company-portmode
+    restart: unless-stopped
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${COMPANY_PORT:-7050}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  provider-portmode:
+    profiles:
+      - portmode
+    build:
+      context: ./front/my-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_APP_SURFACE: provider
+    image: ziyarah-provider-portmode:latest
+    container_name: ziyarah-provider-portmode
+    restart: unless-stopped
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${PROVIDER_PORT:-7060}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  landing-portmode:
+    profiles:
+      - portmode
+    build:
+      context: ./front/my-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_APP_SURFACE: landing
+        # These are baked into the bundle at build time.
+        # Default: localhost — works for same-machine access.
+        # For LAN access: set PORTMODE_HOST=10.45.30.145 in .env before building.
+        VITE_COMPANY_APP_URL: http://${PORTMODE_HOST:-localhost}:${COMPANY_PORT:-7050}
+        VITE_PROVIDER_APP_URL: http://${PORTMODE_HOST:-localhost}:${PROVIDER_PORT:-7060}
+    image: ziyarah-landing-portmode:latest
+    container_name: ziyarah-landing-portmode
+    restart: unless-stopped
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${LANDING_PORT:-7070}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
   # =============================================================================
   # IP MODE — single gateway nginx terminates TLS; all surfaces behind it.
