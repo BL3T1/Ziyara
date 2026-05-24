@@ -131,10 +131,11 @@ export function LoginPage() {
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-12">
       <div className="pointer-events-none fixed inset-0 bg-slate-100 dark:bg-slate-950" aria-hidden />
       <div className="pointer-events-none fixed inset-0" aria-hidden>
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-primary/[0.06] to-secondary/[0.07] dark:from-slate-950 dark:via-primary/[0.12] dark:to-slate-900/90" />
-        <div className="absolute -left-32 top-0 h-[22rem] w-[22rem] rounded-full bg-primary/[0.12] blur-3xl dark:bg-primary/[0.22]" />
-        <div className="absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-secondary/[0.14] blur-3xl dark:bg-secondary/[0.12]" />
-        <div className="absolute bottom-1/4 left-1/2 h-64 w-[28rem] -translate-x-1/2 rounded-full bg-slate-300/25 blur-3xl dark:bg-slate-700/20" />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-primary/[0.07] to-secondary/[0.08] dark:from-slate-950 dark:via-primary/[0.14] dark:to-slate-900/90" />
+        <div className="absolute -left-40 -top-20 h-[28rem] w-[28rem] rounded-full bg-primary/[0.14] blur-[80px] dark:bg-primary/[0.26]" />
+        <div className="absolute -right-32 -bottom-16 h-[24rem] w-[24rem] rounded-full bg-secondary/[0.18] blur-[72px] dark:bg-secondary/[0.14]" />
+        <div className="absolute bottom-1/3 left-1/2 h-72 w-[32rem] -translate-x-1/2 rounded-full bg-primary/[0.06] blur-[56px] dark:bg-slate-700/30" />
+        <div className="absolute right-1/4 top-1/4 h-48 w-48 rounded-full bg-secondary/[0.1] blur-[48px] dark:bg-secondary/[0.08]" />
       </div>
 
       <div className="fixed end-4 top-4 z-20 flex items-center gap-2">
@@ -159,7 +160,7 @@ export function LoginPage() {
         />
       ) : null}
 
-      {!mfaCredentials ? <div className="relative z-10 w-full max-w-md rounded-3xl border border-slate-200/90 bg-white/85 px-8 py-10 shadow-2xl shadow-slate-900/[0.08] ring-1 ring-slate-900/[0.04] backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-900/75 dark:shadow-[0_24px_64px_-12px_rgba(0,0,0,0.65)] dark:ring-white/[0.06]">
+      {!mfaCredentials ? <div className="relative z-10 w-full max-w-md rounded-3xl border border-slate-200/90 bg-white/88 px-8 py-10 shadow-2xl shadow-slate-900/[0.1] ring-1 ring-slate-900/[0.04] backdrop-blur-2xl dark:border-slate-600/50 dark:bg-slate-900/80 dark:shadow-[0_24px_64px_-12px_rgba(0,0,0,0.7)] dark:ring-white/[0.06]" style={{ animation: 'layout-page-enter 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both' }}>
         <div
           className="pointer-events-none absolute inset-x-0 top-0 h-px rounded-t-3xl bg-gradient-to-r from-transparent via-primary/35 to-secondary/25"
           aria-hidden
@@ -187,7 +188,7 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t('login.emailPlaceholder')}
-                className="w-full rounded-xl border bg-slate-50/90 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:bg-white focus:outline-none focus:ring-2 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800/90"
+                className="w-full rounded-xl border bg-slate-50/80 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800/90 dark:focus:ring-primary/25 dark:focus:border-primary/40"
                 style={{ borderColor: fieldErrors.email ? '#f87171' : undefined }}
               />
             </div>
@@ -208,7 +209,7 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border bg-slate-50/90 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:bg-white focus:outline-none focus:ring-2 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800/90"
+                className="w-full rounded-xl border bg-slate-50/80 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800/90 dark:focus:ring-primary/25 dark:focus:border-primary/40"
                 style={{ borderColor: fieldErrors.password ? '#f87171' : undefined }}
               />
             </div>
@@ -236,9 +237,13 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-secondary py-3.5 text-sm font-bold tracking-wide text-slate-900 shadow-lg shadow-secondary/25 ring-1 ring-slate-900/10 transition-all hover:brightness-105 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.99] disabled:opacity-70 dark:ring-white/10 dark:focus-visible:ring-offset-slate-900"
+            className="relative w-full overflow-hidden rounded-xl py-3.5 text-sm font-bold tracking-wide text-slate-900 transition-all hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.985] active:translate-y-0 disabled:opacity-60 dark:text-slate-900 dark:focus-visible:ring-offset-slate-900"
+            style={{
+              background: 'linear-gradient(145deg, #d4b88a 0%, #c09a6a 45%, #a87e50 100%)',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.2) inset, 0 4px 16px rgba(180,140,80,0.35), 0 12px 32px rgba(160,120,64,0.2)',
+            }}
           >
-            {loading ? t('login.signingIn') : t('login.signIn')}
+            <span className="relative z-10">{loading ? t('login.signingIn') : t('login.signIn')}</span>
           </button>
         </form>
       </div> : null}

@@ -118,14 +118,14 @@ export function LandingHomePage() {
         </Link>
       </section>
 
-      <section className="lp-section">
+      <section className="lp-section lp-animate">
         <p className="lp-eyebrow lp-eyebrow--tight">{t('landingBusiness.dealsEyebrow')}</p>
         <h2 className="lp-hero-title" style={{ fontSize: 'clamp(1.5rem, 2.2vw, 2rem)', marginBottom: 0 }}>
           {pageText('dealsTitle', t('landingBusiness.dealsTitle'))}
         </h2>
         <div className="lp-deal-grid" style={{ marginTop: 20 }}>
-          {dealTiles.map((deal) => (
-            <article key={deal.city} className="lp-solution-card">
+          {dealTiles.map((deal, i) => (
+            <article key={deal.city} className={`lp-solution-card lp-animate lp-animate--d${Math.min(i + 1, 6)}`}>
               <div className="lp-solution-icon">
                 <IconGrid />
               </div>
@@ -149,7 +149,7 @@ export function LandingHomePage() {
         </div>
       </section>
 
-      <section className="lp-sheet lp-section" style={{ marginTop: 36 }}>
+      <section className="lp-sheet lp-section lp-animate" style={{ marginTop: 36 }}>
         <p className="lp-eyebrow lp-eyebrow--tight">{t('landingBusiness.popularEyebrow')}</p>
         <h2 className="lp-h1" style={{ marginTop: 8 }}>
           {pageText('popularTitle', t('landingBusiness.popularTitle'))}
@@ -163,14 +163,14 @@ export function LandingHomePage() {
         </div>
       </section>
 
-      <section className="lp-section">
+      <section className="lp-section lp-animate">
         <p className="lp-eyebrow lp-eyebrow--tight">{t('landingBusiness.trustEyebrow')}</p>
         <h2 className="lp-hero-title" style={{ fontSize: 'clamp(1.5rem, 2.2vw, 2rem)', marginBottom: 0 }}>
           {t('landingBusiness.trustTitle')}
         </h2>
         <div className="lp-pillars" style={{ marginTop: 20 }}>
           {trustBlocks.map((point, i) => (
-            <article key={point.title} className="lp-pillar">
+            <article key={point.title} className={`lp-pillar lp-animate lp-animate--d${i + 1}`}>
               <div className="lp-pillar-icon">{TRUST_ICONS[i] ?? TRUST_ICONS[0]}</div>
               <h3>{point.title}</h3>
               <p>{point.body}</p>
@@ -179,7 +179,7 @@ export function LandingHomePage() {
         </div>
       </section>
 
-      <section className="lp-partner-band lp-section">
+      <section className="lp-partner-band lp-section lp-animate">
         <h2 className="lp-hero-title" style={{ fontSize: 'clamp(1.35rem, 2vw, 1.75rem)', marginBottom: 12 }}>
           {t('landingBusiness.partnerTitle')}
         </h2>

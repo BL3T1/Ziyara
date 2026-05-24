@@ -106,36 +106,74 @@ export function LandingLoginPage() {
 
   return (
     <div className="landing-parallax-root lp-www-root flex min-h-screen flex-col">
+      {/* Ambient orbs */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div style={{
+          position: 'absolute', top: '-18%', right: '-12%',
+          width: 'clamp(320px, 45vw, 600px)', height: 'clamp(320px, 45vw, 600px)',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(126,196,232,0.22) 0%, transparent 68%)',
+          filter: 'blur(48px)',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: '-14%', left: '-10%',
+          width: 'clamp(280px, 40vw, 540px)', height: 'clamp(280px, 40vw, 540px)',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(200,160,120,0.18) 0%, transparent 68%)',
+          filter: 'blur(52px)',
+        }} />
+        <div style={{
+          position: 'absolute', top: '40%', left: '30%',
+          width: 'clamp(200px, 28vw, 380px)', height: 'clamp(200px, 28vw, 380px)',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(61,112,128,0.09) 0%, transparent 70%)',
+          filter: 'blur(40px)',
+        }} />
+      </div>
+
       <div className="lp-www-inner flex flex-1 flex-col items-center justify-center py-12">
-        <div className="mb-6 flex w-full max-w-md items-center justify-between gap-3">
-          <Link to="/" className="lp-link-quiet text-sm font-medium">
-            ← {t('landingAuth.backHome')}
+        {/* Top row: back + language */}
+        <div className="mb-8 flex w-full max-w-md items-center justify-between gap-3">
+          <Link to="/" className="lp-link-quiet inline-flex items-center gap-1.5 text-sm font-medium">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {t('landingAuth.backHome')}
           </Link>
           <LanguageToggleButton ariaLabel={t('common.changeLanguage')} />
         </div>
 
-        <div className="lp-sheet w-full max-w-md !rounded-[28px] !p-8">
-          <div className="mb-2 flex justify-center">
+        {/* Auth card */}
+        <div
+          className="lp-auth-card w-full max-w-md"
+          style={{ animation: 'lp-card-enter 0.6s cubic-bezier(0.22,1,0.36,1) both' }}
+        >
+          {/* Logo */}
+          <div className="mb-6 flex justify-center">
             <div className="lp-auth-logo-wrap">
               <img src="/logo.png" alt="" className="lp-auth-logo" width={160} height={48} />
             </div>
           </div>
-          <h1 className="lp-h1 text-center !text-2xl">{t('landingAuth.titleLogin')}</h1>
-          <p className="lp-body mt-2 text-center text-sm">{t('landingAuth.subLogin')}</p>
+
+          <h1 className="lp-h1 text-center" style={{ fontSize: 'clamp(1.35rem, 3vw, 1.6rem)' }}>
+            {t('landingAuth.titleLogin')}
+          </h1>
+          <p className="mt-2 text-center text-sm" style={{ color: 'var(--ink-muted)' }}>
+            {t('landingAuth.subLogin')}
+          </p>
 
           {registered ? (
-            <p className="mt-4 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 py-2.5 text-center text-sm text-emerald-900">
+            <p className="mt-5 rounded-2xl border border-emerald-200/80 bg-emerald-50/90 px-4 py-3 text-center text-sm text-emerald-900">
               {t('landingAuth.registeredHint')}
             </p>
           ) : null}
-
           {error ? (
-            <p className="mt-4 rounded-xl border border-red-200/80 bg-red-50/90 px-3 py-2.5 text-center text-sm text-red-900">{error}</p>
+            <p className="mt-5 rounded-2xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-center text-sm text-red-900">{error}</p>
           ) : null}
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-7 space-y-4">
             <div>
-              <label htmlFor="landing-login-email" className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--ink-muted)' }}>
+              <label htmlFor="landing-login-email" className="lp-field-label">
                 {t('landingAuth.email')}
               </label>
               <input
@@ -144,17 +182,22 @@ export function LandingLoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2"
-                style={{ borderColor: fieldErrors.email ? '#f87171' : 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
+                className="lp-input"
+                style={fieldErrors.email ? { borderColor: '#f87171' } : undefined}
               />
-              {fieldErrors.email ? <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p> : null}
+              {fieldErrors.email ? <p className="mt-1.5 text-xs text-red-600">{fieldErrors.email}</p> : null}
             </div>
+
             <div>
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <label htmlFor="landing-login-password" className="block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--ink-muted)' }}>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <label htmlFor="landing-login-password" className="lp-field-label" style={{ marginBottom: 0 }}>
                   {t('landingAuth.password')}
                 </label>
-                <Link to="/forgot-password" className="text-xs font-semibold underline decoration-[var(--accent-teal)] underline-offset-2" style={{ color: 'var(--accent-teal)' }}>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-semibold"
+                  style={{ color: 'var(--accent-teal)', textDecoration: 'underline', textDecorationColor: 'var(--accent-teal)', textUnderlineOffset: '2px' }}
+                >
                   {t('landingAuth.forgotPassword')}
                 </Link>
               </div>
@@ -164,12 +207,13 @@ export function LandingLoginPage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2"
-                style={{ borderColor: fieldErrors.password ? '#f87171' : 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
+                className="lp-input"
+                style={fieldErrors.password ? { borderColor: '#f87171' } : undefined}
               />
-              {fieldErrors.password ? <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p> : null}
+              {fieldErrors.password ? <p className="mt-1.5 text-xs text-red-600">{fieldErrors.password}</p> : null}
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm" style={{ color: 'var(--ink-muted)' }}>
+
+            <label className="flex cursor-pointer items-center gap-2.5 text-sm" style={{ color: 'var(--ink-muted)' }}>
               <input
                 type="checkbox"
                 checked={rememberMe}
@@ -178,19 +222,28 @@ export function LandingLoginPage() {
               />
               {t('landingAuth.rememberMe')}
             </label>
-            <button type="submit" disabled={loading} className="lp-btn lp-btn-primary w-full py-3 text-center">
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="lp-btn lp-btn-primary w-full"
+              style={{ borderRadius: 14, marginTop: 4 }}
+            >
               {loading ? t('landingAuth.signingIn') : t('landingAuth.signIn')}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm" style={{ color: 'var(--ink-muted)' }}>
+          <p className="mt-7 text-center text-sm" style={{ color: 'var(--ink-muted)' }}>
             {t('landingAuth.noAccount')}{' '}
-            <Link to="/signup" className="font-semibold underline decoration-[var(--accent-teal)] underline-offset-2" style={{ color: 'var(--accent-teal)' }}>
+            <Link
+              to="/signup"
+              className="font-semibold"
+              style={{ color: 'var(--accent-teal)', textDecoration: 'underline', textDecorationColor: 'var(--accent-teal)', textUnderlineOffset: '2px' }}
+            >
               {t('landingAuth.linkSignup')}
             </Link>
           </p>
         </div>
-
       </div>
     </div>
   )

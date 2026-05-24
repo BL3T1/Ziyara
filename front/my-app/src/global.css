@@ -352,6 +352,30 @@
   }
 }
 
+/* ─── Dashboard button shimmer (extends @layer components rules above) ──────── */
+.dashboard-btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+  transform: skewX(-15deg);
+  pointer-events: none;
+  transition: left 0s;
+}
+
+.dashboard-btn-primary:not(:disabled):hover::after {
+  left: 160%;
+  transition: left 0.55s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-fade-up,
   .landing-float,
@@ -367,4 +391,5 @@
     transition: none !important;
     transform: none !important;
   }
+  .dashboard-btn-primary::after { display: none; }
 }
