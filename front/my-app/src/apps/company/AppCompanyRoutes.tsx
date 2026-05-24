@@ -6,6 +6,8 @@ import { HomeRedirect } from '../../components/HomeRedirect'
 import { PageLayout } from '../../layouts/PageLayout'
 
 const LoginPage = lazy(() => import('../../pages/LoginPage').then((m) => ({ default: m.LoginPage })))
+const ForgotPasswordPage = lazy(() => import('../../pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })))
+const ResetPasswordPage = lazy(() => import('../../pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
 const AnalyticsPage = lazy(() => import('../../pages/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })))
 const ServiceTypePage = lazy(() =>
   import('../../pages/services/ServiceTypePage').then((m) => ({ default: m.ServiceTypePage })),
@@ -93,6 +95,8 @@ export function AppCompanyRoutes() {
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<RequireAuth />}>
         <Route element={<RequireSurfaceRole surface="company" />}>
           <Route element={<PageLayout />}>

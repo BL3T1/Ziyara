@@ -6,6 +6,8 @@ import { HomeRedirect } from '../../components/HomeRedirect'
 import { ClientPortalLayout } from '../../layouts/ClientPortalLayout'
 
 const LoginPage = lazy(() => import('../../pages/LoginPage').then((m) => ({ default: m.LoginPage })))
+const ForgotPasswordPage = lazy(() => import('../../pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })))
+const ResetPasswordPage = lazy(() => import('../../pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
 const ClientPortalOverview = lazy(() =>
   import('../../pages/portal/ClientPortalOverview').then((m) => ({ default: m.ClientPortalOverview })),
 )
@@ -36,6 +38,8 @@ export function AppProviderRoutes() {
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<RequireAuth />}>
         <Route element={<RequireSurfaceRole surface="provider" />}>
           <Route element={<ClientPortalLayout />}>

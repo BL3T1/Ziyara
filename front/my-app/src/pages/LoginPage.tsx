@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { setStoredToken } from '../context/AuthContext'
 import { isCompanySurface, isProviderSurface } from '../config/appSurface'
@@ -226,12 +226,12 @@ export function LoginPage() {
               />
               <span className="text-sm text-slate-600 dark:text-slate-400">{t('login.rememberMe')}</span>
             </label>
-            <button
-              type="button"
+            <Link
+              to="/forgot-password"
               className="text-sm font-medium text-primary transition-colors hover:text-primary/80 dark:text-secondary dark:hover:text-secondary/90"
             >
               {t('login.forgotPassword')}
-            </button>
+            </Link>
           </div>
 
           <button
