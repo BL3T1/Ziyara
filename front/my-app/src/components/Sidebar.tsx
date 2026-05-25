@@ -61,7 +61,7 @@ function SidebarSection({
       {!collapsed && (
         <div className="mb-1.5 flex items-center gap-2 px-3">
           <span
-            className="text-[0.6rem] font-bold uppercase tracking-[0.18em] text-slate-600"
+            className="text-[0.6rem] font-bold uppercase tracking-[0.18em] text-slate-400/70"
           >
             {t(`section.${section.id}`)}
           </span>
@@ -136,6 +136,7 @@ export function Sidebar() {
 
   return (
     <aside
+      style={{ colorScheme: 'dark' }}
       className={`fixed inset-y-0 z-40 flex h-full flex-col border-white/[0.05] bg-[#0a0e14] ${railShadow} ${railBorder} transition-[width] duration-300 ease-out motion-reduce:transition-none ${
         sidebarCollapsed ? 'w-[3.75rem]' : 'w-60'
       }`}

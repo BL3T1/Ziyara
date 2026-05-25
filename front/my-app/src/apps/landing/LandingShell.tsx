@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { authAPI } from '../../services/api'
 import { LANDING_NAV_ITEMS } from './landingNav'
 import { useLandingMotion } from './useLandingMotion'
-import { useLandingReveal } from './useLandingReveal'
+import { useLandingGSAP } from './useLandingGSAP'
 import { LandingPublicFooter } from './LandingPublicFooter'
 import './landing-public.css'
 
@@ -16,7 +16,7 @@ export function LandingShell() {
   const navigate = useNavigate()
   const location = useLocation()
   useLandingMotion()
-  useLandingReveal()
+  useLandingGSAP(location.key)
 
   useEffect(() => {
     document.documentElement.classList.remove('dark')

@@ -850,26 +850,77 @@
   color: var(--ink-strong);
 }
 
-/* ─── Scroll-reveal system ─────────────────────────────────────────────────── */
+/* ─── Scroll-reveal system (GSAP-driven) ───────────────────────────────────── */
+/* Initial hidden state set here; GSAP ScrollTrigger animates to visible.      */
+/* No CSS transitions — GSAP uses rAF for all animation.                       */
 .lp-animate {
   opacity: 0;
   transform: translate3d(0, 28px, 0) scale(0.985);
-  transition:
-    opacity 0.65s var(--ease-out),
-    transform 0.65s var(--ease-out);
+  will-change: transform, opacity;
 }
 
-.lp-animate.lp-in {
-  opacity: 1;
-  transform: translate3d(0, 0, 0) scale(1);
+/* ─── Stats strip (replaces fake search bar) ────────────────────────────────── */
+.lp-stats-strip {
+  margin-top: 24px;
+  padding: 14px 16px;
+  border-radius: 24px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, 1fr) auto;
+  align-items: stretch;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.52) 0%, rgba(255, 255, 255, 0.2) 100%);
+  border: 1px solid var(--border-glass);
+  box-shadow: 0 8px 32px rgba(40, 55, 68, 0.06);
+  backdrop-filter: blur(14px);
 }
 
-.lp-animate--d1 { transition-delay: 0.08s; }
-.lp-animate--d2 { transition-delay: 0.16s; }
-.lp-animate--d3 { transition-delay: 0.24s; }
-.lp-animate--d4 { transition-delay: 0.32s; }
-.lp-animate--d5 { transition-delay: 0.40s; }
-.lp-animate--d6 { transition-delay: 0.48s; }
+@media (max-width: 860px) {
+  .lp-stats-strip { grid-template-columns: repeat(3, 1fr); }
+  .lp-stats-strip .lp-btn { grid-column: 1 / -1; justify-self: center; }
+}
+
+@media (max-width: 480px) {
+  .lp-stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .lp-stats-strip .lp-stat-item:last-of-type { grid-column: span 2; }
+}
+
+.lp-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  will-change: transform, opacity;
+}
+
+.lp-stat-num {
+  font-family: "DM Sans", Inter, sans-serif;
+  font-size: clamp(20px, 2.5vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  background: linear-gradient(160deg, var(--ink-heading) 0%, var(--accent-teal) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@supports not (background-clip: text) {
+  .lp-stat-num { background: none; -webkit-text-fill-color: unset; color: var(--ink-heading); }
+}
+
+.lp-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-teal);
+  opacity: 0.82;
+  line-height: 1.3;
+}
 
 /* ─── Auth card ─────────────────────────────────────────────────────────────── */
 .lp-auth-card {
@@ -921,6 +972,21 @@
   to   { left: 160%; }
 }
 
+/* ─── Hero GSAP initial state ───────────────────────────────────────────────── */
+/* GSAP animates these in via timeline; start hidden to prevent flash-of-content */
+.lp-ziyara-hero .lp-eyebrow,
+.lp-ziyara-hero #hero-heading,
+.lp-ziyara-hero .lp-hero-lede,
+.lp-ziyara-hero .lp-cta {
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.lp-ziyara-hero__visual {
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 960px) {
   .lp-nav { margin-left: 0; margin-right: 0; }
@@ -961,10 +1027,23 @@
   .lp-ziyara-hero__parallax { transition: none; }
   .lp-solution-card:hover, .lp-glass-card:hover, .lp-hero-service-chip:hover, .lp-city-chip:hover,
   .lp-btn-primary:hover, .lp-btn-outline:hover { transform: none; }
-  .lp-animate {
-    opacity: 1;
-    transform: none;
-    transition: none;
+
+  /* All GSAP-animated elements instantly visible */
+  .lp-animate,
+  .lp-stat-item,
+  .lp-pillar,
+  .lp-solution-card,
+  .lp-city-chip,
+  .lp-partner-band,
+  .lp-ziyara-hero .lp-eyebrow,
+  .lp-ziyara-hero #hero-heading,
+  .lp-ziyara-hero .lp-hero-lede,
+  .lp-ziyara-hero .lp-cta,
+  .lp-ziyara-hero__visual {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
   }
+
   .lp-btn-primary::after { display: none; }
 }

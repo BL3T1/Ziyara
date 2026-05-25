@@ -77,15 +77,16 @@ export function LandingHomePage() {
 
   return (
     <>
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="landing-scroll-parallax lp-ziyara-hero" aria-labelledby="hero-heading">
         <div className="lp-ziyara-hero__layout">
-          <div className="landing-fade-up lp-ziyara-hero__copy">
+          <div className="lp-ziyara-hero__copy">
             <p className="lp-eyebrow lp-eyebrow--tight">{pageText('badge', t('landingTraveler.badge'))}</p>
             <h1 id="hero-heading" className="lp-hero-title">
               {pageText('heroTitle', t('landingTraveler.heroTitle'))}
             </h1>
             <p className="lp-hero-lede">{pageText('heroBody', t('landingTraveler.heroBody'))}</p>
-            <div className="landing-fade-up landing-fade-up-delay-1 lp-cta">
+            <div className="lp-cta">
               <Link to="/login" className="lp-btn lp-btn-primary">
                 {t('landingTraveler.ctaSignIn')}
               </Link>
@@ -94,38 +95,50 @@ export function LandingHomePage() {
               </Link>
             </div>
           </div>
-          <div className="landing-fade-up landing-fade-up-delay-1 lp-ziyara-hero__visual">
+          <div className="lp-ziyara-hero__visual">
             <ZiyaraHeroComposition />
           </div>
         </div>
       </section>
 
-      <section className="landing-fade-up landing-fade-up-delay-2 lp-search-strip">
-        <div className="lp-search-cell">
-          <p className="lp-label">{t('landingBusiness.searchDestinationLabel')}</p>
-          <p className="lp-value">{t('landingBusiness.searchDestinationValue')}</p>
+      {/* ── Stats strip (replaces fake search bar) ───────────────────────── */}
+      <section className="lp-stats-strip lp-animate" aria-label="Platform statistics">
+        <div className="lp-stat-item">
+          <span className="lp-stat-num">{totalServices ? `${totalServices}+` : '100+'}</span>
+          <span className="lp-stat-label">{t('landingBusiness.statsServicesLabel')}</span>
         </div>
-        <div className="lp-search-cell">
-          <p className="lp-label">{t('landingBusiness.searchDateLabel')}</p>
-          <p className="lp-value">{t('landingBusiness.searchDateValue')}</p>
+        <div className="lp-stat-item">
+          <span className="lp-stat-num">{totalCities ? `${totalCities}+` : '15+'}</span>
+          <span className="lp-stat-label">{t('landingBusiness.statsCitiesLabel')}</span>
         </div>
-        <div className="lp-search-cell">
-          <p className="lp-label">{t('landingBusiness.searchGuestsLabel')}</p>
-          <p className="lp-value">{t('landingBusiness.searchGuestsValue')}</p>
-        </div>
-        <Link to="/login" className="lp-btn lp-btn-primary lp-btn-sm flex items-center justify-center self-stretch">
-          {pageText('searchCta', t('landingBusiness.searchCta'))}
+        {averageBasePrice ? (
+          <div className="lp-stat-item">
+            <span className="lp-stat-num">${averageBasePrice}</span>
+            <span className="lp-stat-label">{t('landingBusiness.statsRatingLabel')}</span>
+          </div>
+        ) : (
+          <div className="lp-stat-item">
+            <span className="lp-stat-num">4.8★</span>
+            <span className="lp-stat-label">{t('landingBusiness.statsRatingLabel')}</span>
+          </div>
+        )}
+        <Link
+          to={servicesBrowse}
+          className="lp-btn lp-btn-primary lp-btn-sm flex items-center justify-center self-stretch"
+        >
+          {t('landingBusiness.statsBrowseCta')}
         </Link>
       </section>
 
+      {/* ── Deal shortcuts ────────────────────────────────────────────────── */}
       <section className="lp-section lp-animate">
         <p className="lp-eyebrow lp-eyebrow--tight">{t('landingBusiness.dealsEyebrow')}</p>
         <h2 className="lp-hero-title" style={{ fontSize: 'clamp(1.5rem, 2.2vw, 2rem)', marginBottom: 0 }}>
           {pageText('dealsTitle', t('landingBusiness.dealsTitle'))}
         </h2>
         <div className="lp-deal-grid" style={{ marginTop: 20 }}>
-          {dealTiles.map((deal, i) => (
-            <article key={deal.city} className={`lp-solution-card lp-animate lp-animate--d${Math.min(i + 1, 6)}`}>
+          {dealTiles.map((deal) => (
+            <article key={deal.city} className="lp-solution-card">
               <div className="lp-solution-icon">
                 <IconGrid />
               </div>
@@ -149,6 +162,7 @@ export function LandingHomePage() {
         </div>
       </section>
 
+      {/* ── Popular destinations ──────────────────────────────────────────── */}
       <section className="lp-sheet lp-section lp-animate" style={{ marginTop: 36 }}>
         <p className="lp-eyebrow lp-eyebrow--tight">{t('landingBusiness.popularEyebrow')}</p>
         <h2 className="lp-h1" style={{ marginTop: 8 }}>
@@ -163,6 +177,7 @@ export function LandingHomePage() {
         </div>
       </section>
 
+      {/* ── Trust pillars ─────────────────────────────────────────────────── */}
       <section className="lp-section lp-animate">
         <p className="lp-eyebrow lp-eyebrow--tight">{t('landingBusiness.trustEyebrow')}</p>
         <h2 className="lp-hero-title" style={{ fontSize: 'clamp(1.5rem, 2.2vw, 2rem)', marginBottom: 0 }}>
@@ -170,7 +185,7 @@ export function LandingHomePage() {
         </h2>
         <div className="lp-pillars" style={{ marginTop: 20 }}>
           {trustBlocks.map((point, i) => (
-            <article key={point.title} className={`lp-pillar lp-animate lp-animate--d${i + 1}`}>
+            <article key={point.title} className="lp-pillar">
               <div className="lp-pillar-icon">{TRUST_ICONS[i] ?? TRUST_ICONS[0]}</div>
               <h3>{point.title}</h3>
               <p>{point.body}</p>
@@ -179,7 +194,8 @@ export function LandingHomePage() {
         </div>
       </section>
 
-      <section className="lp-partner-band lp-section lp-animate">
+      {/* ── Partner CTA band ──────────────────────────────────────────────── */}
+      <section className="lp-partner-band lp-section">
         <h2 className="lp-hero-title" style={{ fontSize: 'clamp(1.35rem, 2vw, 1.75rem)', marginBottom: 12 }}>
           {t('landingBusiness.partnerTitle')}
         </h2>
