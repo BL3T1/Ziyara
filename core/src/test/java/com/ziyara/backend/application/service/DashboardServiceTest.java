@@ -15,9 +15,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 
 import java.util.Collection;
 import java.util.List;
@@ -84,8 +83,8 @@ class DashboardServiceTest {
         l3.setUserId(u3);
         l3.setEntityName("X");
 
-        when(auditLogRepository.findRecent(any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(l1, l2, l3)));
+        when(auditLogRepository.findRecent(any(PageQuery.class)))
+                .thenReturn(PagedResult.of(List.of(l1, l2, l3), 3, PageQuery.of(0, 15, "createdAt", false)));
 
         User usr1 = new User();
         usr1.setId(u1);

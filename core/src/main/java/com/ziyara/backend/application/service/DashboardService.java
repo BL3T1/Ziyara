@@ -17,7 +17,7 @@ import com.ziyara.backend.infrastructure.config.DashboardExecutorConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.domain.PageRequest;
+import com.ziyara.backend.domain.common.PageQuery;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -169,7 +169,7 @@ public class DashboardService {
     @Transactional(readOnly = true)
     public List<ActivityFeedItemResponse> getActivityFeed(int limit) {
         try {
-            List<AuditLog> logs = auditLogRepository.findRecent(PageRequest.of(0, Math.min(limit, 50))).getContent();
+            List<AuditLog> logs = auditLogRepository.findRecent(PageQuery.of(0, Math.min(limit, 50))).content();
             java.util.Set<UUID> userIds = logs.stream()
                     .map(AuditLog::getUserId)
                     .filter(Objects::nonNull)

@@ -12,6 +12,7 @@ import com.ziyara.backend.domain.enums.UserStatus;
 import com.ziyara.backend.domain.repository.ProviderStaffRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
+import com.ziyara.backend.modules.subscription.api.SubscriptionServiceApi;
 import com.ziyara.backend.application.exception.BusinessException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +38,7 @@ public class PortalStaffService {
     private final PasswordEncoder passwordEncoder;
     private final UserRbacAssignmentService userRbacAssignmentService;
     private final PasswordPolicyService passwordPolicyService;
-    private final SubscriptionService subscriptionService;
+    private final SubscriptionServiceApi subscriptionService;
 
     @Transactional(readOnly = true)
     public List<PortalStaffMemberResponse> listStaff(UUID providerId) {

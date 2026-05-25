@@ -1,9 +1,9 @@
 package com.ziyara.backend.domain.repository;
 
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.Payment;
 import com.ziyara.backend.domain.enums.PaymentStatus;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -23,12 +23,12 @@ public interface PaymentRepository {
     Optional<Payment> findByIdempotencyKey(String idempotencyKey);
     List<Payment> findByStatus(PaymentStatus status);
 
-    Page<Payment> findAll(Pageable pageable);
+    PagedResult<Payment> findAll(PageQuery pageQuery);
 
-    Page<Payment> findByStatus(PaymentStatus status, Pageable pageable);
+    PagedResult<Payment> findByStatus(PaymentStatus status, PageQuery pageQuery);
 
     /** Payments whose booking belongs to this customer user id. */
-    Page<Payment> findByCustomerUserId(UUID customerUserId, Pageable pageable);
+    PagedResult<Payment> findByCustomerUserId(UUID customerUserId, PageQuery pageQuery);
 
     List<Payment> findAll();
     void deleteById(UUID id);

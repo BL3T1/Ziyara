@@ -4,7 +4,7 @@ import com.ziyara.backend.application.dto.request.CreateExchangeRateRequest;
 import com.ziyara.backend.application.dto.response.ExchangeRateResponse;
 import com.ziyara.backend.application.service.CurrencyService;
 import com.ziyara.backend.application.service.JwtTokenBlocklistService;
-import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;

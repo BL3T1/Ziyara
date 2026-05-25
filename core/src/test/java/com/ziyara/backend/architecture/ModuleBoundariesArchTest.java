@@ -13,6 +13,9 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * Phase 3: Module boundary rules (MODULAR_MONOLITH_STRUCTURE).
  * - Only modules.*.api may be used from outside the module.
  * - modules.*.service must not be accessed from application, presentation, or other modules.
+ *
+ * @see CleanArchitectureDddTest GROUP 9 for the full module boundary rule set.
+ *      This class retains the single original rule as a fast smoke-check.
  */
 class ModuleBoundariesArchTest {
 

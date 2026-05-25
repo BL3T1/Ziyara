@@ -2,20 +2,24 @@ package com.ziyara.backend.application.service;
 
 import com.ziyara.backend.application.dto.request.*;
 import com.ziyara.backend.application.dto.response.ComplaintResponse;
+import com.ziyara.backend.application.exception.BusinessException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import com.ziyara.backend.domain.entity.Complaint;
-import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.domain.enums.ComplaintPriority;
+import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.domain.repository.ComplaintRepository;
+import com.ziyara.backend.domain.repository.UserRepository;
+import com.ziyara.backend.domain.usecase.complaint.AssignComplaintUseCase;
+import com.ziyara.backend.domain.usecase.complaint.EscalateComplaintUseCase;
+import com.ziyara.backend.domain.usecase.complaint.ResolveComplaintUseCase;
+import com.ziyara.backend.domain.usecase.complaint.SubmitComplaintUseCase;
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
-import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,27 +33,18 @@ import java.util.UUID;
 public class ComplaintService {
 
     private final ComplaintRepository complaintRepository;
+    private final UserRepository userRepository;
     private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
-
-    private static final String TICKET_PREFIX = "CMP-";
 
     @Transactional
     public ComplaintResponse create(CreateComplaintRequest request, UUID createdBy) {
-        String ticketNumber = generateUniqueTicketNumber();
-        Complaint complaint = new Complaint(
-                request.getCustomerId(),
-                request.getSubject(),
-                request.getDescription()
-        );
-        complaint.setBookingId(request.getBookingId());
-        if (request.getPriority() != null) {
-            complaint.setPriority(request.getPriority());
-        }
-        if (request.getCategory() != null) {
-            complaint.setCategory(request.getCategory());
-        }
-        complaint.setTicketNumber(ticketNumber);
-        Complaint saved = complaintRepository.save(complaint);
+        var result = new SubmitComplaintUseCase(complaintRepository, userRepository).execute(
+                new SubmitComplaintUseCase.Input(
+                        request.getCustomerId(), request.getBookingId(),
+                        request.getSubject(), request.getDescription(),
+                        request.getCategory(), request.getPriority()));
+        if (!result.success()) throw new BusinessException(result.error());
+        Complaint saved = result.complaint();
         log.info("Complaint created: {} by {}", saved.getId(), createdBy);
         staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
                 .eventId(UUID.randomUUID())
@@ -76,10 +71,10 @@ public class ComplaintService {
 
     @Transactional
     public ComplaintResponse assign(UUID id, AssignComplaintRequest request) {
-        Complaint complaint = complaintRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Complaint not found"));
-        complaint.assign(request.getAgentId());
-        Complaint saved = complaintRepository.save(complaint);
+        var result = new AssignComplaintUseCase(complaintRepository, userRepository)
+                .execute(new AssignComplaintUseCase.Input(id, request.getAgentId()));
+        if (!result.success()) throw new BusinessException(result.error());
+        Complaint saved = result.complaint();
         if (request.getAgentId() != null) {
             staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
                     .eventId(UUID.randomUUID())
@@ -95,18 +90,19 @@ public class ComplaintService {
 
     @Transactional
     public ComplaintResponse resolve(UUID id, ResolveComplaintRequest request, UUID resolvedBy) {
-        Complaint complaint = complaintRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Complaint not found"));
-        complaint.resolve(resolvedBy, request != null && request.getNotes() != null ? request.getNotes() : "");
-        return toResponse(complaintRepository.save(complaint));
+        var result = new ResolveComplaintUseCase(complaintRepository).execute(
+                new ResolveComplaintUseCase.Input(id, resolvedBy,
+                        request != null && request.getNotes() != null ? request.getNotes() : ""));
+        if (!result.success()) throw new BusinessException(result.error());
+        return toResponse(result.complaint());
     }
 
     @Transactional
     public ComplaintResponse escalate(UUID id, EscalateComplaintRequest request) {
-        Complaint complaint = complaintRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Complaint not found"));
-        complaint.escalate(request.getEscalateToId());
-        return toResponse(complaintRepository.save(complaint));
+        var result = new EscalateComplaintUseCase(complaintRepository)
+                .execute(new EscalateComplaintUseCase.Input(id, request.getEscalateToId()));
+        if (!result.success()) throw new BusinessException(result.error());
+        return toResponse(result.complaint());
     }
 
     @Transactional
@@ -121,14 +117,6 @@ public class ComplaintService {
         Complaint complaint = complaintRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Complaint not found"));
         return toResponse(complaint);
-    }
-
-    private String generateUniqueTicketNumber() {
-        String base = TICKET_PREFIX + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmm")) + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
-        if (complaintRepository.existsByTicketNumber(base)) {
-            return base + "-" + (int) (Math.random() * 1000);
-        }
-        return base;
     }
 
     private static ComplaintResponse toResponse(Complaint c) {

@@ -32,6 +32,8 @@ public interface PaymentServiceApi {
 
     Page<PaymentResponse> getPayments(int page, int size, @Nullable PaymentStatus status);
 
+    Page<PaymentResponse> pageForCustomerUserId(UUID userId, int page, int size);
+
     PaymentResponse getPayment(UUID id);
 
     PaymentResponse getByTransactionRef(String reference);

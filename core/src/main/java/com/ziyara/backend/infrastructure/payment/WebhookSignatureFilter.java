@@ -1,6 +1,6 @@
 package com.ziyara.backend.infrastructure.payment;
 
-import com.ziyara.backend.infrastructure.config.PaymentGatewayProperties;
+import com.ziyara.backend.infrastructure.payment.PaymentGatewayProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -100,3 +100,4 @@ public class WebhookSignatureFilter extends OncePerRequestFilter {
         }
     }
 }
+

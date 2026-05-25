@@ -1,13 +1,15 @@
 package com.ziyara.backend.infrastructure.persistence.adapter;
 
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.Booking;
 import com.ziyara.backend.domain.enums.BookingStatus;
 import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.infrastructure.persistence.entity.BookingJpaEntity;
 import com.ziyara.backend.infrastructure.persistence.mapper.BookingMapper;
 import com.ziyara.backend.infrastructure.persistence.repository.BookingJpaRepository;
+import com.ziyara.backend.infrastructure.persistence.util.PageConverter;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
@@ -90,16 +92,16 @@ public class BookingRepositoryAdapter implements BookingRepository {
     }
 
     @Override
-    public Page<Booking> findFilteredAdmin(BookingStatus status, java.time.LocalDate dateFrom, java.time.LocalDate dateTo, Pageable pageable) {
-        return bookingJpaRepository.findFilteredAdmin(status, dateFrom, dateTo, pageable)
-                .map(bookingMapper::toDomainEntity);
+    public PagedResult<Booking> findFilteredAdmin(BookingStatus status, java.time.LocalDate dateFrom, java.time.LocalDate dateTo, PageQuery pageQuery) {
+        Pageable pageable = PageConverter.toPageable(pageQuery);
+        return PageConverter.toPagedResult(bookingJpaRepository.findFilteredAdmin(status, dateFrom, dateTo, pageable), bookingMapper::toDomainEntity);
     }
 
     @Override
-    public Page<Booking> findByServiceIdIn(java.util.List<UUID> serviceIds, Pageable pageable) {
-        if (serviceIds == null || serviceIds.isEmpty()) return org.springframework.data.domain.Page.empty(pageable);
-        return bookingJpaRepository.findByServiceIdIn(serviceIds, pageable)
-                .map(bookingMapper::toDomainEntity);
+    public PagedResult<Booking> findByServiceIdIn(java.util.List<UUID> serviceIds, PageQuery pageQuery) {
+        if (serviceIds == null || serviceIds.isEmpty()) return PagedResult.empty(pageQuery);
+        Pageable pageable = PageConverter.toPageable(pageQuery);
+        return PageConverter.toPagedResult(bookingJpaRepository.findByServiceIdIn(serviceIds, pageable), bookingMapper::toDomainEntity);
     }
     
     @Override
@@ -117,24 +119,23 @@ public class BookingRepositoryAdapter implements BookingRepository {
     }
 
     @Override
-    public Page<Booking> findAll(Pageable pageable) {
-        return bookingJpaRepository.findAll(pageable).map(bookingMapper::toDomainEntity);
+    public PagedResult<Booking> findAll(PageQuery pageQuery) {
+        return PageConverter.toPagedResult(bookingJpaRepository.findAll(PageConverter.toPageable(pageQuery)), bookingMapper::toDomainEntity);
     }
 
     @Override
-    public Page<Booking> findByStatus(BookingStatus status, Pageable pageable) {
-        return bookingJpaRepository.findByStatus(status, pageable).map(bookingMapper::toDomainEntity);
+    public PagedResult<Booking> findByStatus(BookingStatus status, PageQuery pageQuery) {
+        return PageConverter.toPagedResult(bookingJpaRepository.findByStatus(status, PageConverter.toPageable(pageQuery)), bookingMapper::toDomainEntity);
     }
 
     @Override
-    public Page<Booking> findByCustomerId(UUID customerId, Pageable pageable) {
-        return bookingJpaRepository.findByCustomerId(customerId, pageable).map(bookingMapper::toDomainEntity);
+    public PagedResult<Booking> findByCustomerId(UUID customerId, PageQuery pageQuery) {
+        return PageConverter.toPagedResult(bookingJpaRepository.findByCustomerId(customerId, PageConverter.toPageable(pageQuery)), bookingMapper::toDomainEntity);
     }
 
     @Override
-    public Page<Booking> findByCustomerIdAndStatus(UUID customerId, BookingStatus status, Pageable pageable) {
-        return bookingJpaRepository.findByCustomerIdAndStatus(customerId, status, pageable)
-                .map(bookingMapper::toDomainEntity);
+    public PagedResult<Booking> findByCustomerIdAndStatus(UUID customerId, BookingStatus status, PageQuery pageQuery) {
+        return PageConverter.toPagedResult(bookingJpaRepository.findByCustomerIdAndStatus(customerId, status, PageConverter.toPageable(pageQuery)), bookingMapper::toDomainEntity);
     }
     
     @Override

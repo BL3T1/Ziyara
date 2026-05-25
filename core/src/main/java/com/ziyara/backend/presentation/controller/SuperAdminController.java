@@ -6,8 +6,8 @@ import com.ziyara.backend.application.dto.UserResponse;
 import com.ziyara.backend.application.dto.request.RestoreDeletedRequest;
 import com.ziyara.backend.application.dto.response.DeletedItemResponse;
 import com.ziyara.backend.application.dto.response.PaymentResponse;
-import com.ziyara.backend.application.service.BookingService;
-import com.ziyara.backend.application.service.PaymentService;
+import com.ziyara.backend.modules.booking.api.BookingServiceApi;
+import com.ziyara.backend.modules.payment.api.PaymentServiceApi;
 import com.ziyara.backend.application.service.SuperAdminRecoveryService;
 import com.ziyara.backend.domain.enums.BookingStatus;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,8 +34,8 @@ import java.util.UUID;
 public class SuperAdminController {
 
     private final SuperAdminRecoveryService superAdminRecoveryService;
-    private final BookingService bookingService;
-    private final PaymentService paymentService;
+    private final BookingServiceApi bookingService;
+    private final PaymentServiceApi paymentService;
 
     @GetMapping("/customers/search")
     @PreAuthorize("hasRole('SUPER_ADMIN')")

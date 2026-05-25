@@ -9,6 +9,7 @@ import com.ziyara.backend.application.dto.response.PayoutSummaryResponse;
 import com.ziyara.backend.application.dto.response.ServiceHealthResponse;
 import com.ziyara.backend.application.query.DashboardQueryHandler;
 import com.ziyara.backend.infrastructure.config.DashboardExecutorConfig;
+import com.ziyara.backend.modules.sys.api.DashboardServiceApi;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +22,7 @@ import java.util.concurrent.Executor;
  * Loads all dashboard sections in parallel on the server for {@code GET /dashboard/bootstrap}.
  */
 @Service
-public class DashboardBootstrapService {
+public class DashboardBootstrapService implements DashboardServiceApi {
 
     private final DashboardService dashboardService;
     private final DashboardQueryHandler dashboardQueryHandler;

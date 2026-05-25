@@ -2,7 +2,7 @@ package com.ziyara.backend.infrastructure.security;
 
 import com.ziyara.backend.application.service.JwtTokenBlocklistService;
 import com.ziyara.backend.domain.enums.UserRole;
-import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.rls.RlsSessionAttributes;
 import com.ziyara.backend.infrastructure.rls.RlsSessionContext;
 import jakarta.servlet.FilterChain;
@@ -139,3 +139,4 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements Ord
         RlsSessionContext.set(new RlsSessionAttributes(bypass, userId, providerScope));
     }
 }
+

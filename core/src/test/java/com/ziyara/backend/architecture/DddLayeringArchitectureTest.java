@@ -14,6 +14,12 @@ import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPac
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 
+/**
+ * @deprecated Superseded by {@link CleanArchitectureDddTest} which covers all rules in this
+ *             class and many more. This class is kept only so its five more-granular tests
+ *             continue to run as a double-check until CleanArchitectureDddTest has been
+ *             validated in CI.
+ */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class DddLayeringArchitectureTest {
 

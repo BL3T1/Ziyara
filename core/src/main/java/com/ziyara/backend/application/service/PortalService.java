@@ -23,6 +23,7 @@ import com.ziyara.backend.application.dto.response.HotelRoomResponse;
 import com.ziyara.backend.application.dto.response.ServiceImageResponse;
 import com.ziyara.backend.application.dto.response.ServiceResponse;
 import com.ziyara.backend.application.query.ServiceQueryHandler;
+import com.ziyara.backend.modules.service.api.ServiceServiceApi;
 import com.ziyara.backend.domain.entity.Booking;
 import com.ziyara.backend.domain.enums.BookingStatus;
 import com.ziyara.backend.domain.enums.ServiceImageCategory;
@@ -66,7 +67,7 @@ public class PortalService {
     private final BookingRepository bookingRepository;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final PaymentRepository paymentRepository;
-    private final ServiceService serviceService;
+    private final ServiceServiceApi serviceService;
     private final ServiceImageService serviceImageService;
     private final RestaurantMenuService restaurantMenuService;
     private final HotelRoomService hotelRoomService;

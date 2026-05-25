@@ -1,9 +1,9 @@
 package com.ziyara.backend.domain.repository;
 
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.Booking;
 import com.ziyara.backend.domain.enums.BookingStatus;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.util.Collection;
@@ -33,13 +33,13 @@ public interface BookingRepository {
     List<Booking> findByStatus(BookingStatus status);
     List<Booking> findByCustomerIdAndStatus(UUID customerId, BookingStatus status);
 
-    Page<Booking> findAll(Pageable pageable);
+    PagedResult<Booking> findAll(PageQuery pageQuery);
 
-    Page<Booking> findByStatus(BookingStatus status, Pageable pageable);
+    PagedResult<Booking> findByStatus(BookingStatus status, PageQuery pageQuery);
 
-    Page<Booking> findByCustomerId(UUID customerId, Pageable pageable);
+    PagedResult<Booking> findByCustomerId(UUID customerId, PageQuery pageQuery);
 
-    Page<Booking> findByCustomerIdAndStatus(UUID customerId, BookingStatus status, Pageable pageable);
+    PagedResult<Booking> findByCustomerIdAndStatus(UUID customerId, BookingStatus status, PageQuery pageQuery);
     
     // Date-based queries
     List<Booking> findByCheckInDateBetween(LocalDate startDate, LocalDate endDate);
@@ -50,9 +50,9 @@ public interface BookingRepository {
     List<Booking> findOverlappingBookings(UUID serviceId, LocalDate checkIn, LocalDate checkOut);
     boolean hasConflictingBooking(UUID serviceId, LocalDate checkIn, LocalDate checkOut);
     
-    Page<Booking> findFilteredAdmin(BookingStatus status, java.time.LocalDate dateFrom, java.time.LocalDate dateTo, Pageable pageable);
+    PagedResult<Booking> findFilteredAdmin(BookingStatus status, java.time.LocalDate dateFrom, java.time.LocalDate dateTo, PageQuery pageQuery);
 
-    Page<Booking> findByServiceIdIn(java.util.List<UUID> serviceIds, Pageable pageable);
+    PagedResult<Booking> findByServiceIdIn(java.util.List<UUID> serviceIds, PageQuery pageQuery);
 
     // Statistics
     long count();

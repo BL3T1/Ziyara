@@ -8,7 +8,7 @@ import com.ziyara.backend.domain.enums.ServiceType;
 import com.ziyara.backend.domain.repository.DiscountCodeRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.ServiceRepository;
-import com.ziyara.backend.core.api.PricingEngineApi;
+import com.ziyara.backend.modules.pricing.api.PricingEngineApi;
 import com.ziyara.backend.application.exception.BusinessException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;

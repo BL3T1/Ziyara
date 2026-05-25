@@ -1,11 +1,12 @@
 package com.ziyara.backend.infrastructure.payment;
 
-import com.ziyara.backend.application.dto.payment.GatewayPaymentResponse;
-import com.ziyara.backend.application.dto.payment.GatewayRefundResult;
-import com.ziyara.backend.application.dto.payment.TokenizedPaymentCommand;
 import com.ziyara.backend.domain.enums.PaymentStatus;
+import com.ziyara.backend.domain.payment.GatewayChargeCommand;
+import com.ziyara.backend.domain.payment.GatewayChargeResult;
+import com.ziyara.backend.domain.payment.GatewayRefundCommand;
+import com.ziyara.backend.domain.payment.GatewayRefundResult;
 import com.ziyara.backend.domain.payment.PaymentProvider;
-import com.ziyara.backend.infrastructure.config.PaymentGatewayProperties;
+import com.ziyara.backend.infrastructure.payment.PaymentGatewayProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -27,7 +28,7 @@ import java.util.Optional;
 /**
  * Stripe payment gateway implementation. Activated when app.payment.gateway.provider=stripe.
  * Uses Stripe's PaymentIntents API for 3DS-capable card payments.
- * PCI note: raw card data is never handled here — only tokens from Stripe.js/Elements.
+ * PCI note: raw card data is never handled here â€” only tokens from Stripe.js/Elements.
  */
 @Component
 @ConditionalOnProperty(name = "app.payment.gateway.provider", havingValue = "stripe")
@@ -42,23 +43,22 @@ public class StripePaymentProvider implements PaymentProvider {
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
-    public GatewayPaymentResponse initiatePayment(TokenizedPaymentCommand command) {
-        log.info("Stripe: initiating payment {} amount {} {}", command.getPaymentId(), command.getAmount(), command.getCurrency());
+    public GatewayChargeResult initiatePayment(GatewayChargeCommand command) {
+        log.info("Stripe: initiating payment {} amount {} {}", command.paymentId(), command.amount(), command.currency());
         try {
             HttpHeaders headers = buildHeaders();
             MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-            // Stripe amounts are in smallest currency unit (cents)
-            body.add("amount", toStripeAmount(command.getAmount(), command.getCurrency()));
-            body.add("currency", command.getCurrency().toLowerCase());
-            body.add("payment_method", command.getPaymentToken());
+            body.add("amount", toStripeAmount(command.amount(), command.currency()));
+            body.add("currency", command.currency().toLowerCase());
+            body.add("payment_method", command.paymentToken());
             body.add("confirm", "true");
             body.add("automatic_payment_methods[enabled]", "true");
             body.add("automatic_payment_methods[allow_redirects]", "never");
-            if (command.getIdempotencyKey() != null && !command.getIdempotencyKey().isBlank()) {
-                headers.set("Idempotency-Key", command.getIdempotencyKey());
+            if (command.idempotencyKey() != null && !command.idempotencyKey().isBlank()) {
+                headers.set("Idempotency-Key", command.idempotencyKey());
             }
-            body.add("metadata[payment_id]", command.getPaymentId().toString());
-            body.add("metadata[booking_id]", command.getBookingId().toString());
+            body.add("metadata[payment_id]", command.paymentId().toString());
+            body.add("metadata[booking_id]", command.bookingId().toString());
 
             HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
             ResponseEntity<Map> response = restTemplate.postForEntity(
@@ -67,53 +67,37 @@ public class StripePaymentProvider implements PaymentProvider {
             return parsePaymentIntentResponse(command, response.getBody());
         } catch (HttpClientErrorException e) {
             log.error("Stripe API error ({}): {}", e.getStatusCode(), e.getResponseBodyAsString());
-            return GatewayPaymentResponse.builder()
-                    .success(false)
-                    .paymentId(command.getPaymentId())
-                    .status(PaymentStatus.FAILED)
-                    .errorMessage("Stripe error: " + extractStripeError(e.getResponseBodyAsString()))
-                    .build();
+            return GatewayChargeResult.failure(command.paymentId(),
+                    "Stripe error: " + extractStripeError(e.getResponseBodyAsString()));
         } catch (Exception e) {
             log.error("Stripe payment initiation failed", e);
-            return GatewayPaymentResponse.builder()
-                    .success(false)
-                    .paymentId(command.getPaymentId())
-                    .status(PaymentStatus.FAILED)
-                    .errorMessage("Payment processing unavailable")
-                    .build();
+            return GatewayChargeResult.failure(command.paymentId(), "Payment processing unavailable");
         }
     }
 
     @Override
-    public GatewayRefundResult refund(String gatewayReference, BigDecimal amount, String currency, String reason) {
-        log.info("Stripe: refunding {} {} for payment_intent {}", amount, currency, gatewayReference);
+    public GatewayRefundResult refund(GatewayRefundCommand command) {
+        log.info("Stripe: refunding {} {} for payment_intent {}", command.amount(), command.currency(), command.gatewayReference());
         try {
             HttpHeaders headers = buildHeaders();
             MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-            body.add("payment_intent", gatewayReference);
-            body.add("amount", toStripeAmount(amount, currency));
-            if (reason != null && !reason.isBlank()) {
-                // Stripe accepts: duplicate, fraudulent, requested_by_customer
+            body.add("payment_intent", command.gatewayReference());
+            body.add("amount", toStripeAmount(command.amount(), command.currency()));
+            if (command.reason() != null && !command.reason().isBlank()) {
                 body.add("reason", "requested_by_customer");
-                body.add("metadata[reason]", reason.substring(0, Math.min(reason.length(), 500)));
+                body.add("metadata[reason]", command.reason().substring(0, Math.min(command.reason().length(), 500)));
             }
             HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
             ResponseEntity<Map> response = restTemplate.postForEntity(STRIPE_API + "/refunds", request, Map.class);
             Map<?, ?> resp = response.getBody();
             String refundId = resp != null ? String.valueOf(resp.get("id")) : null;
-            return GatewayRefundResult.builder()
-                    .success(true)
-                    .gatewayRefundId(refundId)
-                    .build();
+            return GatewayRefundResult.success(refundId);
         } catch (HttpClientErrorException e) {
             log.error("Stripe refund error ({}): {}", e.getStatusCode(), e.getResponseBodyAsString());
-            return GatewayRefundResult.builder()
-                    .success(false)
-                    .errorMessage("Stripe refund error: " + extractStripeError(e.getResponseBodyAsString()))
-                    .build();
+            return GatewayRefundResult.failure("Stripe refund error: " + extractStripeError(e.getResponseBodyAsString()));
         } catch (Exception e) {
             log.error("Stripe refund failed", e);
-            return GatewayRefundResult.builder().success(false).errorMessage("Refund unavailable").build();
+            return GatewayRefundResult.failure("Refund unavailable");
         }
     }
 
@@ -126,8 +110,7 @@ public class StripePaymentProvider implements PaymentProvider {
                     STRIPE_API + "/payment_intents/" + gatewayReference, Map.class);
             Map<?, ?> body = response.getBody();
             if (body == null) return Optional.empty();
-            String status = String.valueOf(body.get("status"));
-            return Optional.of(mapStripeStatus(status));
+            return Optional.of(mapStripeStatus(String.valueOf(body.get("status"))));
         } catch (Exception e) {
             log.warn("Stripe status check failed for {}: {}", gatewayReference, e.getMessage());
             return Optional.empty();
@@ -147,7 +130,6 @@ public class StripePaymentProvider implements PaymentProvider {
     }
 
     private static String toStripeAmount(BigDecimal amount, String currency) {
-        // Zero-decimal currencies (JPY, etc.) don't need multiplication
         boolean zeroDecimal = isZeroDecimalCurrency(currency);
         BigDecimal stripe = zeroDecimal
                 ? amount.setScale(0, RoundingMode.HALF_UP)
@@ -165,55 +147,34 @@ public class StripePaymentProvider implements PaymentProvider {
     }
 
     @SuppressWarnings("unchecked")
-    private GatewayPaymentResponse parsePaymentIntentResponse(TokenizedPaymentCommand command, Map<?, ?> body) {
+    private GatewayChargeResult parsePaymentIntentResponse(GatewayChargeCommand command, Map<?, ?> body) {
         if (body == null) {
-            return GatewayPaymentResponse.builder()
-                    .success(false).paymentId(command.getPaymentId())
-                    .status(PaymentStatus.FAILED).errorMessage("Empty response from Stripe").build();
+            return GatewayChargeResult.failure(command.paymentId(), "Empty response from Stripe");
         }
         String status = String.valueOf(body.get("status"));
         String intentId = String.valueOf(body.get("id"));
-        String redirectUrl = null;
-        String threeDsStatus = "NOT_REQUIRED";
 
         if ("requires_action".equals(status)) {
-            // 3DS redirect required
+            String redirectUrl = null;
             Map<?, ?> nextAction = (Map<?, ?>) body.get("next_action");
             if (nextAction != null) {
                 Map<?, ?> redirect = (Map<?, ?>) nextAction.get("redirect_to_url");
-                if (redirect != null) {
-                    redirectUrl = String.valueOf(redirect.get("url"));
-                }
+                if (redirect != null) redirectUrl = String.valueOf(redirect.get("url"));
             }
-            threeDsStatus = "REQUIRED";
-            return GatewayPaymentResponse.builder()
-                    .success(true)
-                    .paymentId(command.getPaymentId())
-                    .transactionReference(intentId)
-                    .gatewayReference(intentId)
-                    .status(PaymentStatus.PENDING)
-                    .threeDsStatus(threeDsStatus)
-                    .redirectUrl(redirectUrl)
-                    .build();
+            return GatewayChargeResult.success(command.paymentId(), intentId, intentId, "REQUIRED", redirectUrl);
         }
 
         PaymentStatus mappedStatus = mapStripeStatus(status);
-        return GatewayPaymentResponse.builder()
-                .success(mappedStatus == PaymentStatus.COMPLETED)
-                .paymentId(command.getPaymentId())
-                .transactionReference(intentId)
-                .gatewayReference(intentId)
-                .status(mappedStatus)
-                .threeDsStatus(threeDsStatus)
-                .errorMessage(mappedStatus == PaymentStatus.FAILED ? "Payment declined by Stripe" : null)
-                .build();
+        if (mappedStatus == PaymentStatus.FAILED) {
+            return GatewayChargeResult.failure(command.paymentId(), "Payment declined by Stripe");
+        }
+        return GatewayChargeResult.success(command.paymentId(), intentId, intentId, "NOT_REQUIRED", null);
     }
 
     private static PaymentStatus mapStripeStatus(String stripeStatus) {
         return switch (stripeStatus) {
             case "succeeded" -> PaymentStatus.COMPLETED;
             case "requires_payment_method", "canceled" -> PaymentStatus.FAILED;
-            case "processing", "requires_action", "requires_capture", "requires_confirmation" -> PaymentStatus.PENDING;
             default -> PaymentStatus.PENDING;
         };
     }
@@ -224,6 +185,8 @@ public class StripePaymentProvider implements PaymentProvider {
         if (msgIdx < 0) return responseBody.substring(0, Math.min(200, responseBody.length()));
         int start = responseBody.indexOf('"', msgIdx + 10) + 1;
         int end = responseBody.indexOf('"', start);
-        return start > 0 && end > start ? responseBody.substring(start, end) : responseBody.substring(0, Math.min(200, responseBody.length()));
+        return start > 0 && end > start ? responseBody.substring(start, end)
+                : responseBody.substring(0, Math.min(200, responseBody.length()));
     }
 }
+

@@ -1,4 +1,4 @@
-package com.ziyara.backend.infrastructure.config;
+package com.ziyara.backend.infrastructure.payment;
 
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;

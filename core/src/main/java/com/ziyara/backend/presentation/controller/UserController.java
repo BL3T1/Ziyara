@@ -254,9 +254,9 @@ public class UserController {
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
     @Operation(summary = "Create user", description = "Admin/HR only")
     public ResponseEntity<ApiResponse<UserResponse>> create(@Valid @RequestBody CreateUserRequest request) {
-        var user = userCommandHandler.create(request);
-        UserResponse response = userQueryHandler.findById(user.getId())
-                .orElse(mapToResponse(user));
+        UUID userId = userCommandHandler.create(request);
+        UserResponse response = userQueryHandler.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("User not found after creation"));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("User created", response));
     }
 
@@ -324,17 +324,4 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("Password reset", null));
     }
 
-    private static UserResponse mapToResponse(com.ziyara.backend.domain.entity.User user) {
-        return UserResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .status(user.getStatus())
-                .emailVerified(user.isEmailVerified())
-                .phoneVerified(user.isPhoneVerified())
-                .lastLoginAt(user.getLastLoginAt())
-                .createdAt(user.getCreatedAt())
-                .build();
-    }
 }

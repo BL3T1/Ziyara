@@ -3,6 +3,7 @@ package com.ziyara.backend.application.service;
 import com.ziyara.backend.application.dto.TicketCommentRequest;
 import com.ziyara.backend.application.dto.TicketRequest;
 import com.ziyara.backend.application.dto.TicketResponse;
+import com.ziyara.backend.application.dto.response.TicketCommentResponse;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import com.ziyara.backend.domain.entity.InternalTicket;
 import com.ziyara.backend.domain.entity.TicketComment;
@@ -163,12 +164,14 @@ public class InternalTicketService {
 
     // ── Comments ─────────────────────────────────────────────────────────────────
 
-    public List<TicketComment> listComments(UUID ticketId) {
-        return commentRepository.findByTicketIdOrderByCreatedAtDesc(ticketId);
+    public List<TicketCommentResponse> listComments(UUID ticketId) {
+        return commentRepository.findByTicketIdOrderByCreatedAtDesc(ticketId).stream()
+                .map(this::toCommentResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional
-    public TicketComment addComment(UUID ticketId, TicketCommentRequest request, UUID userId) {
+    public TicketCommentResponse addComment(UUID ticketId, TicketCommentRequest request, UUID userId) {
         requireTicket(ticketId); // existence check
         TicketComment comment = new TicketComment();
         comment.setTicketId(ticketId);
@@ -177,7 +180,21 @@ public class InternalTicketService {
         comment.setInternal(request.isInternal());
         comment.setResolution(request.isResolution());
         comment.setAttachments(request.getAttachments());
-        return commentRepository.save(comment);
+        return toCommentResponse(commentRepository.save(comment));
+    }
+
+    private TicketCommentResponse toCommentResponse(TicketComment c) {
+        return TicketCommentResponse.builder()
+                .id(c.getId())
+                .ticketId(c.getTicketId())
+                .userId(c.getUserId())
+                .comment(c.getComment())
+                .internal(c.isInternal())
+                .resolution(c.isResolution())
+                .attachments(c.getAttachments())
+                .createdAt(c.getCreatedAt())
+                .updatedAt(c.getUpdatedAt())
+                .build();
     }
 
     // ── Statistics ───────────────────────────────────────────────────────────────

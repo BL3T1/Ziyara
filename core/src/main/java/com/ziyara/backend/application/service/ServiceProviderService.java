@@ -9,6 +9,8 @@ import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.domain.enums.ProviderStatus;
+import com.ziyara.backend.domain.usecase.provider.ApproveProviderUseCase;
+import com.ziyara.backend.domain.usecase.provider.SuspendProviderUseCase;
 import com.ziyara.backend.domain.enums.ServiceType;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
@@ -18,9 +20,9 @@ import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPubli
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.infrastructure.persistence.util.PageConverter;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -251,45 +253,33 @@ public class ServiceProviderService {
 
     @Transactional(readOnly = true)
     public Page<ServiceProviderResponse> getProvidersPage(int page, int size, ProviderStatus status, String type) {
-        int p = Math.max(0, page);
-        int s = Math.min(100, Math.max(1, size));
-        PageRequest pr = PageRequest.of(p, s, Sort.by(Sort.Direction.DESC, "createdAt"));
+        PageQuery query = PageQuery.of(Math.max(0, page), Math.min(100, Math.max(1, size)), "createdAt", false);
         String typeNorm = type != null && !type.isBlank() ? type.trim().toUpperCase() : null;
 
-        Page<ServiceProvider> pg;
-        if (status != null && typeNorm != null) {
-            pg = serviceProviderRepository.findByStatusAndProviderType(status, typeNorm, pr);
-        } else if (status != null) {
-            pg = serviceProviderRepository.findByStatus(status, pr);
-        } else if (typeNorm != null) {
-            pg = serviceProviderRepository.findByProviderType(typeNorm, pr);
-        } else {
-            pg = serviceProviderRepository.findAll(pr);
-        }
-        return pg.map(this::mapToResponse);
+        var result = (status != null && typeNorm != null)
+                ? serviceProviderRepository.findByStatusAndProviderType(status, typeNorm, query)
+                : (status != null)
+                    ? serviceProviderRepository.findByStatus(status, query)
+                    : (typeNorm != null)
+                        ? serviceProviderRepository.findByProviderType(typeNorm, query)
+                        : serviceProviderRepository.findAll(query);
+        return PageConverter.toSpringPage(result, query, this::mapToResponse);
     }
 
     @Transactional
     public void deleteProvider(UUID providerId) {
-        ServiceProvider provider = serviceProviderRepository.findById(providerId)
-                .orElseThrow(() -> new RuntimeException("Service provider not found"));
-        provider.setStatus(ProviderStatus.INACTIVE);
-        serviceProviderRepository.save(provider);
+        var result = new SuspendProviderUseCase(serviceProviderRepository)
+                .execute(new SuspendProviderUseCase.Input(providerId, "deleted", null));
+        if (!result.success()) throw new IllegalArgumentException(result.error());
         log.info("Provider soft-deleted (INACTIVE): {}", providerId);
     }
 
     @Transactional
     public ServiceProviderResponse approveProvider(UUID providerId, UUID approverUserId) {
-        ServiceProvider provider = serviceProviderRepository.findById(providerId)
-                .orElseThrow(() -> new IllegalArgumentException("Service provider not found"));
-        if (provider.getStatus() != ProviderStatus.PENDING_APPROVAL) {
-            throw new IllegalArgumentException("Only providers in PENDING_APPROVAL can be approved");
-        }
-        provider.setStatus(ProviderStatus.ACTIVE);
-        provider.setVerified(true);
-        provider.setApprovedBy(approverUserId);
-        provider.setApprovedAt(LocalDateTime.now());
-        ServiceProvider saved = serviceProviderRepository.save(provider);
+        var result = new ApproveProviderUseCase(serviceProviderRepository)
+                .execute(new ApproveProviderUseCase.Input(providerId, true, approverUserId));
+        if (!result.success()) throw new IllegalArgumentException(result.error());
+        ServiceProvider saved = result.provider();
 
         if (saved.getUserId() != null) {
             userRepository.findById(saved.getUserId()).ifPresent(u -> {
@@ -338,10 +328,10 @@ public class ServiceProviderService {
 
     @Transactional
     public ServiceProviderResponse suspendProvider(UUID providerId) {
-        ServiceProvider provider = serviceProviderRepository.findById(providerId)
-                .orElseThrow(() -> new RuntimeException("Service provider not found"));
-        provider.setStatus(ProviderStatus.SUSPENDED);
-        return mapToResponse(serviceProviderRepository.save(provider));
+        var result = new SuspendProviderUseCase(serviceProviderRepository)
+                .execute(new SuspendProviderUseCase.Input(providerId, null, null));
+        if (!result.success()) throw new IllegalArgumentException(result.error());
+        return mapToResponse(result.provider());
     }
 
     private ServiceProviderResponse mapToResponse(ServiceProvider provider) {

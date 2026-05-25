@@ -9,7 +9,6 @@ import com.ziyara.backend.application.dto.request.UpdateDiscountRequest;
 import com.ziyara.backend.application.dto.response.DiscountResponse;
 import com.ziyara.backend.application.query.DiscountQueryHandler;
 import com.ziyara.backend.application.service.DiscountCodeService;
-import com.ziyara.backend.domain.entity.DiscountCode;
 import com.ziyara.backend.domain.enums.DiscountStatus;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
@@ -104,7 +103,7 @@ public class DiscountController {
     @PostMapping("/validate")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Validate code", description = "Check if a discount code is valid for a given amount")
-    public ResponseEntity<ApiResponse<DiscountCode>> validateCode(
+    public ResponseEntity<ApiResponse<DiscountResponse>> validateCode(
             @Valid @RequestBody ApplyDiscountRequest request,
             @RequestParam BigDecimal amount) {
         return discountService.validateCode(request, amount)

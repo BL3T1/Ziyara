@@ -1,7 +1,7 @@
 package com.ziyara.backend.infrastructure.job;
 
 import com.ziyara.backend.application.dto.response.DashboardLiveResponse;
-import com.ziyara.backend.application.service.DashboardBootstrapService;
+import com.ziyara.backend.modules.sys.api.DashboardServiceApi;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -24,7 +24,7 @@ public class DashboardLiveBroadcaster {
     private static final int ACTIVITY_LIMIT = 15;
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final DashboardBootstrapService dashboardBootstrapService;
+    private final DashboardServiceApi dashboardBootstrapService;
 
     @Scheduled(fixedDelay = 30_000, initialDelay = 30_000)
     public void broadcast() {

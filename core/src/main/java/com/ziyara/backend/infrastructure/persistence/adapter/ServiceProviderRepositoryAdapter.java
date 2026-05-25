@@ -1,13 +1,15 @@
 package com.ziyara.backend.infrastructure.persistence.adapter;
 
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.enums.ProviderStatus;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.infrastructure.persistence.entity.ServiceProviderJpaEntity;
 import com.ziyara.backend.infrastructure.persistence.mapper.ServiceProviderMapper;
 import com.ziyara.backend.infrastructure.persistence.repository.ServiceProviderJpaRepository;
+import com.ziyara.backend.infrastructure.persistence.util.PageConverter;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
@@ -77,25 +79,23 @@ public class ServiceProviderRepositoryAdapter implements ServiceProviderReposito
     }
 
     @Override
-    public Page<ServiceProvider> findAll(Pageable pageable) {
-        return serviceProviderJpaRepository.findAll(pageable).map(serviceProviderMapper::toDomainEntity);
+    public PagedResult<ServiceProvider> findAll(PageQuery pageQuery) {
+        return PageConverter.toPagedResult(serviceProviderJpaRepository.findAll(PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
     }
 
     @Override
-    public Page<ServiceProvider> findByStatus(ProviderStatus status, Pageable pageable) {
-        return serviceProviderJpaRepository.findByStatus(status, pageable).map(serviceProviderMapper::toDomainEntity);
+    public PagedResult<ServiceProvider> findByStatus(ProviderStatus status, PageQuery pageQuery) {
+        return PageConverter.toPagedResult(serviceProviderJpaRepository.findByStatus(status, PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
     }
 
     @Override
-    public Page<ServiceProvider> findByProviderType(String providerType, Pageable pageable) {
-        return serviceProviderJpaRepository.findByProviderType(providerType, pageable)
-                .map(serviceProviderMapper::toDomainEntity);
+    public PagedResult<ServiceProvider> findByProviderType(String providerType, PageQuery pageQuery) {
+        return PageConverter.toPagedResult(serviceProviderJpaRepository.findByProviderType(providerType, PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
     }
 
     @Override
-    public Page<ServiceProvider> findByStatusAndProviderType(ProviderStatus status, String providerType, Pageable pageable) {
-        return serviceProviderJpaRepository.findByStatusAndProviderType(status, providerType, pageable)
-                .map(serviceProviderMapper::toDomainEntity);
+    public PagedResult<ServiceProvider> findByStatusAndProviderType(ProviderStatus status, String providerType, PageQuery pageQuery) {
+        return PageConverter.toPagedResult(serviceProviderJpaRepository.findByStatusAndProviderType(status, providerType, PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
     }
 
     @Override

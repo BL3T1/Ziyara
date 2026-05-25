@@ -4,8 +4,12 @@ import com.ziyara.backend.application.dto.request.CreateServiceRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceRequest;
 import com.ziyara.backend.application.dto.response.ServiceAvailabilityResponse;
 import com.ziyara.backend.application.dto.response.ServiceResponse;
+import com.ziyara.backend.modules.service.api.ServiceServiceApi;
+import com.ziyara.backend.application.exception.BusinessException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import com.ziyara.backend.domain.entity.Booking;
+import com.ziyara.backend.domain.usecase.service.PublishServiceUseCase;
+import com.ziyara.backend.domain.usecase.service.SuspendServiceUseCase;
 import com.ziyara.backend.domain.enums.BookingStatus;
 import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
@@ -27,7 +31,7 @@ import java.util.UUID;
 @org.springframework.stereotype.Service
 @RequiredArgsConstructor
 @Slf4j
-public class ServiceService {
+public class ServiceService implements ServiceServiceApi {
 
     private static final Set<BookingStatus> NON_OCCUPYING_STATUSES = Set.of(
             BookingStatus.CANCELLED, BookingStatus.REFUNDED,
@@ -128,18 +132,18 @@ public class ServiceService {
 
     @Transactional
     public ServiceResponse approve(UUID id) {
-        com.ziyara.backend.domain.entity.Service svc = serviceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Service not found"));
-        svc.setStatus(com.ziyara.backend.domain.enums.ServiceStatus.ACTIVE);
-        return toResponse(serviceRepository.save(svc));
+        var result = new PublishServiceUseCase(serviceRepository)
+                .execute(new PublishServiceUseCase.Input(id, null));
+        if (!result.success()) throw new BusinessException(result.error());
+        return toResponse(result.service());
     }
 
     @Transactional
     public ServiceResponse suspend(UUID id) {
-        com.ziyara.backend.domain.entity.Service svc = serviceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Service not found"));
-        svc.setStatus(com.ziyara.backend.domain.enums.ServiceStatus.SUSPENDED);
-        return toResponse(serviceRepository.save(svc));
+        var result = new SuspendServiceUseCase(serviceRepository)
+                .execute(new SuspendServiceUseCase.Input(id, null, null));
+        if (!result.success()) throw new BusinessException(result.error());
+        return toResponse(result.service());
     }
 
     @Transactional

@@ -3,7 +3,7 @@ package com.ziyara.backend.presentation.controller;
 import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.response.PaymentResponse;
 import com.ziyara.backend.modules.payment.api.PaymentServiceApi;
-import com.ziyara.backend.infrastructure.config.PaymentGatewayProperties;
+import com.ziyara.backend.infrastructure.payment.PaymentGatewayProperties;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -67,3 +67,4 @@ public class PayWebhookController {
         return null;
     }
 }
+

@@ -1,5 +1,6 @@
 package com.ziyara.backend.application.event;
 
+import com.ziyara.backend.application.dto.event.DataExportRequestedEvent;
 import com.ziyara.backend.application.service.DataExportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;

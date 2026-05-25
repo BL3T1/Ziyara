@@ -2,6 +2,7 @@ package com.ziyara.backend.application.service;
 
 import com.ziyara.backend.application.dto.response.BookingReportResponse;
 import com.ziyara.backend.application.dto.response.RevenueReportResponse;
+import com.ziyara.backend.modules.sys.api.ReportServiceApi;
 import com.ziyara.backend.application.query.ReportQueryHandler;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
@@ -20,10 +21,12 @@ import java.util.UUID;
  */
 @Service
 @RequiredArgsConstructor
-public class ReportService {
+public class ReportService implements ReportServiceApi {
 
     private final ReportQueryHandler reportQueryHandler;
     private final DSLContext dsl;
+    private final SystemSettingsService systemSettingsService;
+    private final CurrencyService currencyService;
 
     public RevenueReportResponse generateRevenueReport(
             LocalDate start,
@@ -31,7 +34,11 @@ public class ReportService {
             String scope,
             UUID providerId,
             UUID customerId) {
-        return reportQueryHandler.getRevenueReport(start, end, scope, providerId, customerId);
+        String targetCurrency = systemSettingsService.getSettings().getDefaultCurrency();
+        return reportQueryHandler.getRevenueReport(
+                start, end, scope, providerId, customerId,
+                targetCurrency,
+                (amt, fromCur) -> currencyService.convertOrKeep(amt, fromCur, targetCurrency));
     }
 
     public BookingReportResponse generateBookingReport(

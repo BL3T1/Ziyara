@@ -1,8 +1,8 @@
 package com.ziyara.backend.domain.repository;
 
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.AuditLog;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,16 +18,16 @@ public interface AuditLogRepository {
 
     List<AuditLog> findByEntityNameAndEntityId(String entityName, String entityId);
 
-    Page<AuditLog> findRecent(Pageable pageable);
+    PagedResult<AuditLog> findRecent(PageQuery pageQuery);
 
     /**
      * Server-side filtered query. All parameters are optional (null = no filter).
      * Used by the deletion-log component and general audit-log search.
      */
-    Page<AuditLog> findFiltered(String entityType,
-                                String action,
-                                UUID userId,
-                                LocalDateTime dateFrom,
-                                LocalDateTime dateTo,
-                                Pageable pageable);
+    PagedResult<AuditLog> findFiltered(String entityType,
+                                       String action,
+                                       UUID userId,
+                                       LocalDateTime dateFrom,
+                                       LocalDateTime dateTo,
+                                       PageQuery pageQuery);
 }

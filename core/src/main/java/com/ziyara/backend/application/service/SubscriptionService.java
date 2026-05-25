@@ -3,6 +3,7 @@ package com.ziyara.backend.application.service;
 import com.ziyara.backend.application.dto.request.ActivateSubscriptionRequest;
 import com.ziyara.backend.application.dto.request.AddSubscriptionAddOnRequest;
 import com.ziyara.backend.application.dto.response.CustomerSubscriptionResponse;
+import com.ziyara.backend.modules.subscription.api.SubscriptionServiceApi;
 import com.ziyara.backend.application.dto.response.PlanResponse;
 import com.ziyara.backend.application.dto.response.SubscriptionAddOnResponse;
 import com.ziyara.backend.application.exception.BusinessException;
@@ -12,6 +13,7 @@ import com.ziyara.backend.domain.entity.Plan;
 import com.ziyara.backend.domain.entity.SubscriptionAddOn;
 import com.ziyara.backend.domain.enums.AddOnStatus;
 import com.ziyara.backend.domain.enums.SubscriptionStatus;
+import com.ziyara.backend.domain.usecase.subscription.ActivateSubscriptionUseCase;
 import com.ziyara.backend.domain.repository.CustomerSubscriptionRepository;
 import com.ziyara.backend.domain.repository.PlanRepository;
 import com.ziyara.backend.domain.repository.ProviderStaffRepository;
@@ -41,7 +43,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class SubscriptionService {
+public class SubscriptionService implements SubscriptionServiceApi {
 
     /** Default FREE-plan seat ceiling applied when no subscription row exists. */
     public static final int FREE_PLAN_DEFAULT_SEAT_LIMIT = 6;
@@ -146,7 +148,7 @@ public class SubscriptionService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Plan not found: " + request.getPlanCode()));
 
-        // Cancel existing active subscription, if any
+        // Cancel any existing active subscription before creating the new one
         subscriptionRepository.findActiveByProviderId(providerId).ifPresent(existing -> {
             existing.setStatus(SubscriptionStatus.CANCELLED);
             existing.setCancelledAt(Instant.now());
@@ -154,16 +156,13 @@ public class SubscriptionService {
             log.info("Cancelled previous subscription {} for provider {}", existing.getId(), providerId);
         });
 
-        CustomerSubscription sub = new CustomerSubscription();
-        sub.setProviderId(providerId);
-        sub.setPlanId(plan.getId());
-        sub.setStatus(SubscriptionStatus.ACTIVE);
-        sub.setSeatLimit(plan.isUnlimited() ? Integer.MAX_VALUE : plan.getMaxUsers());
-        sub.setCurrentPeriodStart(Instant.now());
-        CustomerSubscription saved = subscriptionRepository.save(sub);
+        var result = new ActivateSubscriptionUseCase(subscriptionRepository, planRepository).execute(
+                new ActivateSubscriptionUseCase.Input(
+                        providerId, plan.getId(), Instant.now(), null, null));
+        if (!result.success()) throw new BusinessException(result.error());
 
         log.info("Activated plan {} for provider {}, seat limit {}",
-                plan.getCode(), providerId, saved.getSeatLimit());
+                plan.getCode(), providerId, result.subscription().getSeatLimit());
 
         return getSubscription(providerId);
     }

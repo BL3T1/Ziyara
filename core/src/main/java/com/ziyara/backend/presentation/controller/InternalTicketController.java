@@ -4,8 +4,8 @@ import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.TicketCommentRequest;
 import com.ziyara.backend.application.dto.TicketRequest;
 import com.ziyara.backend.application.dto.TicketResponse;
+import com.ziyara.backend.application.dto.response.TicketCommentResponse;
 import com.ziyara.backend.application.service.InternalTicketService;
-import com.ziyara.backend.domain.entity.TicketComment;
 import com.ziyara.backend.domain.enums.TicketPriority;
 import com.ziyara.backend.domain.enums.TicketStatus;
 import com.ziyara.backend.domain.enums.TicketType;
@@ -174,13 +174,13 @@ public class InternalTicketController {
 
     @GetMapping("/{id}/comments")
     @Operation(summary = "Get ticket comments")
-    public ResponseEntity<ApiResponse<List<TicketComment>>> getComments(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<List<TicketCommentResponse>>> getComments(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(ticketService.listComments(id)));
     }
 
     @PostMapping("/{id}/comments")
     @Operation(summary = "Add a comment to a ticket")
-    public ResponseEntity<ApiResponse<TicketComment>> addComment(
+    public ResponseEntity<ApiResponse<TicketCommentResponse>> addComment(
             @PathVariable UUID id,
             @Valid @RequestBody TicketCommentRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {

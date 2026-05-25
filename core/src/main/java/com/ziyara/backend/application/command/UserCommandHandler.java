@@ -46,7 +46,7 @@ public class UserCommandHandler {
      * Company dashboard / HR: internal staff via legacy {@code role} enum or unified {@code primaryRbacRoleId}.
      */
     @Transactional
-    public User create(CreateUserRequest request) {
+    public UUID create(CreateUserRequest request) {
         boolean hasEnum = request.getRole() != null;
         boolean hasRbac = request.getPrimaryRbacRoleId() != null;
         if (hasEnum == hasRbac) {
@@ -79,7 +79,7 @@ public class UserCommandHandler {
                 .notifyRoles(List.of("HR_MANAGER", "SUPER_ADMIN"))
                 .metadata("{\"userId\":\"" + saved.getId() + "\"}")
                 .build());
-        return saved;
+        return saved.getId();
     }
 
     /**

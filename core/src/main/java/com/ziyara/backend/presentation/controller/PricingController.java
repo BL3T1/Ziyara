@@ -3,7 +3,7 @@ package com.ziyara.backend.presentation.controller;
 import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.request.PricePreviewRequest;
 import com.ziyara.backend.application.dto.response.PriceBreakdownResponse;
-import com.ziyara.backend.core.api.PricingEngineApi;
+import com.ziyara.backend.modules.pricing.api.PricingEngineApi;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

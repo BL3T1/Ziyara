@@ -12,6 +12,7 @@ import com.ziyara.backend.domain.enums.DiscountStatus;
 import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.domain.repository.DiscountCodeRepository;
 import com.ziyara.backend.domain.repository.ServiceRepository;
+import com.ziyara.backend.domain.usecase.discount.ApproveDiscountCodeUseCase;
 import com.ziyara.backend.infrastructure.security.SecurityContextUserId;
 import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
 import com.ziyara.backend.application.exception.BusinessException;
@@ -123,14 +124,17 @@ public class DiscountCodeService {
         if (!SecurityRoleUtils.canActivateOrApproveDiscounts()) {
             throw new IllegalArgumentException("Only Super Admin or CEO can approve discounts");
         }
-        DiscountCode dc = discountCodeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Discount not found"));
-        // Idempotent: already active is fine; also allow activating INACTIVE discounts
-        if (dc.getStatus() == DiscountStatus.ACTIVE) {
-            return toResponse(dc);
+        UUID reviewerId = SecurityContextUserId.currentUserId().orElse(null);
+        var result = new ApproveDiscountCodeUseCase(discountCodeRepository)
+                .execute(new ApproveDiscountCodeUseCase.Input(id, true, reviewerId));
+        if (!result.success()) throw new BusinessException(result.error());
+        // Also activate the discount code after approval
+        DiscountCode dc = result.discountCode();
+        if (dc.getStatus() != DiscountStatus.ACTIVE) {
+            dc.setStatus(DiscountStatus.ACTIVE);
+            discountCodeRepository.save(dc);
         }
-        dc.setStatus(DiscountStatus.ACTIVE);
-        return toResponse(discountCodeRepository.save(dc));
+        return toResponse(dc);
     }
 
     @Transactional
@@ -142,7 +146,7 @@ public class DiscountCodeService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<DiscountCode> validateCode(ApplyDiscountRequest request, BigDecimal bookingAmount) {
+    public Optional<DiscountResponse> validateCode(ApplyDiscountRequest request, BigDecimal bookingAmount) {
         String code = request.getCode();
         log.info("Validating discount code: {}", code);
         Optional<DiscountCode> base = discountCodeRepository.findByCode(code)
@@ -171,7 +175,7 @@ public class DiscountCodeService {
                 return Optional.empty();
             }
         }
-        return Optional.of(dc);
+        return Optional.of(toResponse(dc));
     }
 
     @Transactional

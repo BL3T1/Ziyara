@@ -9,7 +9,7 @@ import com.ziyara.backend.infrastructure.config.WebMvcConfigurationPropertiesImp
 import com.ziyara.backend.infrastructure.config.LocaleConfig;
 import com.ziyara.backend.infrastructure.config.WebMvcSecuritySliceConfiguration;
 import com.ziyara.backend.infrastructure.config.SecurityConfig;
-import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;

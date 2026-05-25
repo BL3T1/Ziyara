@@ -2,7 +2,7 @@ package com.ziyara.backend.application.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ziyara.backend.application.dto.response.DataExportRequestResponse;
-import com.ziyara.backend.application.event.DataExportRequestedEvent;
+import com.ziyara.backend.application.dto.event.DataExportRequestedEvent;
 import com.ziyara.backend.domain.entity.Booking;
 import com.ziyara.backend.domain.entity.DataExportRequest;
 import com.ziyara.backend.domain.entity.Notification;
@@ -15,8 +15,7 @@ import com.ziyara.backend.domain.repository.UserConsentRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import com.ziyara.backend.domain.common.PageQuery;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -140,19 +139,18 @@ public class DataExportService {
             payload.put("consents", consents);
 
             var bookingPage = bookingRepository.findByCustomerId(
-                    userId,
-                    PageRequest.of(0, 500, Sort.by(Sort.Direction.DESC, "createdAt")));
+                    userId, PageQuery.of(0, 500, "createdAt", false));
             List<Map<String, Object>> bookings = new ArrayList<>();
-            for (Booking b : bookingPage.getContent()) {
+            for (Booking b : bookingPage.content()) {
                 bookings.add(bookingSummary(b));
             }
             payload.put("bookings", bookings);
-            payload.put("bookingsTruncated", bookingPage.getTotalElements() > bookings.size());
+            payload.put("bookingsTruncated", bookingPage.totalElements() > bookings.size());
 
             List<Map<String, Object>> notifications = new ArrayList<>();
             for (Notification n : notificationRepository
-                    .findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 50))
-                    .getContent()) {
+                    .findByUserIdOrderByCreatedAtDesc(userId, PageQuery.of(0, 50))
+                    .content()) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", n.getId().toString());
                 m.put("type", n.getType() != null ? n.getType().name() : null);

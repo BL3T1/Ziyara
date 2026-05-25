@@ -1,6 +1,6 @@
 package com.ziyara.backend.infrastructure.web;
 
-import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseCookie;
 
@@ -61,3 +61,4 @@ public final class AuthCookieHelper {
                 .build();
     }
 }
+

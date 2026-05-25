@@ -81,7 +81,8 @@ public class NotificationController {
             @PathVariable UUID id,
             @RequestHeader("Authorization") String authHeader
     ) {
-        notificationService.markAsRead(id);
+        UUID userId = extractUserId(authHeader);
+        notificationService.markAsRead(id, userId);
         return ResponseEntity.ok(ApiResponse.success("Notification marked as read", null));
     }
 

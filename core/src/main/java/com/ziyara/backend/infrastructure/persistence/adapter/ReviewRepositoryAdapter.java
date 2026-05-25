@@ -1,14 +1,16 @@
 package com.ziyara.backend.infrastructure.persistence.adapter;
 
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.Review;
 import com.ziyara.backend.domain.enums.ReviewStatus;
 import com.ziyara.backend.domain.repository.ReviewRepository;
 import com.ziyara.backend.infrastructure.persistence.entity.ReviewJpaEntity;
 import com.ziyara.backend.infrastructure.persistence.mapper.ReviewMapper;
 import com.ziyara.backend.infrastructure.persistence.repository.ReviewJpaRepository;
+import com.ziyara.backend.infrastructure.persistence.util.PageConverter;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
@@ -79,8 +81,9 @@ public class ReviewRepositoryAdapter implements ReviewRepository {
     }
 
     @Override
-    public Page<Review> findAllForAdmin(Pageable pageable, ReviewStatus status, UUID serviceId,
-                                        LocalDateTime createdAfterInclusive, LocalDateTime createdBeforeExclusive) {
+    public PagedResult<Review> findAllForAdmin(PageQuery pageQuery, ReviewStatus status, UUID serviceId,
+                                               LocalDateTime createdAfterInclusive, LocalDateTime createdBeforeExclusive) {
+        Pageable pageable = PageConverter.toPageable(pageQuery);
         Specification<ReviewJpaEntity> spec = (root, query, cb) -> {
             List<Predicate> p = new ArrayList<>();
             if (status != null) {
@@ -97,7 +100,7 @@ public class ReviewRepositoryAdapter implements ReviewRepository {
             }
             return p.isEmpty() ? cb.conjunction() : cb.and(p.toArray(Predicate[]::new));
         };
-        return reviewJpaRepository.findAll(spec, pageable).map(reviewMapper::toDomainEntity);
+        return PageConverter.toPagedResult(reviewJpaRepository.findAll(spec, pageable), reviewMapper::toDomainEntity);
     }
 
     @Override

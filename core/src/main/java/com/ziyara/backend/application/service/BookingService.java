@@ -11,7 +11,10 @@ import com.ziyara.backend.application.dto.response.VoucherResponse;
 import com.ziyara.backend.application.exception.BusinessException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import com.ziyara.backend.application.exception.UnauthorizedException;
-import com.ziyara.backend.core.api.PricingEngineApi;
+import com.ziyara.backend.domain.usecase.booking.CancelBookingUseCase;
+import com.ziyara.backend.domain.usecase.booking.ConfirmBookingUseCase;
+import com.ziyara.backend.domain.usecase.booking.CreateBookingUseCase;
+import com.ziyara.backend.modules.pricing.api.PricingEngineApi;
 import com.ziyara.backend.domain.entity.Booking;
 import com.ziyara.backend.domain.entity.DiscountCode;
 import com.ziyara.backend.domain.enums.BookingStatus;
@@ -25,9 +28,10 @@ import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPubli
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import com.ziyara.backend.modules.booking.api.BookingServiceApi;
 import lombok.RequiredArgsConstructor;
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
+import com.ziyara.backend.infrastructure.persistence.util.PageConverter;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,17 +76,17 @@ public class BookingService implements BookingServiceApi {
     public Page<BookingResponse> getAllBookings(UUID userId, boolean isCompanyStaff,
                                                 BookingStatus status, boolean scopeAll,
                                                 int page, int size) {
-        PageRequest pr = bookingPageRequest(page, size);
+        PageQuery query = bookingPageQuery(page, size);
         if (scopeAll) {
-            Page<Booking> page_ = status != null
-                    ? bookingRepository.findByStatus(status, pr)
-                    : bookingRepository.findAll(pr);
-            return page_.map(this::toResponse);
+            PagedResult<Booking> result = status != null
+                    ? bookingRepository.findByStatus(status, query)
+                    : bookingRepository.findAll(query);
+            return PageConverter.toSpringPage(result, query, this::toResponse);
         }
-        Page<Booking> page_ = status != null
-                ? bookingRepository.findByCustomerIdAndStatus(userId, status, pr)
-                : bookingRepository.findByCustomerId(userId, pr);
-        return page_.map(this::toResponse);
+        PagedResult<Booking> result = status != null
+                ? bookingRepository.findByCustomerIdAndStatus(userId, status, query)
+                : bookingRepository.findByCustomerId(userId, query);
+        return PageConverter.toSpringPage(result, query, this::toResponse);
     }
 
     @Override
@@ -107,13 +111,11 @@ public class BookingService implements BookingServiceApi {
     @Transactional(readOnly = true)
     public Page<BookingResponse> listForCustomer(UUID customerId, @Nullable BookingStatus status,
                                                   int page, int size) {
-        int p = Math.max(0, page);
-        int s = Math.min(100, Math.max(1, size));
-        PageRequest pr = PageRequest.of(p, s, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Booking> bookings = status != null
-                ? bookingRepository.findByCustomerIdAndStatus(customerId, status, pr)
-                : bookingRepository.findByCustomerId(customerId, pr);
-        return bookings.map(this::toResponse);
+        PageQuery query = bookingPageQuery(page, size);
+        PagedResult<Booking> bookings = status != null
+                ? bookingRepository.findByCustomerIdAndStatus(customerId, status, query)
+                : bookingRepository.findByCustomerId(customerId, query);
+        return PageConverter.toSpringPage(bookings, query, this::toResponse);
     }
 
     @Override
@@ -124,7 +126,7 @@ public class BookingService implements BookingServiceApi {
                                                @Nullable LocalDate from,
                                                @Nullable LocalDate to,
                                                int page, int size) {
-        PageRequest pr = bookingPageRequest(page, size);
+        PageQuery query = bookingPageQuery(page, size);
         if (providerId != null || serviceType != null) {
             List<com.ziyara.backend.domain.entity.Service> services = providerId != null
                     ? serviceRepository.findByProviderId(providerId)
@@ -133,11 +135,11 @@ public class BookingService implements BookingServiceApi {
                     .map(com.ziyara.backend.domain.entity.Service::getId)
                     .collect(Collectors.toList());
             if (serviceIds.isEmpty()) {
-                return Page.empty(pr);
+                return PageConverter.toSpringPage(PagedResult.empty(query), query);
             }
-            return bookingRepository.findByServiceIdIn(serviceIds, pr).map(this::toResponse);
+            return PageConverter.toSpringPage(bookingRepository.findByServiceIdIn(serviceIds, query), query, this::toResponse);
         }
-        return bookingRepository.findFilteredAdmin(status, from, to, pr).map(this::toResponse);
+        return PageConverter.toSpringPage(bookingRepository.findFilteredAdmin(status, from, to, query), query, this::toResponse);
     }
 
     @Override
@@ -169,9 +171,6 @@ public class BookingService implements BookingServiceApi {
     @Override
     @Transactional
     public BookingResponse createBooking(UUID customerId, BookingRequest request) {
-        serviceRepository.findById(request.getServiceId())
-                .orElseThrow(() -> new ResourceNotFoundException("Service not found"));
-
         if (request.getCheckOutDate() != null) {
             boolean hasConflict = bookingRepository.hasConflictingBooking(
                     request.getServiceId(), request.getCheckInDate(), request.getCheckOutDate());
@@ -197,37 +196,41 @@ public class BookingService implements BookingServiceApi {
                 (breakdown.getProviderDiscountAmount() != null ? breakdown.getProviderDiscountAmount() : BigDecimal.ZERO)
                 .add(breakdown.getCompanyDiscountAmount() != null ? breakdown.getCompanyDiscountAmount() : BigDecimal.ZERO);
 
-        Booking booking = new Booking();
-        booking.setCustomerId(customerId);
-        booking.setServiceId(request.getServiceId());
-        booking.setCheckInDate(request.getCheckInDate());
-        booking.setCheckOutDate(request.getCheckOutDate());
-        booking.setGuests(request.getGuests() != null ? request.getGuests() : 1);
-        booking.setRooms(request.getRooms() != null ? request.getRooms() : 1);
-        booking.setSpecialRequests(request.getSpecialRequests());
-        booking.setIdDocumentUrl(request.getIdDocumentUrl());
-        booking.setDiscountContextMenuItemIds(request.getMenuItemIds());
-        booking.setDiscountContextMenuSectionIds(request.getMenuSectionIds());
-        booking.setDiscountContextRoomTypeId(request.getRoomTypeId());
-        booking.setCurrency(breakdown.getCurrency());
-        booking.setBaseAmount(breakdown.getBaseAmount());
-        booking.setDiscountAmount(totalDiscount);
-        booking.setTaxAmount(breakdown.getTaxAmount());
-        booking.setCommissionAmount(breakdown.getCommissionAmount());
-        booking.setTotalAmount(breakdown.getTotalAmount());
-
+        // Resolve discount code ID before delegating to use case
+        DiscountCode resolvedDc = null;
         if (request.getDiscountCode() != null && !request.getDiscountCode().isBlank()) {
-            discountCodeRepository.findByCode(request.getDiscountCode().trim().toUpperCase())
-                    .filter(DiscountCode::isValid)
-                    .ifPresent(dc -> {
-                        booking.setDiscountCodeId(dc.getId());
-                        dc.incrementUsage();
-                        discountCodeRepository.save(dc);
-                    });
+            resolvedDc = discountCodeRepository.findByCode(request.getDiscountCode().trim().toUpperCase())
+                    .filter(DiscountCode::isValid).orElse(null);
         }
 
-        booking.setBookingReference(generateBookingReference());
-        return toResponse(bookingRepository.save(booking));
+        var createResult = new CreateBookingUseCase(bookingRepository, serviceRepository).execute(
+                new CreateBookingUseCase.Input(
+                        customerId, request.getServiceId(),
+                        request.getCheckInDate(), request.getCheckOutDate(),
+                        request.getGuests() != null ? request.getGuests() : 1,
+                        request.getRooms() != null ? request.getRooms() : 1,
+                        breakdown.getBaseAmount(), totalDiscount,
+                        breakdown.getTaxAmount(), breakdown.getTotalAmount(),
+                        breakdown.getCurrency(), request.getSpecialRequests(),
+                        resolvedDc != null ? resolvedDc.getId() : null));
+        if (!createResult.success()) throw new BusinessException(createResult.error());
+
+        // Enrich with application-level fields the use case doesn't manage
+        Booking booking = createResult.booking();
+        booking.setCommissionAmount(breakdown.getCommissionAmount());
+        if (request.getIdDocumentUrl() != null) booking.setIdDocumentUrl(request.getIdDocumentUrl());
+        if (request.getMenuItemIds() != null) booking.setDiscountContextMenuItemIds(request.getMenuItemIds());
+        if (request.getMenuSectionIds() != null) booking.setDiscountContextMenuSectionIds(request.getMenuSectionIds());
+        if (request.getRoomTypeId() != null) booking.setDiscountContextRoomTypeId(request.getRoomTypeId());
+        bookingRepository.save(booking);
+
+        // Increment discount usage after successful booking creation
+        if (resolvedDc != null) {
+            resolvedDc.incrementUsage();
+            discountCodeRepository.save(resolvedDc);
+        }
+
+        return toResponse(booking);
     }
 
     @Override
@@ -251,20 +254,21 @@ public class BookingService implements BookingServiceApi {
     @Override
     @Transactional
     public BookingResponse confirmBooking(UUID id, UUID requestingUserId, boolean isCompanyStaff) {
-        Booking booking = bookingRepository.findById(id)
+        Booking existing = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
-        assertCanAccess(booking, requestingUserId, isCompanyStaff);
-        booking.confirm();
-        Booking saved = bookingRepository.save(booking);
+        assertCanAccess(existing, requestingUserId, isCompanyStaff);
+        var result = new ConfirmBookingUseCase(bookingRepository)
+                .execute(new ConfirmBookingUseCase.Input(id, requestingUserId));
+        if (!result.success()) throw new BusinessException(result.error());
         staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
                 .eventId(UUID.randomUUID())
                 .notificationType(NotificationType.BOOKING_CONFIRMED_STAFF.name())
                 .title("Booking confirmed")
-                .message("Booking " + saved.getBookingReference() + " was confirmed.")
+                .message("Booking " + result.booking().getBookingReference() + " was confirmed.")
                 .notifyRoles(List.of("SALES_MANAGER", "SUPPORT_MANAGER"))
-                .metadata("{\"bookingId\":\"" + saved.getId() + "\"}")
+                .metadata("{\"bookingId\":\"" + result.booking().getId() + "\"}")
                 .build());
-        return toResponse(saved);
+        return toResponse(result.booking());
     }
 
     @Override
@@ -280,14 +284,15 @@ public class BookingService implements BookingServiceApi {
     @Transactional
     public BookingResponse cancelBooking(UUID bookingId, UUID requestingUserId,
                                           boolean isCompanyStaff, String reason) {
-        Booking booking = bookingRepository.findById(bookingId)
+        Booking existing = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
-        assertCanAccess(booking, requestingUserId, isCompanyStaff);
-        if (!booking.canBeCancelled()) {
-            throw new BusinessException("Booking cannot be cancelled in its current status");
-        }
-        booking.cancel(requestingUserId, reason);
-        return toResponse(bookingRepository.save(booking));
+        assertCanAccess(existing, requestingUserId, isCompanyStaff);
+        // Pass customerId only for customers (use case skips ownership check when null — staff path)
+        UUID customerId = isCompanyStaff ? null : requestingUserId;
+        var result = new CancelBookingUseCase(bookingRepository)
+                .execute(new CancelBookingUseCase.Input(bookingId, customerId, requestingUserId, reason));
+        if (!result.success()) throw new BusinessException(result.error());
+        return toResponse(result.booking());
     }
 
     @Override
@@ -309,15 +314,8 @@ public class BookingService implements BookingServiceApi {
         throw new UnauthorizedException("You don't have access to this booking");
     }
 
-    private static PageRequest bookingPageRequest(int page, int size) {
-        int p = Math.max(0, page);
-        int s = Math.min(100, Math.max(1, size));
-        return PageRequest.of(p, s, Sort.by(Sort.Direction.DESC, "createdAt"));
-    }
-
-    private static String generateBookingReference() {
-        return "ZYB" + System.currentTimeMillis()
-                + String.format("%04d", (int) (Math.random() * 10000));
+    private static PageQuery bookingPageQuery(int page, int size) {
+        return PageQuery.of(Math.max(0, page), Math.min(100, Math.max(1, size)), "createdAt", false);
     }
 
     private BookingResponse toResponse(Booking b) {

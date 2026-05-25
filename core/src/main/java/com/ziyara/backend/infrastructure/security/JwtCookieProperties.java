@@ -1,4 +1,4 @@
-package com.ziyara.backend.infrastructure.config.properties;
+package com.ziyara.backend.infrastructure.security;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;

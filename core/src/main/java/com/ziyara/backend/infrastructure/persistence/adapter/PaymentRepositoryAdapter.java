@@ -1,5 +1,7 @@
 package com.ziyara.backend.infrastructure.persistence.adapter;
 
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.Payment;
 import com.ziyara.backend.domain.enums.PaymentStatus;
 import java.math.BigDecimal;
@@ -7,8 +9,8 @@ import com.ziyara.backend.domain.repository.PaymentRepository;
 import com.ziyara.backend.infrastructure.persistence.entity.PaymentJpaEntity;
 import com.ziyara.backend.infrastructure.persistence.mapper.PaymentMapper;
 import com.ziyara.backend.infrastructure.persistence.repository.PaymentJpaRepository;
+import com.ziyara.backend.infrastructure.persistence.util.PageConverter;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
@@ -73,18 +75,18 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
     }
 
     @Override
-    public Page<Payment> findAll(Pageable pageable) {
-        return paymentJpaRepository.findAll(pageable).map(paymentMapper::toDomainEntity);
+    public PagedResult<Payment> findAll(PageQuery pageQuery) {
+        return PageConverter.toPagedResult(paymentJpaRepository.findAll(PageConverter.toPageable(pageQuery)), paymentMapper::toDomainEntity);
     }
 
     @Override
-    public Page<Payment> findByStatus(PaymentStatus status, Pageable pageable) {
-        return paymentJpaRepository.findByStatus(status, pageable).map(paymentMapper::toDomainEntity);
+    public PagedResult<Payment> findByStatus(PaymentStatus status, PageQuery pageQuery) {
+        return PageConverter.toPagedResult(paymentJpaRepository.findByStatus(status, PageConverter.toPageable(pageQuery)), paymentMapper::toDomainEntity);
     }
 
     @Override
-    public Page<Payment> findByCustomerUserId(UUID customerUserId, Pageable pageable) {
-        return paymentJpaRepository.findByBookingCustomerUserId(customerUserId, pageable).map(paymentMapper::toDomainEntity);
+    public PagedResult<Payment> findByCustomerUserId(UUID customerUserId, PageQuery pageQuery) {
+        return PageConverter.toPagedResult(paymentJpaRepository.findByBookingCustomerUserId(customerUserId, PageConverter.toPageable(pageQuery)), paymentMapper::toDomainEntity);
     }
 
     @Override

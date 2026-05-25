@@ -1,6 +1,6 @@
 package com.ziyara.backend.infrastructure.job;
 
-import com.ziyara.backend.application.service.ReportService;
+import com.ziyara.backend.modules.sys.api.ReportServiceApi;
 import com.ziyara.backend.application.dto.response.RevenueReportResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +18,7 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class ScheduledReportJob {
 
-    private final ReportService reportService;
+    private final ReportServiceApi reportService;
 
     /** Weekly revenue summary — every Monday at 07:00 UTC. */
     @Scheduled(cron = "0 0 7 * * MON", zone = "UTC")

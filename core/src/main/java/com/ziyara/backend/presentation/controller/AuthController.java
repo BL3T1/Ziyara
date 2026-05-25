@@ -8,7 +8,7 @@ import com.ziyara.backend.application.service.AuthService;
 import com.ziyara.backend.application.service.LoginRateLimitService;
 import com.ziyara.backend.application.service.SecurityAlertService;
 import com.ziyara.backend.application.service.SecurityEventService;
-import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.web.AuthCookieHelper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -220,3 +220,4 @@ public class AuthController {
         return xfHeader.split(",")[0];
     }
 }
+

@@ -1,4 +1,4 @@
-package com.ziyara.backend.application.event;
+package com.ziyara.backend.application.dto.event;
 
 import java.util.UUID;
 
