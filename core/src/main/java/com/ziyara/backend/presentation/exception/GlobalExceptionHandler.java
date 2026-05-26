@@ -100,6 +100,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleRateLimited(RateLimitedException ex) {
         log.warn("Rate limited: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", "60")
                 .body(withCorrelation(ApiResponse.errorCoded(ex.getMessage(), "RATE_LIMITED")));
     }
     
