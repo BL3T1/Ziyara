@@ -3,9 +3,9 @@ spring:
     name: ziyarah-backend
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/ziyarah
-    username: ziyarah_user
-    password: ziyarah_password
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/ziyarah}
+    username: ${SPRING_DATASOURCE_USERNAME:ziyarah_user}
+    password: ${POSTGRES_PASSWORD:ziyarah_password}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 20

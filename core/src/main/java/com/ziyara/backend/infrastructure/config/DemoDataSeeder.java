@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -24,6 +25,7 @@ import java.util.Base64;
 @RequiredArgsConstructor
 @Slf4j
 @Profile("!prod & !functest")
+@ConditionalOnProperty(name = "app.demo.seed-users.enabled", havingValue = "true", matchIfMissing = false)
 public class DemoDataSeeder implements ApplicationRunner {
 
     private static final String BOOTSTRAP_PASSWORD_ENV = "APP_DEMO_PASSWORD";

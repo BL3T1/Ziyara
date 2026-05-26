@@ -35,6 +35,7 @@ ziyara:
 jwt:
   cookie:
     secure: true
+    same-site: Strict
     also-return-token-in-body: false
 
 management:
