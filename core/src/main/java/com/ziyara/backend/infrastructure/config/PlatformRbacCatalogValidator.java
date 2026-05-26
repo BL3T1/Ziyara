@@ -56,6 +56,6 @@ public class PlatformRbacCatalogValidator implements ApplicationRunner {
             }
         }
 
-        log.info("Platform RBAC catalog validation passed (Z1–Z7 groups and system role group links).");
+        log.info("Platform RBAC catalog validation passed (C1 Admin group and system role group links).");
     }
 }
