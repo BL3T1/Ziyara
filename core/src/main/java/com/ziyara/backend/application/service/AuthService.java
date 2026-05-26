@@ -172,7 +172,7 @@ public class AuthService {
             if (jti != null) {
                 jwtTokenBlocklistService.revokeUntilExpiry(jti, jwtService.extractExpirationInstant(token));
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.debug("Logout revoke skipped: {}", e.getMessage());
         }
     }

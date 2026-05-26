@@ -82,7 +82,7 @@ public class DashboardService {
                 try {
                     BigDecimal r = paymentRepository.sumCompletedAmountBetween(from, to);
                     return r != null ? r : BigDecimal.ZERO;
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     log.debug("sumCompletedAmountBetween failed: {}", e.getMessage());
                     return BigDecimal.ZERO;
                 }
@@ -94,7 +94,7 @@ public class DashboardService {
                     long active = bookingRepository.countByStatusIn(
                             Arrays.asList(BookingStatus.CONFIRMED, BookingStatus.ACTIVE));
                     return new long[]{total, active};
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     log.debug("booking counts failed: {}", e.getMessage());
                     return new long[]{0L, 0L};
                 }
@@ -103,7 +103,7 @@ public class DashboardService {
             CompletableFuture<Long> providersFut = CompletableFuture.supplyAsync(() -> {
                 try {
                     return serviceProviderRepository.count();
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     log.debug("serviceProvider count failed: {}", e.getMessage());
                     return 0L;
                 }
@@ -115,7 +115,7 @@ public class DashboardService {
                             TicketStatus.SUBMITTED, TicketStatus.ACKNOWLEDGED, TicketStatus.ASSIGNED,
                             TicketStatus.IN_PROGRESS, TicketStatus.PENDING_INFO, TicketStatus.TESTING, TicketStatus.REOPENED);
                     return internalTicketRepository.countByStatusIn(openStatuses);
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     log.debug("countByStatusIn failed: {}", e.getMessage());
                     return 0L;
                 }
@@ -127,7 +127,7 @@ public class DashboardService {
                 }
                 try {
                     return complaintRepository.countOpenComplaints();
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     log.debug("countOpenComplaints failed: {}", e.getMessage());
                     return 0L;
                 }
@@ -152,7 +152,7 @@ public class DashboardService {
                     .pendingComplaints(pendingComplaints)
                     .openTickets(openTickets)
                     .build();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("getKpis failed: {}", e.getMessage());
             return DashboardKpiResponse.builder()
                     .totalRevenue(BigDecimal.ZERO)
@@ -185,7 +185,7 @@ public class DashboardService {
             return logs.stream()
                     .map(log -> toActivityItem(log, emailByUserId))
                     .collect(Collectors.toList());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.debug("getActivityFeed failed: {}", e.getMessage());
             return List.of();
         }

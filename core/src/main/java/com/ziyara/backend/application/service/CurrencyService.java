@@ -57,7 +57,7 @@ public class CurrencyService {
         }
         try {
             return convert(amount, from, to);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("No exchange rate {} -> {}; leaving amount as-is", from, to);
             return amount;
         }
