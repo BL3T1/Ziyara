@@ -444,6 +444,7 @@ export interface CreateServiceProviderPayload {
   managerEmail?: string
   managerPassword?: string
   managerPhone?: string
+  commissionRate?: number
 }
 
 /** PUT /providers/{id} (company staff); partial updates — include fields to change */

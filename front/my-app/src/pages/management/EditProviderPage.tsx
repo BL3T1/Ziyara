@@ -1,6 +1,6 @@
 /**
  * Company staff: edit partner (provider) profile — description, branding URLs, contact details;
- * optional commission, verification, and status for permitted roles.
+ * optional profit margin, verification, and status for permitted roles.
  */
 
 import { useEffect, useState } from 'react'
@@ -21,6 +21,7 @@ import {
 } from '../../types/auth'
 import { isUuid } from '../../utils/isUuid'
 import { safeImageUrl } from '../../utils/safeRendering'
+import { FormField } from '../../components/FormField'
 
 const STATUS_OPTIONS: ProviderStatusDto[] = [
   'PENDING_APPROVAL',
@@ -32,6 +33,14 @@ const STATUS_OPTIONS: ProviderStatusDto[] = [
   'BLOCKED',
 ]
 
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <div className="border-b border-slate-100 pb-1 dark:border-white/[0.05]">
+      <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">{label}</p>
+    </div>
+  )
+}
+
 export function EditProviderPage() {
   const { t } = useLanguage()
   const { user } = useAuth()
@@ -39,7 +48,7 @@ export function EditProviderPage() {
   const { providerId } = useParams<{ providerId: string }>()
   const id = providerId?.trim() ?? ''
 
-  const showCommission = user?.role ? canViewProviderCommission(user.role) : false
+  const showProfitMargin = user?.role ? canViewProviderCommission(user.role) : false
   const showGovernance = user?.role ? canApproveRejectProvider(user.role) : false
   const allowed = user?.role ? isCompanyStaffRole(user.role) : false
 
@@ -54,7 +63,7 @@ export function EditProviderPage() {
   const [address, setAddress] = useState('')
   const [description, setDescription] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
-  const [commissionRate, setCommissionRate] = useState('')
+  const [profitMargin, setProfitMargin] = useState('')
   const [verified, setVerified] = useState(false)
   const [status, setStatus] = useState<ProviderStatusDto>('ACTIVE')
 
@@ -70,38 +79,25 @@ export function EditProviderPage() {
       .get(id)
       .then((res) => {
         const p = res.data as ServiceProviderDto
-        if (!p?.id) {
-          setError(t('providerEditPage.notFound'))
-          return
-        }
+        if (!p?.id) { setError(t('providerEditPage.notFound')); return }
         setName(p.name ?? '')
         setPhone(p.phone ?? '')
         setEmail(p.email ?? '')
         setAddress(p.address ?? '')
         setDescription(p.description ?? '')
         setLogoUrl(p.logoUrl ?? '')
-        setCommissionRate(p.commissionRate != null ? String(p.commissionRate) : '')
+        setProfitMargin(p.commissionRate != null ? String(p.commissionRate) : '10')
         setVerified(!!p.verified)
         const st = (p.status ?? 'ACTIVE').toUpperCase() as ProviderStatusDto
         setStatus(STATUS_OPTIONS.includes(st) ? st : 'ACTIVE')
-        setReadOnly({
-          type: p.type,
-          registrationNumber: p.registrationNumber,
-          rating: p.rating,
-          createdAt: p.createdAt,
-        })
+        setReadOnly({ type: p.type, registrationNumber: p.registrationNumber, rating: p.rating, createdAt: p.createdAt })
       })
       .catch((e) => setError(getApiErrorMessage(e)))
       .finally(() => setLoading(false))
   }, [id, t])
 
-  if (!allowed) {
-    return <Navigate to="/management/providers" replace />
-  }
-
-  if (!id || !isUuid(id)) {
-    return <Navigate to="/management/providers" replace />
-  }
+  if (!allowed) return <Navigate to="/management/providers" replace />
+  if (!id || !isUuid(id)) return <Navigate to="/management/providers" replace />
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -117,16 +113,14 @@ export function EditProviderPage() {
         description: description.trim(),
         logoUrl: logoUrl.trim(),
       }
-      if (showCommission) {
-        const rate = parseFloat(commissionRate)
-        if (commissionRate !== '' && (Number.isNaN(rate) || rate < 0 || rate > 100)) {
+      if (showProfitMargin) {
+        const rate = parseFloat(profitMargin)
+        if (profitMargin !== '' && (Number.isNaN(rate) || rate < 0 || rate > 100)) {
           setError(t('providerEditPage.errCommission'))
           setSaving(false)
           return
         }
-        if (commissionRate !== '') {
-          payload.commissionRate = rate
-        }
+        if (profitMargin !== '') payload.commissionRate = rate
       }
       if (showGovernance) {
         payload.verified = verified
@@ -140,7 +134,7 @@ export function EditProviderPage() {
       if (p?.address != null) setAddress(p.address)
       setDescription(p?.description ?? '')
       setLogoUrl(p?.logoUrl ?? '')
-      if (p?.commissionRate != null) setCommissionRate(String(p.commissionRate))
+      if (p?.commissionRate != null) setProfitMargin(String(p.commissionRate))
       setVerified(!!p.verified)
       const st = (p?.status ?? status).toUpperCase() as ProviderStatusDto
       if (STATUS_OPTIONS.includes(st)) setStatus(st)
@@ -156,158 +150,189 @@ export function EditProviderPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <Link to="/management/providers" className="text-sm font-medium text-primary hover:underline">
+      <Link to="/management/providers" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
         ← {t('providerEditPage.backToList')}
       </Link>
-      <h1 className="mt-4 text-2xl font-bold text-slate-900 dark:text-slate-100">{t('providerEditPage.title')}</h1>
-      <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{t('providerEditPage.intro')}</p>
+
+      <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('providerEditPage.title')}</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('providerEditPage.intro')}</p>
+        </div>
+      </div>
 
       {error && (
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
           {error}
         </div>
       )}
       {success && (
-        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">
           {success}
         </div>
       )}
 
-      <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <div className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/[0.06] dark:bg-[#0d1117]">
         {loading ? (
-          <div className="py-12 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
+          <div className="py-16 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <dl className="grid gap-3 rounded-lg border border-slate-100 bg-slate-50/80 p-4 text-sm dark:border-slate-600 dark:bg-slate-900/40 sm:grid-cols-2">
-              <div>
-                <dt className="text-xs font-medium text-slate-500 dark:text-slate-400">{t('providersPage.colType')}</dt>
-                <dd className="mt-0.5 text-slate-900 dark:text-slate-100">
-                  {readOnly.type && (PARTNER_SERVICE_TYPE_VALUES as readonly string[]).includes(readOnly.type)
-                    ? t(`serviceType.${readOnly.type}` as 'serviceType.HOTEL')
-                    : (readOnly.type ?? t('ui.emDash'))}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-slate-500 dark:text-slate-400">{t('createProviderModal.labelReg')}</dt>
-                <dd className="mt-0.5 text-slate-900 dark:text-slate-100">{readOnly.registrationNumber ?? t('ui.emDash')}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-slate-500 dark:text-slate-400">{t('providersPage.ratingLabel')}</dt>
-                <dd className="mt-0.5 text-slate-900 dark:text-slate-100">
-                  {readOnly.rating != null ? String(readOnly.rating) : t('ui.emDash')}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-slate-500 dark:text-slate-400">{t('providersPage.colCreated')}</dt>
-                <dd className="mt-0.5 text-slate-900 dark:text-slate-100">{readOnly.createdAt ?? t('ui.emDash')}</dd>
-              </div>
-            </dl>
+          <form onSubmit={handleSubmit} className="divide-y divide-slate-100 dark:divide-white/[0.05]">
 
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">{t('createProviderModal.labelName')}</label>
-              <input
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
+            {/* Read-only meta */}
+            <div className="p-6">
+              <SectionHeader label={t('providerEditPage.sectionInfo')} />
+              <dl className="mt-4 grid gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm dark:border-white/[0.04] dark:bg-white/[0.02] sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-medium text-slate-500 dark:text-slate-400">{t('providersPage.colType')}</dt>
+                  <dd className="mt-0.5 font-medium text-slate-900 dark:text-slate-100">
+                    {readOnly.type && (PARTNER_SERVICE_TYPE_VALUES as readonly string[]).includes(readOnly.type)
+                      ? t(`serviceType.${readOnly.type}` as 'serviceType.HOTEL')
+                      : (readOnly.type ?? t('ui.emDash'))}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-slate-500 dark:text-slate-400">{t('createProviderModal.labelReg')}</dt>
+                  <dd className="mt-0.5 font-medium font-mono text-slate-900 dark:text-slate-100">{readOnly.registrationNumber ?? t('ui.emDash')}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-slate-500 dark:text-slate-400">{t('providersPage.ratingLabel')}</dt>
+                  <dd className="mt-0.5 font-medium text-slate-900 dark:text-slate-100">
+                    {readOnly.rating != null ? `${readOnly.rating} / 5` : t('ui.emDash')}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-slate-500 dark:text-slate-400">{t('providersPage.colCreated')}</dt>
+                  <dd className="mt-0.5 font-medium text-slate-900 dark:text-slate-100">{readOnly.createdAt ?? t('ui.emDash')}</dd>
+                </div>
+              </dl>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">{t('createProviderModal.labelPhone')}</label>
-              <input
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
+
+            {/* Contact details */}
+            <div className="space-y-4 p-6">
+              <SectionHeader label={t('providerEditPage.sectionContact')} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label={t('createProviderModal.labelName')} required>
+                  <input
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="modal-input"
+                  />
+                </FormField>
+                <FormField label={t('createProviderModal.labelPhone')} required>
+                  <input
+                    required
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="modal-input"
+                  />
+                </FormField>
+              </div>
+              <FormField label={t('createProviderModal.labelContactEmail')}>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="modal-input"
+                />
+              </FormField>
+              <FormField label={t('createProviderModal.labelAddress')} required>
+                <input
+                  required
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="modal-input"
+                />
+              </FormField>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">{t('createProviderModal.labelContactEmail')}</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">{t('createProviderModal.labelAddress')}</label>
-              <input
-                required
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">{t('createProviderModal.labelDescription')}</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={5}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">{t('createProviderModal.labelLogoUrl')}</label>
-              <input
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://… or /media/…"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t('providerEditPage.hintListingImages')}</p>
-              {logoPreview ? (
-                <div className="mt-3">
-                  <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{t('providerEditPage.logoPreview')}</p>
+
+            {/* Branding */}
+            <div className="space-y-4 p-6">
+              <SectionHeader label={t('providerEditPage.sectionBranding')} />
+              <FormField label={t('createProviderModal.labelDescription')}>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  className="modal-textarea"
+                />
+              </FormField>
+              <FormField label={t('createProviderModal.labelLogoUrl')} hint={t('providerEditPage.hintListingImages')}>
+                <input
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://… or /media/…"
+                  className="modal-input"
+                />
+              </FormField>
+              {logoPreview && (
+                <div>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{t('providerEditPage.logoPreview')}</p>
                   <img
                     src={logoPreview}
                     alt=""
-                    className="mt-2 h-20 w-auto max-w-full rounded-lg border border-slate-200 object-contain dark:border-slate-600"
+                    className="mt-2 h-20 w-auto max-w-full rounded-xl border border-slate-200 object-contain dark:border-white/[0.06]"
                   />
                 </div>
-              ) : null}
+              )}
             </div>
 
-            {showCommission && (
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">{t('providersPage.colCommission')} (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  value={commissionRate}
-                  onChange={(e) => setCommissionRate(e.target.value)}
-                  className="mt-1 w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                />
+            {/* Profit margin */}
+            {showProfitMargin && (
+              <div className="space-y-4 p-6">
+                <SectionHeader label={t('providerEditPage.sectionFinancial')} />
+                <FormField
+                  label={t('createProviderModal.labelProfitMargin')}
+                  hint={t('createProviderModal.hintProfitMargin')}
+                >
+                  <div className="relative max-w-xs">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      value={profitMargin}
+                      onChange={(e) => setProfitMargin(e.target.value)}
+                      className="modal-input pr-8 font-mono"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">%</span>
+                  </div>
+                </FormField>
               </div>
             )}
 
+            {/* Governance */}
             {showGovernance && (
-              <>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">{t('providersPage.colStatus')}</label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as ProviderStatusDto)}
-                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {t(`providerEditPage.status.${s}`)}
-                      </option>
-                    ))}
-                  </select>
+              <div className="space-y-4 p-6">
+                <SectionHeader label={t('providerEditPage.sectionGovernance')} />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField label={t('providersPage.colStatus')}>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as ProviderStatusDto)}
+                      className="modal-select"
+                    >
+                      {STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>{t(`providerEditPage.status.${s}`)}</option>
+                      ))}
+                    </select>
+                  </FormField>
                 </div>
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800 dark:text-slate-200">
-                  <input type="checkbox" checked={verified} onChange={(e) => setVerified(e.target.checked)} />
+                <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-slate-800 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={verified}
+                    onChange={(e) => setVerified(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-primary"
+                  />
                   {t('providerEditPage.verifiedLabel')}
                 </label>
-              </>
+              </div>
             )}
 
-            <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-700">
+            {/* Footer */}
+            <div className="flex flex-wrap justify-end gap-3 p-6">
               <button type="button" onClick={() => navigate('/management/providers')} className="dashboard-btn-secondary">
                 {t('ui.cancel')}
               </button>

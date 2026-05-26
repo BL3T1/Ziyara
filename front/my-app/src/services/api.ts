@@ -455,7 +455,7 @@ export const providersAPI = {
   updateCommission: (id: string, body: { commissionRate: number }) =>
     client.patch<unknown>(`/providers/${id}/commission`, body),
   update: (id: string, body: UpdateServiceProviderPayload) =>
-    client.put<ServiceProviderDto>(`/providers/${id}`, body),
+    client.patch<ServiceProviderDto>(`/providers/${id}`, body),
   approve: (id: string) => client.post<unknown>(`/providers/${id}/approve`),
   reject: (id: string, body?: { reason?: string }) =>
     client.post<unknown>(`/providers/${id}/reject`, body ?? {}),

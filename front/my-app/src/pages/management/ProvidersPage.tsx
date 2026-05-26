@@ -302,10 +302,10 @@ export function ProvidersPage() {
                             <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
                             <button
                               type="button"
-                              onClick={() => { setEditingId(p.id); setCommissionRate(String(p.commissionRate ?? '')); }}
+                              onClick={() => { setEditingId(p.id); setCommissionRate(String(p.commissionRate ?? '10')); }}
                               className="text-primary hover:underline"
                             >
-                              Edit commission
+                              {t('providersPage.editCommission')}
                             </button>
                           </>
                         )}
