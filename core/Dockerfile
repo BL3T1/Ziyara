@@ -4,7 +4,7 @@
 # =============================================================================
 # Build Stage
 # =============================================================================
-FROM gradle:8.7-jdk17 AS build
+FROM gradle:8.12-jdk21 AS build
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/home/gradle/.gradle/caches,uid=1000,gid=1000 \
 # =============================================================================
 # Runtime Stage
 # =============================================================================
-FROM eclipse-temurin:17-jre-alpine-3.23
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
@@ -49,7 +49,7 @@ EXPOSE 8080
 ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:8080/api/v1/actuator/health || exit 1
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

@@ -10,13 +10,12 @@ version = "1.0.0"
 description = "Demo project for Spring Boot"
 
 java {
-	// Bytecode 17 (matches Docker image). Build with any JDK 17+ on the host (no strict toolchain).
-	sourceCompatibility = JavaVersion.VERSION_17
-	targetCompatibility = JavaVersion.VERSION_17
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
 }
 
 tasks.withType<JavaCompile>().configureEach {
-	options.release.set(17)
+	options.release.set(21)
 }
 
 configurations {
@@ -79,6 +78,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-mail")
 	implementation("org.springframework.boot:spring-boot-starter-data-redis")
 	implementation("org.springframework.boot:spring-boot-starter-cache")
+	implementation("org.springframework.boot:spring-boot-starter-aop")
 	implementation("io.micrometer:micrometer-tracing-bridge-brave")
 	implementation("net.logstash.logback:logstash-logback-encoder:8.0")
 	implementation("org.springframework.kafka:spring-kafka")
@@ -158,6 +158,21 @@ tasks.jacocoTestReport {
 tasks.named<Test>("test") {
 	finalizedBy(tasks.jacocoTestReport)
 }
+
+tasks.jacocoTestCoverageVerification {
+	violationRules {
+		rule {
+			element = "PACKAGE"
+			includes = listOf("com.ziyara.backend.application.service.*")
+			limit {
+				counter = "LINE"
+				value   = "COVEREDRATIO"
+				minimum = "0.60".toBigDecimal()
+			}
+		}
+	}
+}
+tasks.check { dependsOn(tasks.jacocoTestCoverageVerification) }
 
 springBoot {
 	mainClass.set("com.ziyara.backend.ZiyarahApplication")
