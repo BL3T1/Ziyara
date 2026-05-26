@@ -33,6 +33,8 @@ class RoleManagementServicePermissionsTest {
     @Mock UserRepository userRepository;
     @Mock AuditServiceApi auditLogService;
     @Mock GroupMembersQueryHandler groupMembersQueryHandler;
+    @Mock GroupManagementService groupManagementService;
+    @Mock PermissionQueryService permissionQueryService;
 
     @InjectMocks RoleManagementService service;
 
