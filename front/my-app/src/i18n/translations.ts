@@ -646,7 +646,7 @@ const en = {
     labelProfitMargin: 'Company profit margin',
     hintProfitMargin: 'The % of revenue Ziyarah retains from this partner. Default 10%.',
     hintExistingManager: 'Email of the PROVIDER_MANAGER user already registered on the platform.',
-    placeholderDescription: 'Brief overview of the partner's services and offering…',
+    placeholderDescription: "Brief overview of the partner's services and offering…",
     sectionProvider: 'Provider details',
     sectionManager: 'Manager account',
     submit: 'Create',
