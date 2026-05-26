@@ -20,4 +20,7 @@ public interface UserRoleAssignmentRepository {
     void setPrimaryRoleForUser(UUID userId, UUID roleId);
 
     void clearAssignmentsForUser(UUID userId);
+
+    /** Returns all permission codes granted to the user via their assigned roles. */
+    java.util.List<String> findPermissionCodesByUserId(UUID userId);
 }

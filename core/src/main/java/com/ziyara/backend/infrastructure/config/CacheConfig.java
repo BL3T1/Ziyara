@@ -42,9 +42,11 @@ public class CacheConfig {
                     .cacheDefaults(jsonCache(Duration.ofMinutes(10)))
                     .withCacheConfiguration("staffRoleCatalog",  jsonCache(Duration.ofHours(1)))
                     .withCacheConfiguration("permissionCatalogue", jsonCache(Duration.ofHours(1)))
+                    .withCacheConfiguration("userPermissions", jsonCache(Duration.ofMinutes(30)))
+                    .withCacheConfiguration("providerStaffRole", jsonCache(Duration.ofMinutes(30)))
                     .transactionAware()
                     .build();
         }
-        return new ConcurrentMapCacheManager("staffRoleCatalog", "permissionCatalogue");
+        return new ConcurrentMapCacheManager("staffRoleCatalog", "permissionCatalogue", "userPermissions", "providerStaffRole");
     }
 }

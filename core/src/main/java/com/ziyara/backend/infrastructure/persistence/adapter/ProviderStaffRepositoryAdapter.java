@@ -5,6 +5,8 @@ import com.ziyara.backend.domain.repository.ProviderStaffRepository;
 import com.ziyara.backend.infrastructure.persistence.mapper.ProviderStaffMapper;
 import com.ziyara.backend.infrastructure.persistence.repository.ProviderStaffJpaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -20,6 +22,7 @@ public class ProviderStaffRepositoryAdapter implements ProviderStaffRepository {
     private final ProviderStaffMapper mapper;
 
     @Override
+    @CacheEvict(value = "providerStaffRole", key = "#staff.userId")
     public ProviderStaff save(ProviderStaff staff) {
         return mapper.toDomainEntity(jpaRepository.save(mapper.toJpaEntity(staff)));
     }
@@ -43,6 +46,7 @@ public class ProviderStaffRepositoryAdapter implements ProviderStaffRepository {
     }
 
     @Override
+    @Cacheable(value = "providerStaffRole", key = "#userId", unless = "#result == null || !#result.isPresent()")
     public Optional<ProviderStaff> findByUserId(UUID userId) {
         return jpaRepository.findByUserId(userId).map(mapper::toDomainEntity);
     }
@@ -53,6 +57,7 @@ public class ProviderStaffRepositoryAdapter implements ProviderStaffRepository {
     }
 
     @Override
+    @CacheEvict(value = "providerStaffRole", allEntries = true)
     public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
     }

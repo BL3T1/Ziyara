@@ -5,6 +5,8 @@ import com.ziyara.backend.infrastructure.persistence.entity.UserRoleJpaEntity;
 import com.ziyara.backend.infrastructure.persistence.repository.RoleJpaRepository;
 import com.ziyara.backend.infrastructure.persistence.repository.UserRoleJpaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,7 +48,14 @@ public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRe
     }
 
     @Override
+    @Cacheable(value = "userPermissions", key = "#userId")
+    public List<String> findPermissionCodesByUserId(UUID userId) {
+        return jpaRepository.findPermissionCodesByUserId(userId);
+    }
+
+    @Override
     @Transactional
+    @CacheEvict(value = "userPermissions", key = "#userId")
     public void setPrimaryRoleForUser(UUID userId, UUID roleId) {
         jpaRepository.deleteByUserId(userId);
         UserRoleJpaEntity row = UserRoleJpaEntity.builder()
@@ -60,6 +69,7 @@ public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRe
 
     @Override
     @Transactional
+    @CacheEvict(value = "userPermissions", key = "#userId")
     public void clearAssignmentsForUser(UUID userId) {
         jpaRepository.deleteByUserId(userId);
     }
