@@ -160,7 +160,7 @@ public class ServiceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Image added", created));
     }
 
-    @PutMapping("/{id}/images/{imageId}")
+    @PatchMapping("/{id}/images/{imageId}")
     @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Update service image", description = "Partial update (company staff)")
     public ResponseEntity<ApiResponse<ServiceImageResponse>> updateImage(
@@ -228,7 +228,7 @@ public class ServiceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Room created", created));
     }
 
-    @PutMapping("/{id}/rooms/{roomId}")
+    @PatchMapping("/{id}/rooms/{roomId}")
     @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Update hotel room", description = "HOTEL services only (company staff)")
     public ResponseEntity<ApiResponse<HotelRoomResponse>> updateRoom(
@@ -276,7 +276,7 @@ public class ServiceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Section created", created));
     }
 
-    @PutMapping("/{id}/menu/sections/{sectionId}")
+    @PatchMapping("/{id}/menu/sections/{sectionId}")
     @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Update menu section", description = "Company staff")
     public ResponseEntity<ApiResponse<RestaurantMenuSectionResponse>> updateMenuSection(
@@ -305,7 +305,7 @@ public class ServiceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Item created", created));
     }
 
-    @PutMapping("/{id}/menu/items/{itemId}")
+    @PatchMapping("/{id}/menu/items/{itemId}")
     @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Update menu item", description = "Company staff")
     public ResponseEntity<ApiResponse<RestaurantMenuItemResponse>> updateMenuItem(
@@ -349,7 +349,7 @@ public class ServiceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Service created", response));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Update service", description = "Update service details (company staff; providers use /portal/services)")
     public ResponseEntity<ApiResponse<ServiceResponse>> update(

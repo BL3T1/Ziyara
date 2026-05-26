@@ -75,7 +75,7 @@ public class ComplaintController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Complaint created", response));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @Operation(summary = "Update complaint", description = "Update complaint details")
     public ResponseEntity<ApiResponse<ComplaintResponse>> update(
             @PathVariable UUID id,

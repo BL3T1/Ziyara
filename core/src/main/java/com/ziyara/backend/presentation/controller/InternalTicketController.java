@@ -72,7 +72,7 @@ public class InternalTicketController {
         return ResponseEntity.ok(ApiResponse.success(ticketService.getTicket(id)));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @Operation(summary = "Update ticket")
     public ResponseEntity<ApiResponse<TicketResponse>> updateTicket(
             @PathVariable UUID id,

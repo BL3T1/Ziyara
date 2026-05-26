@@ -94,7 +94,7 @@ public class PortalController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Service created", response));
     }
 
-    @PutMapping("/services/{id}")
+    @PatchMapping("/services/{id}")
     @Operation(summary = "Update service", description = "Update own service listing")
     public ResponseEntity<ApiResponse<ServiceResponse>> updateService(
             @PathVariable UUID id,
@@ -128,7 +128,7 @@ public class PortalController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Image added", created));
     }
 
-    @PutMapping("/services/{id}/images/{imageId}")
+    @PatchMapping("/services/{id}/images/{imageId}")
     @Operation(summary = "Update own service image", description = "Partial update")
     public ResponseEntity<ApiResponse<ServiceImageResponse>> updateServiceImage(
             @PathVariable UUID id,
@@ -192,7 +192,7 @@ public class PortalController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Section created", created));
     }
 
-    @PutMapping("/services/{id}/menu/sections/{sectionId}")
+    @PatchMapping("/services/{id}/menu/sections/{sectionId}")
     @Operation(summary = "Update menu section", description = "Own listing only")
     public ResponseEntity<ApiResponse<RestaurantMenuSectionResponse>> updateMenuSection(
             @PathVariable UUID id,
@@ -221,7 +221,7 @@ public class PortalController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Item created", created));
     }
 
-    @PutMapping("/services/{id}/menu/items/{itemId}")
+    @PatchMapping("/services/{id}/menu/items/{itemId}")
     @Operation(summary = "Update menu item", description = "Own listing only")
     public ResponseEntity<ApiResponse<RestaurantMenuItemResponse>> updateMenuItem(
             @PathVariable UUID id,
@@ -274,7 +274,7 @@ public class PortalController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Room created", created));
     }
 
-    @PutMapping("/services/{id}/rooms/{roomId}")
+    @PatchMapping("/services/{id}/rooms/{roomId}")
     @Operation(summary = "Update hotel room", description = "HOTEL listings only")
     public ResponseEntity<ApiResponse<HotelRoomResponse>> updateHotelRoom(
             @PathVariable UUID id,

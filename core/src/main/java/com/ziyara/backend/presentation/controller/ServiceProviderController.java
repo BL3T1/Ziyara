@@ -66,7 +66,7 @@ public class ServiceProviderController {
                         .body(ApiResponse.error("No provider profile for this user")));
     }
 
-    @PutMapping("/me")
+    @PatchMapping("/me")
     @PreAuthorize(ApiAuthorizationExpressions.PROVIDER_PORTAL)
     @Operation(summary = "Update current provider", description = "Update the authenticated provider's profile (portal)")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> updateCurrentProvider(
@@ -114,7 +114,7 @@ public class ServiceProviderController {
                 .body(ApiResponse.success(message, response));
     }
     
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
     @Operation(summary = "Update provider", description = "Update provider profile details")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> updateProvider(

@@ -64,7 +64,7 @@ public class PortalStaffController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Staff user created", created));
     }
 
-    @PutMapping("/{userId}")
+    @PatchMapping("/{userId}")
     @Operation(summary = "Update staff", description = "Update title for a linked staff member")
     public ResponseEntity<ApiResponse<PortalStaffMemberResponse>> update(
             @PathVariable UUID userId,

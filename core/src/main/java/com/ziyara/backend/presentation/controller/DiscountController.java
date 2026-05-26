@@ -69,7 +69,7 @@ public class DiscountController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Discount created", response));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
     @Operation(summary = "Update discount", description = "Update discount code")
     public ResponseEntity<ApiResponse<DiscountResponse>> update(

@@ -117,7 +117,7 @@ public class BookingController {
                         bookingService.createBooking(extractUserId(authHeader), request)));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @Operation(summary = "Update booking", description = "Update booking when modifiable")
     public ResponseEntity<ApiResponse<BookingResponse>> updateBooking(
             @PathVariable UUID id,

@@ -47,7 +47,7 @@ public class CurrencyController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Rate created", response));
     }
 
-    @PutMapping("/rates/{id}")
+    @PatchMapping("/rates/{id}")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','GENERAL_MANAGER','FINANCE_MANAGER','ACCOUNTANT')")
     @Operation(summary = "Update rate", description = "Update exchange rate (Phase 3)")

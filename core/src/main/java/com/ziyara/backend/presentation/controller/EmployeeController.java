@@ -67,7 +67,7 @@ public class EmployeeController {
                         employeeService.createEmployee(request)));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @Operation(summary = "Update employee", description = "Update employee role or department")
     public ResponseEntity<ApiResponse<EmployeeResponse>> updateEmployee(
             @PathVariable UUID id,

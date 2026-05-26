@@ -41,7 +41,7 @@ public class DepartmentController {
         return ResponseEntity.ok(ApiResponse.success(departmentService.getDepartment(id)));
     }
     
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @Operation(summary = "Update department", description = "Update department name, description, or manager")
     public ResponseEntity<ApiResponse<DepartmentResponse>> updateDepartment(
             @PathVariable UUID id,

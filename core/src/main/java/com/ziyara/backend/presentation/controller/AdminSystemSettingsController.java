@@ -14,7 +14,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,10 +37,10 @@ public class AdminSystemSettingsController {
         return ResponseEntity.ok(ApiResponse.success(systemSettingsService.getSettings()));
     }
 
-    @PutMapping
+    @PatchMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','CEO','GENERAL_MANAGER')")
     @Operation(summary = "Update system settings", description = "Partial update; omitted fields unchanged")
-    public ResponseEntity<ApiResponse<SystemSettingsResponse>> put(@Valid @RequestBody UpdateSystemSettingsRequest request) {
+    public ResponseEntity<ApiResponse<SystemSettingsResponse>> patch(@Valid @RequestBody UpdateSystemSettingsRequest request) {
         UUID userId = getCurrentUserId();
         SystemSettingsResponse updated = systemSettingsService.update(request, userId);
         return ResponseEntity.ok(ApiResponse.success("Settings saved", updated));

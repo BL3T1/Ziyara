@@ -85,7 +85,7 @@ public class RoleManagementController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Group created", created));
     }
 
-    @PutMapping("/groups/{groupId}")
+    @PatchMapping("/groups/{groupId}")
     @Operation(summary = "Update organizational group", description = "Display fields; optional code change for custom groups only (platform Z1–Z7 codes are fixed).")
     public ResponseEntity<ApiResponse<GroupResponse>> updateGroup(
             @PathVariable UUID groupId,
@@ -131,7 +131,7 @@ public class RoleManagementController {
         return ResponseEntity.ok(ApiResponse.success(created));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @Operation(summary = "Update role name/description", description = "Display fields only; use PUT /{id}/permissions for permission sets. Applies to system and custom roles.")
     public ResponseEntity<ApiResponse<RoleResponse>> updateRole(
             @PathVariable UUID id,

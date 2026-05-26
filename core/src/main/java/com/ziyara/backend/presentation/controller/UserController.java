@@ -108,9 +108,9 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(rbacAssignmentQueryService.getUserRbacAssignment(id)));
     }
 
-    @PutMapping("/by-email/{email}/rbac-role")
+    @PatchMapping("/by-email/{email}/rbac-role")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
-    @Operation(summary = "Assign RBAC role by email", description = "Same as PUT /{id}/rbac-role; email should be URL-encoded (e.g. %40 for @)")
+    @Operation(summary = "Assign RBAC role by email", description = "Same as PATCH /{id}/rbac-role; email should be URL-encoded (e.g. %40 for @)")
     public ResponseEntity<ApiResponse<Void>> assignRbacRoleByEmail(
             @PathVariable String email,
             @RequestBody(required = false) AssignUserRbacRoleRequest request
@@ -157,7 +157,7 @@ public class UserController {
                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("User not found")));
     }
 
-    @PutMapping("/me")
+    @PatchMapping("/me")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Update current user", description = "Update the authenticated user's profile (email, phone)")
     public ResponseEntity<ApiResponse<UserResponse>> updateMe(@Valid @RequestBody UpdateUserRequest request) {
@@ -260,7 +260,7 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("User created", response));
     }
 
-    @PutMapping("/{id}/rbac-role")
+    @PatchMapping("/{id}/rbac-role")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
     @Operation(summary = "Assign RBAC role for sidebar", description = "Company staff only; one primary role; omit or null roleId to clear")
     public ResponseEntity<ApiResponse<Void>> assignRbacRole(
@@ -276,7 +276,7 @@ public class UserController {
         }
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER') or @userSecurity.isSelf(#id)")
     @Operation(summary = "Update user")
     public ResponseEntity<ApiResponse<UserResponse>> update(
