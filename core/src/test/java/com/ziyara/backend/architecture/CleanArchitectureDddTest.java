@@ -53,7 +53,6 @@ import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
  *   - presentation.*   → infrastructure.payment.*       (PayWebhookController reads gateway provider name)
  *   - presentation.*   → infrastructure.web.*           (web utility beans)
  *   - presentation.*   → infrastructure.messaging.*     (some controllers publish staff events)
- *   - domain.payment.* → application.dto.payment.*     (PaymentProvider port uses application command/result records)
  *   - infrastructure.security.JwtAuthenticationFilter  → application.service.JwtTokenBlocklistService
  *                                                        (JWT filter checks revocation; infrastructure → application
  *                                                         direction is allowed by layering rules)
@@ -169,11 +168,6 @@ class CleanArchitectureDddTest {
                     // PageConverter is an infrastructure bridge utility legitimately called by application services
                     // to convert domain PagedResult to Spring Page for controller responses.
                     .ignoreDependency(resideInAPackage(APPLICATION_PKG), resideInAPackage(INFRA_PERSIST_UTIL_PKG))
-                    // domain.payment.PaymentProvider is a hexagonal outbound port whose
-                    // method signatures reference application-layer command/result records.
-                    .ignoreDependency(
-                            resideInAPackage(DOMAIN_PAYMENT_PKG),
-                            resideInAPackage(BASE + ".application.dto.payment.."))
 
                     .as("Layer dependency direction");
 
