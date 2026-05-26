@@ -7,6 +7,8 @@ import { useDisplayCurrency } from '../../context/DisplayCurrencyContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { currencyAPI, getApiErrorMessage } from '../../services/api'
 import type { ExchangeRateRowDto } from '../../types/api'
+import { Modal } from '../../components/Modal'
+import { FormField } from '../../components/FormField'
 
 export function CurrencyRatesPage() {
   const { t } = useLanguage()
@@ -227,183 +229,174 @@ export function CurrencyRatesPage() {
         )}
       </div>
 
-      {detailId && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => !detailLoading && !submitting && closeDetail()}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-              {detailEditing ? t('currencyRatesPage.editTitle') : t('currencyRatesPage.detailTitle')}
-            </h3>
-            {detailLoading ? (
-              <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">{t('ui.loading')}</p>
-            ) : detailRow && detailEditing ? (
-              <form onSubmit={handleSaveEdit} className="mt-4 space-y-3">
-                <div className="flex justify-between gap-4 text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">{t('currencyRatesPage.colFrom')}</span>
-                  <span className="font-medium text-slate-900 dark:text-slate-100">{detailRow.fromCurrency ?? '—'}</span>
-                </div>
-                <div className="flex justify-between gap-4 text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">{t('currencyRatesPage.colTo')}</span>
-                  <span className="font-medium text-slate-900 dark:text-slate-100">{detailRow.toCurrency ?? '—'}</span>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium">{t('currencyRatesPage.rate')}</label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    value={editRate}
-                    onChange={(e) => setEditRate(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono dark:border-slate-600 dark:bg-slate-700"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium">{t('currencyRatesPage.effectiveDate')}</label>
-                  <input
-                    type="date"
-                    value={editEffectiveDate}
-                    onChange={(e) => setEditEffectiveDate(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700"
-                  />
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setDetailEditing(false)}
-                    disabled={submitting}
-                    className="dashboard-btn-secondary flex-1"
-                  >
-                    {t('ui.cancel')}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="dashboard-btn-primary flex-1 disabled:opacity-50"
-                  >
-                    {t('currencyRatesPage.save')}
-                  </button>
-                </div>
-              </form>
-            ) : detailRow ? (
-              <>
-                <dl className="mt-4 space-y-2 text-sm">
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-slate-500 dark:text-slate-400">{t('currencyRatesPage.colFrom')}</dt>
-                    <dd className="font-medium text-slate-900 dark:text-slate-100">{detailRow.fromCurrency ?? '—'}</dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-slate-500 dark:text-slate-400">{t('currencyRatesPage.colTo')}</dt>
-                    <dd className="font-medium text-slate-900 dark:text-slate-100">{detailRow.toCurrency ?? '—'}</dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-slate-500 dark:text-slate-400">{t('currencyRatesPage.colRate')}</dt>
-                    <dd className="font-mono text-slate-900 dark:text-slate-100">{fmtRate(detailRow.rate)}</dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-slate-500 dark:text-slate-400">{t('currencyRatesPage.colEffective')}</dt>
-                    <dd className="text-slate-900 dark:text-slate-100">{detailRow.effectiveDate ?? '—'}</dd>
-                  </div>
-                </dl>
-                <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => setDetailEditing(true)}
-                    className="dashboard-btn-primary flex-1"
-                  >
-                    {t('currencyRatesPage.editButton')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={closeDetail}
-                    className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm dark:border-slate-600 sm:flex-1"
-                  >
-                    {t('ui.close')}
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </div>
-        </div>
-      )}
+      {/* ── Detail / Edit modal ───────────────────────────────────────── */}
+      <Modal
+        open={!!detailId}
+        onClose={() => !detailLoading && !submitting && closeDetail()}
+        title={detailEditing ? t('currencyRatesPage.editTitle') : t('currencyRatesPage.detailTitle')}
+        size="sm"
+        footer={
+          detailLoading ? undefined : detailRow && detailEditing ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setDetailEditing(false)}
+                disabled={submitting}
+                className="dashboard-btn-secondary"
+              >
+                {t('ui.cancel')}
+              </button>
+              <button
+                type="submit"
+                form="currency-edit-form"
+                disabled={submitting}
+                className="dashboard-btn-primary disabled:opacity-50"
+              >
+                {t('currencyRatesPage.save')}
+              </button>
+            </>
+          ) : detailRow ? (
+            <>
+              <button
+                type="button"
+                onClick={closeDetail}
+                className="dashboard-btn-secondary"
+              >
+                {t('ui.close')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDetailEditing(true)}
+                className="dashboard-btn-primary"
+              >
+                {t('currencyRatesPage.editButton')}
+              </button>
+            </>
+          ) : undefined
+        }
+      >
+        {detailLoading ? (
+          <p className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">{t('ui.loading')}</p>
+        ) : detailRow && detailEditing ? (
+          <form id="currency-edit-form" onSubmit={handleSaveEdit} className="space-y-4">
+            <dl className="space-y-2 rounded-xl border border-slate-100 p-3.5 text-sm dark:border-white/[0.05]">
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500 dark:text-slate-400">{t('currencyRatesPage.colFrom')}</dt>
+                <dd className="font-medium text-slate-900 dark:text-slate-100">{detailRow.fromCurrency ?? '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500 dark:text-slate-400">{t('currencyRatesPage.colTo')}</dt>
+                <dd className="font-medium text-slate-900 dark:text-slate-100">{detailRow.toCurrency ?? '—'}</dd>
+              </div>
+            </dl>
+            <FormField label={t('currencyRatesPage.rate')} required>
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={editRate}
+                onChange={(e) => setEditRate(e.target.value)}
+                className="modal-input font-mono"
+                required
+              />
+            </FormField>
+            <FormField label={t('currencyRatesPage.effectiveDate')}>
+              <input
+                type="date"
+                value={editEffectiveDate}
+                onChange={(e) => setEditEffectiveDate(e.target.value)}
+                className="modal-input"
+              />
+            </FormField>
+          </form>
+        ) : detailRow ? (
+          <dl className="space-y-3 text-sm">
+            {[
+              [t('currencyRatesPage.colFrom'), detailRow.fromCurrency ?? '—', ''],
+              [t('currencyRatesPage.colTo'),   detailRow.toCurrency ?? '—',   ''],
+              [t('currencyRatesPage.colRate'),  fmtRate(detailRow.rate),       'font-mono'],
+              [t('currencyRatesPage.colEffective'), detailRow.effectiveDate ?? '—', ''],
+            ].map(([label, value, extra]) => (
+              <div key={String(label)} className="flex items-center justify-between gap-4 rounded-lg border border-slate-100 px-3.5 py-2.5 dark:border-white/[0.05]">
+                <dt className="text-slate-500 dark:text-slate-400">{label}</dt>
+                <dd className={`font-medium text-slate-900 dark:text-slate-100 ${extra}`}>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+      </Modal>
 
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !submitting && setShowCreate(false)}>
-          <div
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('currencyRatesPage.createTitle')}</h3>
-            <form onSubmit={handleCreate} className="mt-4 space-y-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium">{t('currencyRatesPage.from')}</label>
-                <input
-                  value={form.fromCurrency}
-                  onChange={(e) => setForm((f) => ({ ...f, fromCurrency: e.target.value }))}
-                  maxLength={3}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 uppercase dark:border-slate-600 dark:bg-slate-700"
-                  placeholder="USD"
-                  required
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">{t('currencyRatesPage.to')}</label>
-                <input
-                  value={form.toCurrency}
-                  onChange={(e) => setForm((f) => ({ ...f, toCurrency: e.target.value }))}
-                  maxLength={3}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 uppercase dark:border-slate-600 dark:bg-slate-700"
-                  placeholder="SAR"
-                  required
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">{t('currencyRatesPage.rate')}</label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  value={form.rate}
-                  onChange={(e) => setForm((f) => ({ ...f, rate: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700"
-                  required
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">{t('currencyRatesPage.effectiveDate')}</label>
-                <input
-                  type="date"
-                  value={form.effectiveDate}
-                  onChange={(e) => setForm((f) => ({ ...f, effectiveDate: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreate(false)}
-                  disabled={submitting}
-                  className="dashboard-btn-secondary flex-1"
-                >
-                  {t('ui.cancel')}
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="dashboard-btn-primary flex-1 disabled:opacity-50"
-                >
-                  {t('currencyRatesPage.save')}
-                </button>
-              </div>
-            </form>
+      {/* ── Create modal ──────────────────────────────────────────────── */}
+      <Modal
+        open={showCreate}
+        onClose={() => !submitting && setShowCreate(false)}
+        title={t('currencyRatesPage.createTitle')}
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setShowCreate(false)}
+              disabled={submitting}
+              className="dashboard-btn-secondary"
+            >
+              {t('ui.cancel')}
+            </button>
+            <button
+              type="submit"
+              form="currency-create-form"
+              disabled={submitting}
+              className="dashboard-btn-primary disabled:opacity-50"
+            >
+              {t('currencyRatesPage.save')}
+            </button>
+          </>
+        }
+      >
+        <form id="currency-create-form" onSubmit={handleCreate} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label={t('currencyRatesPage.from')} required>
+              <input
+                value={form.fromCurrency}
+                onChange={(e) => setForm((f) => ({ ...f, fromCurrency: e.target.value }))}
+                maxLength={3}
+                className="modal-input font-mono uppercase tracking-wider"
+                placeholder="USD"
+                required
+              />
+            </FormField>
+            <FormField label={t('currencyRatesPage.to')} required>
+              <input
+                value={form.toCurrency}
+                onChange={(e) => setForm((f) => ({ ...f, toCurrency: e.target.value }))}
+                maxLength={3}
+                className="modal-input font-mono uppercase tracking-wider"
+                placeholder="SAR"
+                required
+              />
+            </FormField>
           </div>
-        </div>
-      )}
+          <FormField label={t('currencyRatesPage.rate')} required>
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={form.rate}
+              onChange={(e) => setForm((f) => ({ ...f, rate: e.target.value }))}
+              className="modal-input font-mono"
+              required
+            />
+          </FormField>
+          <FormField label={t('currencyRatesPage.effectiveDate')}>
+            <input
+              type="date"
+              value={form.effectiveDate}
+              onChange={(e) => setForm((f) => ({ ...f, effectiveDate: e.target.value }))}
+              className="modal-input"
+            />
+          </FormField>
+        </form>
+      </Modal>
     </>
   )
 }

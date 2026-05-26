@@ -8,6 +8,8 @@ import { useLanguage } from '../../context/LanguageContext'
 import { rolesAPI, getApiErrorMessage } from '../../services/api'
 import type { RoleDto, GroupDto, PermissionCatalogueItemDto } from '../../types/api'
 import { ALL_SIDEBAR_ITEM_IDS, SIDEBAR_SECTIONS } from '../../config/sidebar'
+import { Modal } from '../../components/Modal'
+import { FormField } from '../../components/FormField'
 
 /** Stable resource groups for permission catalogue UI */
 function catalogueByResource(items: PermissionCatalogueItemDto[]): [string, PermissionCatalogueItemDto[]][] {
@@ -288,80 +290,75 @@ function EditRoleNavigationModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('rolesPage.editNavTitle', { name: role.name })}</h3>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('rolesPage.editNavHint')}</p>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
+    <Modal
+      open
+      onClose={onClose}
+      title={t('rolesPage.editNavTitle', { name: role.name })}
+      description={t('rolesPage.editNavHint')}
+      size="md"
+      footer={
+        !loading ? (
+          <>
+            <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+              {t('ui.cancel')}
+            </button>
+            <button type="submit" form="role-nav-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+              {t('rolesPage.save')}
+            </button>
+          </>
+        ) : undefined
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      {loading ? (
+        <div className="py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
+      ) : (
+        <form id="role-nav-form" onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSelected(new Set(ALL_SIDEBAR_ITEM_IDS))}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300"
+            >
+              {t('rolesPage.navPresetFull')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300"
+            >
+              {t('rolesPage.navPresetClear')}
+            </button>
           </div>
-        )}
-        {loading ? (
-          <div className="mt-4 py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
-        ) : (
-          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setSelected(new Set(ALL_SIDEBAR_ITEM_IDS))}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300"
-              >
-                {t('rolesPage.navPresetFull')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelected(new Set())}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300"
-              >
-                {t('rolesPage.navPresetClear')}
-              </button>
-            </div>
-            <div className="max-h-[50vh] space-y-4 overflow-y-auto rounded-lg border border-slate-200 p-3 dark:border-slate-600">
-              {SIDEBAR_SECTIONS.map((section) => (
-                <div key={section.id}>
-                  <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    {t(`section.${section.id}`)}
-                  </div>
-                  <div className="space-y-1.5">
-                    {section.items.map((item) => (
-                      <label key={item.id} className="flex cursor-pointer items-center gap-2 py-0.5">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(item.id)}
-                          onChange={() => toggle(item.id)}
-                          className="rounded border-slate-300 text-primary"
-                        />
-                        <span className="text-sm text-slate-700 dark:text-slate-200">{t(`nav.${item.id}`)}</span>
-                      </label>
-                    ))}
-                  </div>
+          <div className="space-y-4 rounded-xl border border-slate-100 p-3.5 dark:border-white/[0.05]">
+            {SIDEBAR_SECTIONS.map((section) => (
+              <div key={section.id}>
+                <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {t(`section.${section.id}`)}
                 </div>
-              ))}
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                {t('ui.cancel')}
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="dashboard-btn-primary flex-1 disabled:opacity-70"
-              >
-                {t('rolesPage.save')}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+                <div className="space-y-1.5">
+                  {section.items.map((item) => (
+                    <label key={item.id} className="flex cursor-pointer items-center gap-2 py-0.5">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(item.id)}
+                        onChange={() => toggle(item.id)}
+                        className="rounded border-slate-300 text-primary"
+                      />
+                      <span className="text-sm text-slate-700 dark:text-slate-200">{t(`nav.${item.id}`)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </form>
+      )}
+    </Modal>
   )
 }
 
@@ -431,83 +428,74 @@ function EditRoleDetailsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-          {t('rolesPage.editDetailsTitle', { name: role.name })}
-        </h3>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('rolesPage.editDetailsHint')}</p>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
-        )}
-        {loading ? (
-          <div className="mt-4 py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
-        ) : (
-          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.nameLabel')}</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                required
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.descriptionLabel')}</label>
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.nameArLabel')}</label>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('rolesPage.editDetailsTitle', { name: role.name })}
+      description={t('rolesPage.editDetailsHint')}
+      size="md"
+      footer={
+        !loading ? (
+          <>
+            <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+              {t('ui.cancel')}
+            </button>
+            <button type="submit" form="role-details-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+              {t('rolesPage.save')}
+            </button>
+          </>
+        ) : undefined
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      {loading ? (
+        <div className="py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
+      ) : (
+        <form id="role-details-form" onSubmit={handleSubmit} className="space-y-4">
+          <FormField label={t('rolesPage.nameLabel')} required>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="modal-input"
+              required
+            />
+          </FormField>
+          <FormField label={t('rolesPage.descriptionLabel')}>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="modal-input"
+            />
+          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label={t('rolesPage.nameArLabel')}>
               <input
                 type="text"
                 value={nameAr}
                 onChange={(e) => setNameAr(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                className="modal-input"
                 dir="rtl"
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.descriptionArLabel')}</label>
+            </FormField>
+            <FormField label={t('rolesPage.descriptionArLabel')}>
               <input
                 type="text"
                 value={descriptionAr}
                 onChange={(e) => setDescriptionAr(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                className="modal-input"
                 dir="rtl"
               />
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                {t('ui.cancel')}
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="dashboard-btn-primary flex-1 disabled:opacity-70"
-              >
-                {t('rolesPage.save')}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+            </FormField>
+          </div>
+        </form>
+      )}
+    </Modal>
   )
 }
 
@@ -568,97 +556,93 @@ function CreateRoleModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('rolesPage.createRoleTitle')}</h3>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
+    <Modal
+      open
+      onClose={onClose}
+      title={t('rolesPage.createRoleTitle')}
+      size="md"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+            {t('ui.cancel')}
+          </button>
+          <button type="submit" form="role-create-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+            {t('rolesPage.create')}
+          </button>
+        </>
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="role-create-form" onSubmit={handleSubmit} className="space-y-4">
+        <FormField label={t('rolesPage.nameLabel')} required>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="modal-input"
+            required
+          />
+        </FormField>
+        <FormField label={t('rolesPage.descriptionLabel')}>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="modal-input"
+          />
+        </FormField>
+        <FormField label={t('rolesPage.groupLabel')}>
+          <select
+            value={groupId}
+            onChange={(e) => setGroupId(e.target.value)}
+            className="modal-select"
+          >
+            <option value="">{t('rolesPage.groupNone')}</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
+        </FormField>
+        {unlocked.length > 0 && (
+          <div>
+            <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">{t('rolesPage.permissionsOptional')}</p>
+            <div className="max-h-40 space-y-0.5 overflow-y-auto rounded-xl border border-slate-100 p-3 dark:border-white/[0.05]">
+              {unlocked.map((p) => (
+                <label key={p.id} className="flex cursor-pointer items-center gap-2 py-1">
+                  <input
+                    type="checkbox"
+                    checked={permissionIds.includes(p.id)}
+                    onChange={() => togglePermission(p.id)}
+                    className="rounded border-slate-300 text-primary"
+                  />
+                  <span className="text-sm text-slate-700 dark:text-slate-200">{p.name ?? p.code}</span>
+                </label>
+              ))}
+            </div>
           </div>
         )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        {locked.length > 0 && (
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.nameLabel')}</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.descriptionLabel')}</label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.groupLabel')}</label>
-            <select
-              value={groupId}
-              onChange={(e) => setGroupId(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-            >
-              <option value="">{t('rolesPage.groupNone')}</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
+            <p className="mb-2 text-sm font-medium text-slate-500 dark:text-slate-400">{t('rolesPage.createRoleLockedReference')}</p>
+            <div className="max-h-32 space-y-0.5 overflow-y-auto rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 dark:border-slate-600 dark:bg-slate-900/40">
+              {locked.map((p) => (
+                <div key={p.id} className="flex items-center gap-2 py-0.5 opacity-70">
+                  <input type="checkbox" disabled checked={false} className="rounded border-slate-300" readOnly aria-hidden />
+                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                    {p.name ?? p.code}{' '}
+                    <span className="text-xs text-amber-700 dark:text-amber-400">({t('rolesPage.permLockedBadge')})</span>
+                  </span>
+                </div>
               ))}
-            </select>
-          </div>
-          {unlocked.length > 0 && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.permissionsOptional')}</label>
-              <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-200 p-2 dark:border-slate-600">
-                {unlocked.map((p) => (
-                  <label key={p.id} className="flex cursor-pointer items-center gap-2 py-1">
-                    <input
-                      type="checkbox"
-                      checked={permissionIds.includes(p.id)}
-                      onChange={() => togglePermission(p.id)}
-                      className="rounded border-slate-300 text-primary"
-                    />
-                    <span className="text-sm text-slate-700 dark:text-slate-200">{p.name ?? p.code}</span>
-                  </label>
-                ))}
-              </div>
             </div>
-          )}
-          {locked.length > 0 && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">{t('rolesPage.createRoleLockedReference')}</label>
-              <div className="max-h-32 overflow-y-auto rounded-lg border border-dashed border-slate-200 bg-slate-50 p-2 dark:border-slate-600 dark:bg-slate-900/40">
-                {locked.map((p) => (
-                  <div key={p.id} className="flex items-center gap-2 py-1 opacity-70">
-                    <input type="checkbox" disabled checked={false} className="rounded border-slate-300" readOnly aria-hidden />
-                    <span className="text-sm text-slate-600 dark:text-slate-400">
-                      {p.name ?? p.code}{' '}
-                      <span className="text-xs text-amber-700 dark:text-amber-400">({t('rolesPage.permLockedBadge')})</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
-              {t('ui.cancel')}
-            </button>
-            <button type="submit" disabled={submitting} className="dashboard-btn-primary flex-1 disabled:opacity-70">
-              {t('rolesPage.create')}
-            </button>
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+      </form>
+    </Modal>
   )
 }
 
@@ -731,76 +715,79 @@ function EditPermissionsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('rolesPage.editPermTitle', { name: role.name })}</h3>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
-        )}
-        {loading ? (
-          <div className="mt-4 py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
-        ) : (
-          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              {isSystemRole ? t('rolesPage.permHintSystemRole') : t('rolesPage.permHintCustomRole')}
-            </p>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.permissionsLabel')}</label>
-              <div className="max-h-[min(24rem,55vh)] space-y-4 overflow-y-auto rounded-lg border border-slate-200 p-3 dark:border-slate-600">
-                {catalogue.length === 0 ? (
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{t('rolesPage.noPermissionsInCatalogue')}</p>
-                ) : (
-                  groups.map(([resource, perms]) => (
-                    <div key={resource}>
-                      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{resource}</div>
-                      <div className="space-y-1 pl-0">
-                        {perms.map((p) => {
-                          const locked = Boolean(p.locked)
-                          const canToggle = isSystemRole || !locked
-                          return (
-                            <label
-                              key={p.id}
-                              className={`flex items-center gap-2 py-1 ${canToggle ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'}`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={permissionIds.includes(p.id)}
-                                disabled={!canToggle}
-                                onChange={() => togglePermission(p.id, canToggle)}
-                                className="rounded border-slate-300 text-primary disabled:opacity-50"
-                              />
-                              <span className="text-sm text-slate-700 dark:text-slate-200">
-                                {p.name ?? p.code}
-                                {locked ? (
-                                  <span className="ms-1 text-xs text-amber-700 dark:text-amber-400">({t('rolesPage.permLockedBadge')})</span>
-                                ) : null}
-                              </span>
-                            </label>
-                          )
-                        })}
-                      </div>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('rolesPage.editPermTitle', { name: role.name })}
+      size="lg"
+      footer={
+        !loading ? (
+          <>
+            <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+              {t('ui.cancel')}
+            </button>
+            <button type="submit" form="role-perms-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+              {t('rolesPage.save')}
+            </button>
+          </>
+        ) : undefined
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      {loading ? (
+        <div className="py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
+      ) : (
+        <form id="role-perms-form" onSubmit={handleSubmit} className="space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            {isSystemRole ? t('rolesPage.permHintSystemRole') : t('rolesPage.permHintCustomRole')}
+          </p>
+          <div>
+            <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">{t('rolesPage.permissionsLabel')}</p>
+            <div className="space-y-4 rounded-xl border border-slate-100 p-3.5 dark:border-white/[0.05]">
+              {catalogue.length === 0 ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t('rolesPage.noPermissionsInCatalogue')}</p>
+              ) : (
+                groups.map(([resource, perms]) => (
+                  <div key={resource}>
+                    <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{resource}</div>
+                    <div className="space-y-1">
+                      {perms.map((p) => {
+                        const locked = Boolean(p.locked)
+                        const canToggle = isSystemRole || !locked
+                        return (
+                          <label
+                            key={p.id}
+                            className={`flex items-center gap-2 py-1 ${canToggle ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={permissionIds.includes(p.id)}
+                              disabled={!canToggle}
+                              onChange={() => togglePermission(p.id, canToggle)}
+                              className="rounded border-slate-300 text-primary disabled:opacity-50"
+                            />
+                            <span className="text-sm text-slate-700 dark:text-slate-200">
+                              {p.name ?? p.code}
+                              {locked ? (
+                                <span className="ms-1 text-xs text-amber-700 dark:text-amber-400">({t('rolesPage.permLockedBadge')})</span>
+                              ) : null}
+                            </span>
+                          </label>
+                        )
+                      })}
                     </div>
-                  ))
-                )}
-              </div>
+                  </div>
+                ))
+              )}
             </div>
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
-                {t('ui.cancel')}
-              </button>
-              <button type="submit" disabled={submitting} className="dashboard-btn-primary flex-1 disabled:opacity-70">
-                {t('rolesPage.save')}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+          </div>
+        </form>
+      )}
+    </Modal>
   )
 }
 
@@ -845,50 +832,52 @@ function DeleteRoleModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('rolesPage.deleteTitle')}</h3>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-          {t('rolesPage.deleteQuestion', { name: role.name })}
-          {userCount > 0 ? ` ${t('rolesPage.reassignHint', { count: userCount })}` : ''}
-        </p>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('rolesPage.deleteTitle')}
+      description={`${t('rolesPage.deleteQuestion', { name: role.name })}${userCount > 0 ? ` ${t('rolesPage.reassignHint', { count: userCount })}` : ''}`}
+      size="sm"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+            {t('ui.cancel')}
+          </button>
+          <button
+            type="submit"
+            form="role-delete-form"
+            disabled={submitting}
+            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-70"
+          >
+            {t('rolesPage.deleteConfirm')}
+          </button>
+        </>
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="role-delete-form" onSubmit={handleSubmit} className="space-y-4">
+        {userCount > 0 && (
+          <FormField label={t('rolesPage.reassignLabel')} required>
+            <select
+              value={targetRoleId}
+              onChange={(e) => setTargetRoleId(e.target.value)}
+              className="modal-select"
+              required
+            >
+              <option value="">{t('rolesPage.selectRole')}</option>
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {t('rolesPage.optionRoleUsers', { name: r.name, count: r.userCount ?? 0 })}
+                </option>
+              ))}
+            </select>
+          </FormField>
         )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          {userCount > 0 && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.reassignLabel')}</label>
-              <select
-                value={targetRoleId}
-                onChange={(e) => setTargetRoleId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                required={userCount > 0}
-              >
-                <option value="">{t('rolesPage.selectRole')}</option>
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {t('rolesPage.optionRoleUsers', { name: r.name, count: r.userCount ?? 0 })}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
-              {t('ui.cancel')}
-            </button>
-            <button type="submit" disabled={submitting} className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-70">
-              {t('rolesPage.deleteConfirm')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   )
 }

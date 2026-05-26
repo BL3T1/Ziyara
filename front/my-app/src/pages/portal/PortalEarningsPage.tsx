@@ -7,6 +7,8 @@ import { useLanguage } from '../../context/LanguageContext'
 import { getApiErrorMessage, portalAPI } from '../../services/api'
 import type { PortalEarningsDto } from '../../types/api'
 import { Card } from '../../components/Card'
+import { Modal } from '../../components/Modal'
+import { FormField } from '../../components/FormField'
 
 function PayoutRequestModal({
   currency,
@@ -43,65 +45,69 @@ function PayoutRequestModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/[0.08] dark:bg-[#0d1117]">
-        <h3 className="mb-5 text-base font-semibold text-slate-900 dark:text-slate-50">
-          Request Payout
-        </h3>
-        {success ? (
-          <div className="space-y-4">
-            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300">
-              Payout request submitted. Our team will process it within 3–5 business days.
-            </p>
-            <button type="button" onClick={onClose} className="dashboard-btn-primary w-full">
-              Close
-            </button>
-          </div>
+    <Modal
+      open
+      onClose={onClose}
+      title="Request Payout"
+      size="sm"
+      footer={
+        success ? (
+          <button type="button" onClick={onClose} className="dashboard-btn-primary w-full">
+            Close
+          </button>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                Amount ({currency})
-              </label>
-              <input
-                type="number"
-                min="1"
-                step="0.01"
-                max={maxAmount}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder={`Max ${maxAmount.toLocaleString()}`}
-                className="dashboard-date-input w-full"
-                required
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                Notes (optional)
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                placeholder="Bank account, reference, or any note for our team"
-                className="dashboard-date-input w-full resize-none"
-              />
-            </div>
-            {error && (
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-            )}
-            <div className="flex gap-3">
-              <button type="button" onClick={onClose} className="flex-1 dashboard-btn-secondary">
-                Cancel
-              </button>
-              <button type="submit" disabled={submitting} className="flex-1 dashboard-btn-primary disabled:opacity-50">
-                {submitting ? 'Submitting…' : 'Submit Request'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+          <>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="dashboard-btn-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="payout-form"
+              disabled={submitting}
+              className="dashboard-btn-primary disabled:opacity-50"
+            >
+              {submitting ? 'Submitting…' : 'Submit Request'}
+            </button>
+          </>
+        )
+      }
+    >
+      {success ? (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300">
+          Payout request submitted. Our team will process it within 3–5 business days.
+        </p>
+      ) : (
+        <form id="payout-form" onSubmit={handleSubmit} className="space-y-5">
+          <FormField label={`Amount (${currency})`} required>
+            <input
+              type="number"
+              min="1"
+              step="0.01"
+              max={maxAmount}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder={`Max ${maxAmount.toLocaleString()}`}
+              className="modal-input"
+              required
+            />
+          </FormField>
+          <FormField label="Notes" hint="Bank account, reference, or any note for our team">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              className="modal-textarea"
+            />
+          </FormField>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        </form>
+      )}
+    </Modal>
   )
 }
 

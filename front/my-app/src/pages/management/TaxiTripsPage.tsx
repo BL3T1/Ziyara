@@ -5,6 +5,8 @@
 import { useEffect, useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import { getApiErrorMessage, taxiBookingsAPI } from '../../services/api'
+import { Modal } from '../../components/Modal'
+import { FormField } from '../../components/FormField'
 
 type TaxiRow = Record<string, unknown> & { id?: string; status?: string }
 
@@ -153,88 +155,82 @@ export function TaxiTripsPage() {
         )}
       </div>
 
-      {detail !== null && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => !saving && setDetail(null)}
-        >
-          <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('taxiTripsPage.detailTitle')}</h3>
-            {detailLoading ? (
-              <p className="mt-4 text-slate-500 dark:text-slate-400">{t('ui.loading')}</p>
-            ) : (
-              <>
-                <dl className="mt-4 space-y-2 text-sm">
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-slate-500 dark:text-slate-400">{t('taxiTripsPage.fBooking')}</dt>
-                    <dd className="text-slate-800 dark:text-slate-100">
-                      {typeof detail.bookingReference === 'string' && detail.bookingReference.trim()
-                        ? detail.bookingReference.trim()
-                        : detail.bookingId
-                          ? t('paymentsPage.linkedBooking')
-                          : t('ui.emDash')}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-slate-500 dark:text-slate-400">{t('taxiTripsPage.fPlate')}</dt>
-                    <dd className="text-slate-800 dark:text-slate-100">{str(detail.licensePlate)}</dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-slate-500 dark:text-slate-400">{t('taxiTripsPage.fModel')}</dt>
-                    <dd className="text-slate-800 dark:text-slate-100">{str(detail.vehicleModel)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500 dark:text-slate-400">{t('taxiTripsPage.fPickup')}</dt>
-                    <dd className="mt-1 text-slate-800 dark:text-slate-100">{str(detail.pickupLocation)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500 dark:text-slate-400">{t('taxiTripsPage.fDestination')}</dt>
-                    <dd className="mt-1 text-slate-800 dark:text-slate-100">{str(detail.destinationLocation)}</dd>
-                  </div>
-                </dl>
-                <div className="mt-6">
-                  <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">
-                    {t('taxiTripsPage.newStatus')}
-                  </label>
-                  <select
-                    value={statusDraft}
-                    onChange={(e) => setStatusDraft(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                  >
-                    <option value="">{t('taxiTripsPage.selectStatus')}</option>
-                    {TAXI_STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mt-6 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setDetail(null)}
-                    disabled={saving}
-                    className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300"
-                  >
-                    {t('ui.cancel')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => saveStatus()}
-                    disabled={saving || !statusDraft}
-                    className="dashboard-btn-primary flex-1 disabled:opacity-50"
-                  >
-                    {t('taxiTripsPage.saveStatus')}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <Modal
+        open={detail !== null}
+        onClose={() => !saving && setDetail(null)}
+        title={t('taxiTripsPage.detailTitle')}
+        size="sm"
+        footer={
+          !detailLoading && detail ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setDetail(null)}
+                disabled={saving}
+                className="dashboard-btn-secondary"
+              >
+                {t('ui.cancel')}
+              </button>
+              <button
+                type="submit"
+                form="taxi-status-form"
+                disabled={saving || !statusDraft}
+                className="dashboard-btn-primary disabled:opacity-50"
+              >
+                {t('taxiTripsPage.saveStatus')}
+              </button>
+            </>
+          ) : undefined
+        }
+      >
+        {detailLoading ? (
+          <p className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">{t('ui.loading')}</p>
+        ) : detail ? (
+          <form id="taxi-status-form" onSubmit={(e) => { e.preventDefault(); saveStatus() }} className="space-y-4">
+            <dl className="space-y-2 rounded-xl border border-slate-100 p-3.5 text-sm dark:border-white/[0.05]">
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500 dark:text-slate-400">{t('taxiTripsPage.fBooking')}</dt>
+                <dd className="font-medium text-slate-900 dark:text-slate-100">
+                  {typeof detail.bookingReference === 'string' && detail.bookingReference.trim()
+                    ? detail.bookingReference.trim()
+                    : detail.bookingId
+                      ? t('paymentsPage.linkedBooking')
+                      : t('ui.emDash')}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500 dark:text-slate-400">{t('taxiTripsPage.fPlate')}</dt>
+                <dd className="font-medium text-slate-900 dark:text-slate-100">{str(detail.licensePlate)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500 dark:text-slate-400">{t('taxiTripsPage.fModel')}</dt>
+                <dd className="font-medium text-slate-900 dark:text-slate-100">{str(detail.vehicleModel)}</dd>
+              </div>
+              <div className="flex flex-col gap-1">
+                <dt className="text-slate-500 dark:text-slate-400">{t('taxiTripsPage.fPickup')}</dt>
+                <dd className="font-medium text-slate-900 dark:text-slate-100">{str(detail.pickupLocation)}</dd>
+              </div>
+              <div className="flex flex-col gap-1">
+                <dt className="text-slate-500 dark:text-slate-400">{t('taxiTripsPage.fDestination')}</dt>
+                <dd className="font-medium text-slate-900 dark:text-slate-100">{str(detail.destinationLocation)}</dd>
+              </div>
+            </dl>
+            <FormField label={t('taxiTripsPage.newStatus')} required>
+              <select
+                value={statusDraft}
+                onChange={(e) => setStatusDraft(e.target.value)}
+                className="modal-select"
+                required
+              >
+                <option value="">{t('taxiTripsPage.selectStatus')}</option>
+                {TAXI_STATUSES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </FormField>
+          </form>
+        ) : null}
+      </Modal>
     </>
   )
 }

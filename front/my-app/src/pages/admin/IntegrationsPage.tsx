@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { getApiErrorMessage, integrationsAPI } from '../../services/api'
 import { Card } from '../../components/Card'
+import { Modal } from '../../components/Modal'
 import type { FeatureFlagDto, IntegrationApiKeyCreatedDto, IntegrationApiKeySummaryDto } from '../../types/api'
 
 export function IntegrationsPage() {
@@ -274,27 +275,25 @@ export function IntegrationsPage() {
         </Card>
       )}
 
-      {createdSecret && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-w-lg rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('integrationsPage.secretTitle')}</h2>
-            <p className="mt-2 text-sm text-amber-800 dark:text-amber-200">{t('integrationsPage.secretWarn')}</p>
-            <textarea
-              readOnly
-              rows={3}
-              value={createdSecret.plainSecret ?? ''}
-              className="mt-4 w-full rounded border border-slate-300 bg-slate-50 p-2 font-mono text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-            />
-            <button
-              type="button"
-              onClick={() => setCreatedSecret(null)}
-              className="dashboard-btn-primary mt-4"
-            >
-              {t('ui.close')}
-            </button>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={!!createdSecret}
+        onClose={() => setCreatedSecret(null)}
+        title={t('integrationsPage.secretTitle')}
+        description={t('integrationsPage.secretWarn')}
+        size="sm"
+        footer={
+          <button type="button" onClick={() => setCreatedSecret(null)} className="dashboard-btn-primary">
+            {t('ui.close')}
+          </button>
+        }
+      >
+        <textarea
+          readOnly
+          rows={4}
+          value={createdSecret?.plainSecret ?? ''}
+          className="modal-textarea font-mono text-xs"
+        />
+      </Modal>
     </>
   )
 }

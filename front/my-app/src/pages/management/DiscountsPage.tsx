@@ -9,6 +9,8 @@ import { discountsAPI, providersAPI, servicesAPI } from '../../services/api'
 import { getApiErrorMessage } from '../../services/api'
 import type { DiscountDto, PageDto, ServiceDto, ServiceProviderDto } from '../../types/api'
 import { canApproveDiscount, canCreateDiscount, isSuperAdminRole } from '../../types/auth'
+import { Modal } from '../../components/Modal'
+import { FormField } from '../../components/FormField'
 
 const STATUS_FILTERS = [
   { id: 'ACTIVE', labelKey: 'discountsPage.statusActive' },
@@ -350,242 +352,242 @@ export function DiscountsPage() {
         )}
       </div>
 
-      {createModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('discountsPage.modalTitle')}</h2>
-            {!allowApprove && (
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{t('discountsPage.pendingHint')}</p>
-            )}
-            <form onSubmit={handleCreate} className="mt-4 space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('discountsPage.labelCode')}</label>
-                <input
-                  type="text"
-                  value={createForm.code}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('discountsPage.labelDescription')}</label>
-                <input
-                  type="text"
-                  value={createForm.description}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('discountsPage.labelType')}</label>
-                <select
-                  value={createForm.type}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, type: e.target.value }))}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                >
-                  {TYPE_OPTIONS.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {t(o.labelKey)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('discountsPage.labelSponsor')}</label>
-                <select
-                  value={createForm.sponsor}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, sponsor: e.target.value }))}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                >
-                  {SPONSOR_OPTIONS.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {t(o.labelKey)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  {t('discountsPage.labelProviderScope')}
-                </label>
-                <select
-                  value={createForm.providerId}
-                  onChange={(e) =>
-                    setCreateForm((f) => ({
-                      ...f,
-                      providerId: e.target.value,
-                      selectedListingIds: [],
-                    }))
-                  }
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                >
-                  <option value="">{t('discountsPage.labelProviderAny')}</option>
-                  {providerOptions.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name ?? p.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {createForm.providerId ? (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    {t('discountsPage.labelListings')}
-                  </label>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t('discountsPage.listingsHint')}</p>
-                  <div className="mt-2 max-h-36 space-y-1 overflow-y-auto rounded border border-slate-200 p-2 dark:border-slate-600">
-                    {listingOptions.length === 0 ? (
-                      <p className="text-xs text-slate-500">{t('discountsPage.loading')}</p>
-                    ) : (
-                      listingOptions.map((svc) => (
-                        <label key={svc.id} className="flex cursor-pointer items-start gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={createForm.selectedListingIds.includes(svc.id)}
-                            onChange={(e) => {
-                              const on = e.target.checked
-                              setCreateForm((f) => ({
-                                ...f,
-                                selectedListingIds: on
-                                  ? [...f.selectedListingIds, svc.id]
-                                  : f.selectedListingIds.filter((id) => id !== svc.id),
-                              }))
-                            }}
-                            className="mt-1"
-                          />
-                          <span className="text-slate-700 dark:text-slate-200">
-                            {svc.name ?? svc.id}{' '}
-                            <span className="text-slate-400">({String(svc.type ?? '')})</span>
-                          </span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </div>
-              ) : null}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  {t('discountsPage.labelMenuSections')}
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{t('discountsPage.uuidListHint')}</p>
-                <textarea
-                  value={createForm.menuSectionUuids}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, menuSectionUuids: e.target.value }))}
-                  rows={2}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 font-mono text-xs dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                  placeholder="uuid-1, uuid-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  {t('discountsPage.labelMenuItems')}
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{t('discountsPage.uuidListHint')}</p>
-                <textarea
-                  value={createForm.menuItemUuids}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, menuItemUuids: e.target.value }))}
-                  rows={2}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 font-mono text-xs dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  {t('discountsPage.labelRoomTypes')}
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{t('discountsPage.uuidListHint')}</p>
-                <textarea
-                  value={createForm.roomTypeUuids}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, roomTypeUuids: e.target.value }))}
-                  rows={2}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 font-mono text-xs dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('discountsPage.labelValue')}</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={createForm.value}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, value: e.target.value }))}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('discountsPage.labelMinBooking')}</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={createForm.minBookingAmount}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, minBookingAmount: e.target.value }))}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('discountsPage.labelMaxDiscount')}</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={createForm.maxDiscountAmount}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, maxDiscountAmount: e.target.value }))}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('discountsPage.labelStartDate')}</label>
-                <input
-                  type="datetime-local"
-                  value={createForm.startDate ? toLocalDateTime(createForm.startDate) : ''}
-                  onChange={(e) =>
-                    setCreateForm((f) => ({ ...f, startDate: e.target.value ? new Date(e.target.value).toISOString() : '' }))
-                  }
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('discountsPage.labelEndDate')}</label>
-                <input
-                  type="datetime-local"
-                  value={createForm.endDate ? toLocalDateTime(createForm.endDate) : ''}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, endDate: e.target.value ? new Date(e.target.value).toISOString() : '' }))}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('discountsPage.labelUsageLimit')}</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={createForm.usageLimit}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, usageLimit: e.target.value }))}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                />
-              </div>
-              <div className="flex gap-2 pt-4">
-                <button
-                  type="submit"
-                  disabled={createSubmitting}
-                  className="dashboard-btn-primary disabled:opacity-50"
-                >
-                  {createSubmitting ? t('discountsPage.creating') : t('discountsPage.create')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCreateModalOpen(false)}
-                  className="dashboard-btn-secondary"
-                >
-                  {t('ui.cancel')}
-                </button>
-              </div>
-            </form>
+      <Modal
+        open={createModalOpen}
+        onClose={() => !createSubmitting && setCreateModalOpen(false)}
+        title={t('discountsPage.modalTitle')}
+        description={!allowApprove ? t('discountsPage.pendingHint') : undefined}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setCreateModalOpen(false)}
+              disabled={createSubmitting}
+              className="dashboard-btn-secondary"
+            >
+              {t('ui.cancel')}
+            </button>
+            <button
+              type="submit"
+              form="discount-create-form"
+              disabled={createSubmitting}
+              className="dashboard-btn-primary disabled:opacity-50"
+            >
+              {createSubmitting ? t('discountsPage.creating') : t('discountsPage.create')}
+            </button>
+          </>
+        }
+      >
+        <form id="discount-create-form" onSubmit={handleCreate} className="space-y-5">
+          {/* Two-column row for Type + Sponsor */}
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label={t('discountsPage.labelCode')} required>
+              <input
+                type="text"
+                value={createForm.code}
+                onChange={(e) => setCreateForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
+                className="modal-input font-mono tracking-wider"
+                placeholder="SUMMER20"
+                required
+              />
+            </FormField>
+            <FormField label={t('discountsPage.labelValue')} required>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={createForm.value}
+                onChange={(e) => setCreateForm((f) => ({ ...f, value: e.target.value }))}
+                className="modal-input"
+                required
+              />
+            </FormField>
           </div>
-        </div>
-      )}
+
+          <FormField label={t('discountsPage.labelDescription')}>
+            <input
+              type="text"
+              value={createForm.description}
+              onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))}
+              className="modal-input"
+            />
+          </FormField>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label={t('discountsPage.labelType')}>
+              <select
+                value={createForm.type}
+                onChange={(e) => setCreateForm((f) => ({ ...f, type: e.target.value }))}
+                className="modal-select"
+              >
+                {TYPE_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {t(o.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label={t('discountsPage.labelSponsor')}>
+              <select
+                value={createForm.sponsor}
+                onChange={(e) => setCreateForm((f) => ({ ...f, sponsor: e.target.value }))}
+                className="modal-select"
+              >
+                {SPONSOR_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {t(o.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          </div>
+
+          <FormField label={t('discountsPage.labelProviderScope')}>
+            <select
+              value={createForm.providerId}
+              onChange={(e) =>
+                setCreateForm((f) => ({ ...f, providerId: e.target.value, selectedListingIds: [] }))
+              }
+              className="modal-select"
+            >
+              <option value="">{t('discountsPage.labelProviderAny')}</option>
+              {providerOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name ?? p.id}
+                </option>
+              ))}
+            </select>
+          </FormField>
+
+          {createForm.providerId && (
+            <FormField label={t('discountsPage.labelListings')} hint={t('discountsPage.listingsHint')}>
+              <div className="max-h-36 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2.5 dark:border-white/[0.08]">
+                {listingOptions.length === 0 ? (
+                  <p className="text-xs text-slate-500">{t('discountsPage.loading')}</p>
+                ) : (
+                  listingOptions.map((svc) => (
+                    <label key={svc.id} className="flex cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1 text-sm hover:bg-slate-50 dark:hover:bg-white/[0.04]">
+                      <input
+                        type="checkbox"
+                        checked={createForm.selectedListingIds.includes(svc.id)}
+                        onChange={(e) => {
+                          const on = e.target.checked
+                          setCreateForm((f) => ({
+                            ...f,
+                            selectedListingIds: on
+                              ? [...f.selectedListingIds, svc.id]
+                              : f.selectedListingIds.filter((id) => id !== svc.id),
+                          }))
+                        }}
+                        className="mt-0.5"
+                      />
+                      <span className="text-slate-700 dark:text-slate-200">
+                        {svc.name ?? svc.id}{' '}
+                        <span className="text-slate-400">({String(svc.type ?? '')})</span>
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </FormField>
+          )}
+
+          {/* UUID scope fields — collapsible group */}
+          <div className="space-y-4 rounded-xl border border-slate-100 p-4 dark:border-white/[0.05]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Optional UUID Scopes
+            </p>
+            <FormField label={t('discountsPage.labelMenuSections')} hint={t('discountsPage.uuidListHint')}>
+              <textarea
+                value={createForm.menuSectionUuids}
+                onChange={(e) => setCreateForm((f) => ({ ...f, menuSectionUuids: e.target.value }))}
+                rows={2}
+                className="modal-textarea font-mono text-xs"
+                placeholder="uuid-1, uuid-2"
+              />
+            </FormField>
+            <FormField label={t('discountsPage.labelMenuItems')} hint={t('discountsPage.uuidListHint')}>
+              <textarea
+                value={createForm.menuItemUuids}
+                onChange={(e) => setCreateForm((f) => ({ ...f, menuItemUuids: e.target.value }))}
+                rows={2}
+                className="modal-textarea font-mono text-xs"
+              />
+            </FormField>
+            <FormField label={t('discountsPage.labelRoomTypes')} hint={t('discountsPage.uuidListHint')}>
+              <textarea
+                value={createForm.roomTypeUuids}
+                onChange={(e) => setCreateForm((f) => ({ ...f, roomTypeUuids: e.target.value }))}
+                rows={2}
+                className="modal-textarea font-mono text-xs"
+              />
+            </FormField>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label={t('discountsPage.labelMinBooking')}>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={createForm.minBookingAmount}
+                onChange={(e) => setCreateForm((f) => ({ ...f, minBookingAmount: e.target.value }))}
+                className="modal-input"
+              />
+            </FormField>
+            <FormField label={t('discountsPage.labelMaxDiscount')}>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={createForm.maxDiscountAmount}
+                onChange={(e) => setCreateForm((f) => ({ ...f, maxDiscountAmount: e.target.value }))}
+                className="modal-input"
+              />
+            </FormField>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label={t('discountsPage.labelStartDate')}>
+              <input
+                type="datetime-local"
+                value={createForm.startDate ? toLocalDateTime(createForm.startDate) : ''}
+                onChange={(e) =>
+                  setCreateForm((f) => ({
+                    ...f,
+                    startDate: e.target.value ? new Date(e.target.value).toISOString() : '',
+                  }))
+                }
+                className="modal-input"
+              />
+            </FormField>
+            <FormField label={t('discountsPage.labelEndDate')} required>
+              <input
+                type="datetime-local"
+                value={createForm.endDate ? toLocalDateTime(createForm.endDate) : ''}
+                onChange={(e) =>
+                  setCreateForm((f) => ({
+                    ...f,
+                    endDate: e.target.value ? new Date(e.target.value).toISOString() : '',
+                  }))
+                }
+                className="modal-input"
+                required
+              />
+            </FormField>
+          </div>
+
+          <FormField label={t('discountsPage.labelUsageLimit')}>
+            <input
+              type="number"
+              min="0"
+              value={createForm.usageLimit}
+              onChange={(e) => setCreateForm((f) => ({ ...f, usageLimit: e.target.value }))}
+              className="modal-input"
+            />
+          </FormField>
+        </form>
+      </Modal>
     </>
   )
 }

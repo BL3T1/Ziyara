@@ -3,6 +3,7 @@
  */
 
 import { CreateProviderForm, type CreateProviderVariant } from './CreateProviderForm'
+import { Modal } from './Modal'
 import { useLanguage } from '../context/LanguageContext'
 import type { ServiceTypeDto } from '../types/api'
 
@@ -23,32 +24,24 @@ export function CreateProviderModal({
 }) {
   const { t } = useLanguage()
 
-  if (!open) return null
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={onClose}
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t('createProviderModal.title')}
+      description={
+        variant === 'sales'
+          ? t('createProviderModal.introSales')
+          : t('createProviderModal.introSuper')
+      }
     >
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(ev) => ev.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-          {t('createProviderModal.title')}
-        </h3>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          {variant === 'sales' ? t('createProviderModal.introSales') : t('createProviderModal.introSuper')}
-        </p>
-
-        <CreateProviderForm
-          variant={variant}
-          presetServiceType={presetServiceType}
-          onCancel={onClose}
-          onCreated={onCreated}
-          successCloseMs={1200}
-        />
-      </div>
-    </div>
+      <CreateProviderForm
+        variant={variant}
+        presetServiceType={presetServiceType}
+        onCancel={onClose}
+        onCreated={onCreated}
+        successCloseMs={1200}
+      />
+    </Modal>
   )
 }

@@ -8,6 +8,8 @@ import { useLanguage } from '../../context/LanguageContext'
 import { useDisplayCurrency } from '../../context/DisplayCurrencyContext'
 import { paymentsAPI } from '../../services/api'
 import type { PageDto, PaymentDto } from '../../types/api'
+import { Modal } from '../../components/Modal'
+import { FormField } from '../../components/FormField'
 
 function asPage<T>(data: unknown): PageDto<T> | null {
   if (data && typeof data === 'object' && Array.isArray((data as PageDto<T>).content)) {
@@ -218,46 +220,45 @@ export function PaymentsPage() {
         </div>
       )}
 
-      {refundModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-800">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('paymentsPage.refundTitle')}</h3>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              {t('paymentsPage.transactionLine', { ref: refundModal.ref ?? refundModal.id })}
-            </p>
-            <label className="mt-4 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              {t('ui.reason')} <span className="text-red-500">*</span>
-            </label>
+      <Modal
+        open={!!refundModal}
+        onClose={() => { setRefundModal(null); setRefundReason('') }}
+        title={t('paymentsPage.refundTitle')}
+        description={refundModal ? t('paymentsPage.transactionLine', { ref: refundModal.ref ?? refundModal.id }) : undefined}
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => { setRefundModal(null); setRefundReason('') }}
+              className="dashboard-btn-secondary"
+            >
+              {t('ui.cancel')}
+            </button>
+            <button
+              type="submit"
+              form="refund-form"
+              disabled={!refundReason.trim() || refundSubmitting}
+              className="dashboard-btn-primary disabled:opacity-50"
+            >
+              {refundSubmitting ? t('ui.submitting') : t('ui.confirmRefund')}
+            </button>
+          </>
+        }
+      >
+        <form id="refund-form" onSubmit={(e) => { e.preventDefault(); handleRefund() }}>
+          <FormField label={t('ui.reason')} required>
             <textarea
               value={refundReason}
               onChange={(e) => setRefundReason(e.target.value)}
-              rows={3}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              rows={4}
+              className="modal-textarea"
               placeholder={t('paymentsPage.refundReasonPlaceholder')}
+              required
             />
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setRefundModal(null)
-                  setRefundReason('')
-                }}
-                className="dashboard-btn-secondary"
-              >
-                {t('ui.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleRefund}
-                disabled={!refundReason.trim() || refundSubmitting}
-                className="dashboard-btn-primary disabled:opacity-50"
-              >
-                {refundSubmitting ? t('ui.submitting') : t('ui.confirmRefund')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </FormField>
+        </form>
+      </Modal>
     </>
   )
 }
