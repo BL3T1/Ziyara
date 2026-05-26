@@ -8,6 +8,8 @@ import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { rolesAPI, usersAPI, getApiErrorMessage } from '../../services/api'
 import type { GroupDto, GroupSummaryDto, PageDto, RoleDto, StaffDirectoryRoleOptionDto, UserDto } from '../../types/api'
+import { Modal } from '../../components/Modal'
+import { FormField } from '../../components/FormField'
 import {
   UNGROUPED_GROUP_ID,
   buildFallbackStaffRoleOptions,
@@ -259,7 +261,7 @@ export function UsersPage() {
             const isSyntheticUngrouped = g.id === UNGROUPED_GROUP_ID
             const platform = isReservedPlatformGroupCode(g.code)
             const canDeleteGroup =
-              !isSyntheticUngrouped && !platform && (g.roleCount ?? 0) === 0 && (g.userCount ?? 0) === 0
+              !isSyntheticUngrouped && (g.roleCount ?? 0) === 0 && (g.userCount ?? 0) === 0
             return (
               <div
                 key={g.id}
@@ -302,13 +304,7 @@ export function UsersPage() {
                               }
                             }}
                             className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-500 dark:text-slate-400 dark:hover:bg-red-950/40 dark:hover:text-red-400 dark:disabled:hover:bg-transparent"
-                            title={
-                              canDeleteGroup
-                                ? t('usersPage.deleteGroupAria')
-                                : platform
-                                  ? t('usersPage.deleteGroupDisabledPlatform')
-                                  : t('usersPage.deleteGroupDisabledInUse')
-                            }
+                            title={canDeleteGroup ? t('usersPage.deleteGroupAria') : t('usersPage.deleteGroupDisabledInUse')}
                             aria-label={t('usersPage.deleteGroupAria')}
                           >
                             <TrashIcon className="h-5 w-5" />
@@ -483,97 +479,79 @@ function CreateGroupModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('usersPage.createGroupTitle')}</h3>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('usersPage.createGroupHint')}</p>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">
-              {t('usersPage.groupNameLabel')}
-            </label>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('usersPage.createGroupTitle')}
+      description={t('usersPage.createGroupHint')}
+      size="md"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+            {t('ui.cancel')}
+          </button>
+          <button type="submit" form="group-create-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+            {t('usersPage.createGroupSubmit')}
+          </button>
+        </>
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="group-create-form" onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label={t('usersPage.groupNameLabel')} required>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               required
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">
-              {t('usersPage.groupCodeLabel')}
-            </label>
+          </FormField>
+          <FormField label={t('usersPage.groupCodeLabel')} hint={t('usersPage.groupCodeHint')}>
             <input
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="C8"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input font-mono"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">
-              {t('usersPage.groupDescriptionLabel')}
-            </label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">
-              {t('rolesPage.nameArLabel')}
-            </label>
+          </FormField>
+        </div>
+        <FormField label={t('usersPage.groupDescriptionLabel')}>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="modal-input"
+          />
+        </FormField>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label={t('rolesPage.nameArLabel')}>
             <input
               type="text"
               value={nameAr}
               onChange={(e) => setNameAr(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               dir="rtl"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">
-              {t('rolesPage.descriptionArLabel')}
-            </label>
+          </FormField>
+          <FormField label={t('rolesPage.descriptionArLabel')}>
             <input
               type="text"
               value={descriptionAr}
               onChange={(e) => setDescriptionAr(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               dir="rtl"
             />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              {t('ui.cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="dashboard-btn-primary flex-1 disabled:opacity-70"
-            >
-              {t('usersPage.createGroupSubmit')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </FormField>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
@@ -635,91 +613,87 @@ function EditGroupModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('usersPage.editGroupTitle')}</h3>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('usersPage.editGroupHint')}</p>
-        {platform && (
-          <p className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600 dark:bg-slate-900/60 dark:text-slate-300">
-            {t('usersPage.editGroupCodeLocked')}
-          </p>
-        )}
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.groupNameLabel')}</label>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('usersPage.editGroupTitle')}
+      description={t('usersPage.editGroupHint')}
+      size="md"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+            {t('ui.cancel')}
+          </button>
+          <button type="submit" form="group-edit-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+            {t('usersPage.editGroupSubmit')}
+          </button>
+        </>
+      }
+    >
+      {platform && (
+        <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+          {t('usersPage.editGroupCodeLocked')}
+        </div>
+      )}
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="group-edit-form" onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label={t('usersPage.groupNameLabel')} required>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               required
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.groupCodeLabel')}</label>
+          </FormField>
+          <FormField label={t('usersPage.groupCodeLabel')} hint={platform ? t('usersPage.editGroupCodeLocked') : undefined}>
             <input
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               disabled={platform}
               placeholder="C8"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input font-mono disabled:cursor-not-allowed disabled:opacity-60"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.groupDescriptionLabel')}</label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.nameArLabel')}</label>
+          </FormField>
+        </div>
+        <FormField label={t('usersPage.groupDescriptionLabel')}>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="modal-input"
+          />
+        </FormField>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label={t('rolesPage.nameArLabel')}>
             <input
               type="text"
               value={nameAr}
               onChange={(e) => setNameAr(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               dir="rtl"
               placeholder={t('usersPage.editGroupOptionalAr')}
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.descriptionArLabel')}</label>
+          </FormField>
+          <FormField label={t('rolesPage.descriptionArLabel')}>
             <input
               type="text"
               value={descriptionAr}
               onChange={(e) => setDescriptionAr(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               dir="rtl"
               placeholder={t('usersPage.editGroupOptionalAr')}
             />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              {t('ui.cancel')}
-            </button>
-            <button type="submit" disabled={submitting} className="dashboard-btn-primary flex-1 disabled:opacity-70">
-              {t('usersPage.editGroupSubmit')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </FormField>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
@@ -802,126 +776,123 @@ function CreateUserModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('usersPage.modalTitle')}</h3>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.emailLabel')}</label>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('usersPage.modalTitle')}
+      size="md"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="dashboard-btn-secondary">
+            {t('usersPage.cancel')}
+          </button>
+          <button
+            type="submit"
+            form="user-create-form"
+            disabled={roleOptions.length === 0}
+            className="dashboard-btn-primary disabled:opacity-60"
+          >
+            {t('usersPage.create')}
+          </button>
+        </>
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="user-create-form" onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label={t('usersPage.emailLabel')} required>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               required
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.passwordLabel')}</label>
+          </FormField>
+          <FormField label={t('usersPage.phoneLabel')}>
             <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              minLength={6}
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.phoneLabel')}</label>
-            <input
-              type="text"
+              type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              placeholder="+966 5x xxx xxxx"
+              className="modal-input"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.roleLabel')}</label>
-            <select
-              value={roleSelectionKey}
-              onChange={(e) => setRoleSelectionKey(e.target.value)}
-              disabled={roleOptions.length === 0}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 disabled:opacity-60"
-            >
-              {roleOptions.length === 0 ? (
-                <option value="">{t('usersPage.loadingGroups')}</option>
-              ) : (
-                <>
-                  {builtInRoleOptions.length > 0 && (
-                    <optgroup label={t('usersPage.roleGroupBuiltIn')}>
-                      {builtInRoleOptions.map((opt) => (
-                        <option key={staffRoleOptionKey(opt)} value={staffRoleOptionKey(opt)}>
-                          {opt.displayName}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {customRoleOptions.length > 0 && (
-                    <optgroup label={t('usersPage.roleGroupCustom')}>
-                      {customRoleOptions.map((opt) => (
-                        <option key={staffRoleOptionKey(opt)} value={staffRoleOptionKey(opt)}>
-                          {opt.displayName}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </>
-              )}
-            </select>
-            {roleOptions.length > 0 && (
-              <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                <span className="font-medium text-slate-600 dark:text-slate-300">{t('usersPage.derivedOrgGroupLabel')}: </span>
-                {(() => {
-                  const sel = findStaffRoleOption(roleOptions, roleSelectionKey)
-                  if (sel?.groupName && sel.groupCode) {
-                    return t('usersPage.derivedOrgGroupWithCode', { name: sel.groupName, code: sel.groupCode })
-                  }
-                  if (sel?.groupName) {
-                    return t('usersPage.derivedOrgGroupNameOnly', { name: sel.groupName })
-                  }
-                  return t('usersPage.derivedOrgGroupPending')
-                })()}
-              </p>
+          </FormField>
+        </div>
+        <FormField label={t('usersPage.passwordLabel')} required>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="modal-input"
+            minLength={6}
+            autoComplete="new-password"
+            required
+          />
+        </FormField>
+        <FormField label={t('usersPage.roleLabel')} required>
+          <select
+            value={roleSelectionKey}
+            onChange={(e) => setRoleSelectionKey(e.target.value)}
+            disabled={roleOptions.length === 0}
+            className="modal-select disabled:opacity-60"
+          >
+            {roleOptions.length === 0 ? (
+              <option value="">{t('usersPage.loadingGroups')}</option>
+            ) : (
+              <>
+                {builtInRoleOptions.length > 0 && (
+                  <optgroup label={t('usersPage.roleGroupBuiltIn')}>
+                    {builtInRoleOptions.map((opt) => (
+                      <option key={staffRoleOptionKey(opt)} value={staffRoleOptionKey(opt)}>
+                        {opt.displayName}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {customRoleOptions.length > 0 && (
+                  <optgroup label={t('usersPage.roleGroupCustom')}>
+                    {customRoleOptions.map((opt) => (
+                      <option key={staffRoleOptionKey(opt)} value={staffRoleOptionKey(opt)}>
+                        {opt.displayName}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </>
             )}
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.statusLabel')}</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-            >
-              <option value="ACTIVE">{t('usersPage.statusActive')}</option>
-              <option value="PENDING_VERIFICATION">{t('usersPage.statusPending')}</option>
-            </select>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              {t('usersPage.cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={roleOptions.length === 0}
-              className="dashboard-btn-primary flex-1 disabled:opacity-60"
-            >
-              {t('usersPage.create')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </select>
+          {roleOptions.length > 0 && (
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              <span className="font-medium text-slate-600 dark:text-slate-300">{t('usersPage.derivedOrgGroupLabel')}: </span>
+              {(() => {
+                const sel = findStaffRoleOption(roleOptions, roleSelectionKey)
+                if (sel?.groupName && sel.groupCode) {
+                  return t('usersPage.derivedOrgGroupWithCode', { name: sel.groupName, code: sel.groupCode })
+                }
+                if (sel?.groupName) {
+                  return t('usersPage.derivedOrgGroupNameOnly', { name: sel.groupName })
+                }
+                return t('usersPage.derivedOrgGroupPending')
+              })()}
+            </p>
+          )}
+        </FormField>
+        <FormField label={t('usersPage.statusLabel')}>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="modal-select"
+          >
+            <option value="ACTIVE">{t('usersPage.statusActive')}</option>
+            <option value="PENDING_VERIFICATION">{t('usersPage.statusPending')}</option>
+          </select>
+        </FormField>
+      </form>
+    </Modal>
   )
 }

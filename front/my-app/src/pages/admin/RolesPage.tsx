@@ -517,6 +517,7 @@ function CreateRoleModal({
   const [description, setDescription] = useState('')
   const [groupId, setGroupId] = useState('')
   const [permissionIds, setPermissionIds] = useState<string[]>([])
+  const [systemPermsUnlocked, setSystemPermsUnlocked] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState('')
 
@@ -528,6 +529,11 @@ function CreateRoleModal({
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     )
   }
+
+  const selectableIds = () => [
+    ...unlocked.map((p) => p.id),
+    ...(systemPermsUnlocked ? locked.map((p) => p.id) : []),
+  ]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -607,10 +613,23 @@ function CreateRoleModal({
             ))}
           </select>
         </FormField>
-        {unlocked.length > 0 && (
-          <div>
-            <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">{t('rolesPage.permissionsOptional')}</p>
-            <div className="max-h-40 space-y-0.5 overflow-y-auto rounded-xl border border-slate-100 p-3 dark:border-white/[0.05]">
+
+        {/* Permissions */}
+        {(unlocked.length > 0 || locked.length > 0) && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('rolesPage.permissionsOptional')}</p>
+              <div className="flex items-center gap-2 text-xs">
+                <button type="button" onClick={() => setPermissionIds(selectableIds())} className="text-primary hover:underline">
+                  {t('rolesPage.permSelectAll')}
+                </button>
+                <span className="text-slate-300 dark:text-slate-600">|</span>
+                <button type="button" onClick={() => setPermissionIds([])} className="text-slate-500 hover:underline">
+                  {t('rolesPage.permDeselectAll')}
+                </button>
+              </div>
+            </div>
+            <div className="max-h-52 space-y-0.5 overflow-y-auto rounded-xl border border-slate-100 p-3 dark:border-white/[0.05]">
               {unlocked.map((p) => (
                 <label key={p.id} className="flex cursor-pointer items-center gap-2 py-1">
                   <input
@@ -622,23 +641,45 @@ function CreateRoleModal({
                   <span className="text-sm text-slate-700 dark:text-slate-200">{p.name ?? p.code}</span>
                 </label>
               ))}
+              {systemPermsUnlocked && locked.map((p) => (
+                <label key={p.id} className="flex cursor-pointer items-center gap-2 py-1">
+                  <input
+                    type="checkbox"
+                    checked={permissionIds.includes(p.id)}
+                    onChange={() => togglePermission(p.id)}
+                    className="rounded border-slate-300 text-primary"
+                  />
+                  <span className="text-sm text-slate-700 dark:text-slate-200">
+                    {p.name ?? p.code}
+                    <span className="ms-1.5 rounded-sm bg-amber-100 px-1 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                      {t('rolesPage.permLockedBadge')}
+                    </span>
+                  </span>
+                </label>
+              ))}
             </div>
           </div>
         )}
-        {locked.length > 0 && (
-          <div>
-            <p className="mb-2 text-sm font-medium text-slate-500 dark:text-slate-400">{t('rolesPage.createRoleLockedReference')}</p>
-            <div className="max-h-32 space-y-0.5 overflow-y-auto rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 dark:border-slate-600 dark:bg-slate-900/40">
-              {locked.map((p) => (
-                <div key={p.id} className="flex items-center gap-2 py-0.5 opacity-70">
-                  <input type="checkbox" disabled checked={false} className="rounded border-slate-300" readOnly aria-hidden />
-                  <span className="text-sm text-slate-600 dark:text-slate-400">
-                    {p.name ?? p.code}{' '}
-                    <span className="text-xs text-amber-700 dark:text-amber-400">({t('rolesPage.permLockedBadge')})</span>
-                  </span>
-                </div>
-              ))}
+
+        {/* System permissions unlock */}
+        {locked.length > 0 && !systemPermsUnlocked && (
+          <div className="flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/40 dark:bg-amber-900/20">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">{t('rolesPage.unlockSystemPerms')}</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-amber-700 dark:text-amber-400">{t('rolesPage.unlockSystemPermsWarning')}</p>
             </div>
+            <button
+              type="button"
+              onClick={() => setSystemPermsUnlocked(true)}
+              className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
+            >
+              {t('rolesPage.unlockSystemPerms')}
+            </button>
+          </div>
+        )}
+        {systemPermsUnlocked && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800/40 dark:bg-amber-900/20">
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400">⚠ {t('rolesPage.systemPermsUnlocked')}</p>
           </div>
         )}
       </form>
@@ -661,6 +702,7 @@ function EditPermissionsModal({
 }) {
   const { t } = useLanguage()
   const [permissionIds, setPermissionIds] = useState<string[]>(role.permissions ?? [])
+  const [systemPermsUnlocked, setSystemPermsUnlocked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState('')
@@ -685,13 +727,29 @@ function EditPermissionsModal({
   }, [role.id])
 
   const isSystemRole = role.systemRole === true
-  const groups = catalogueByResource(catalogue)
+  const resourceGroups = catalogueByResource(catalogue)
+  const lockedIds = new Set(catalogue.filter((p) => p.locked).map((p) => p.id))
 
-  const togglePermission = (id: string, canToggle: boolean) => {
-    if (!canToggle) return
+  const canTogglePermission = (locked: boolean) => isSystemRole || !locked || systemPermsUnlocked
+
+  const togglePermission = (id: string, locked: boolean) => {
+    if (!canTogglePermission(locked)) return
     setPermissionIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     )
+  }
+
+  const selectAll = () => {
+    const ids = catalogue.filter((p) => canTogglePermission(Boolean(p.locked))).map((p) => p.id)
+    setPermissionIds((prev) => [...new Set([...prev, ...ids])])
+  }
+
+  const deselectAll = () => {
+    if (isSystemRole || systemPermsUnlocked) {
+      setPermissionIds([])
+    } else {
+      setPermissionIds((prev) => prev.filter((id) => lockedIds.has(id)))
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -700,9 +758,10 @@ function EditPermissionsModal({
     setError('')
     setSubmitting(true)
     try {
-      const lockedIds = new Set(catalogue.filter((p) => p.locked).map((p) => p.id))
       const toSend =
-        isSystemRole ? permissionIds : permissionIds.filter((id) => !lockedIds.has(id))
+        isSystemRole || systemPermsUnlocked
+          ? permissionIds
+          : permissionIds.filter((id) => !lockedIds.has(id))
       await rolesAPI.updatePermissions(role.id, { permissionIds: toSend })
       onSuccess()
     } catch (err) {
@@ -745,35 +804,71 @@ function EditPermissionsModal({
           <p className="text-sm text-slate-600 dark:text-slate-300">
             {isSystemRole ? t('rolesPage.permHintSystemRole') : t('rolesPage.permHintCustomRole')}
           </p>
+
+          {/* System permissions unlock for custom roles */}
+          {!isSystemRole && !systemPermsUnlocked && (
+            <div className="flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/40 dark:bg-amber-900/20">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">{t('rolesPage.unlockSystemPerms')}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-amber-700 dark:text-amber-400">{t('rolesPage.unlockSystemPermsWarning')}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSystemPermsUnlocked(true)}
+                className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
+              >
+                {t('rolesPage.unlockSystemPerms')}
+              </button>
+            </div>
+          )}
+          {systemPermsUnlocked && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800/40 dark:bg-amber-900/20">
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-400">⚠ {t('rolesPage.systemPermsUnlocked')}</p>
+            </div>
+          )}
+
           <div>
-            <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">{t('rolesPage.permissionsLabel')}</p>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('rolesPage.permissionsLabel')}</p>
+              <div className="flex items-center gap-2 text-xs">
+                <button type="button" onClick={selectAll} className="text-primary hover:underline">
+                  {t('rolesPage.permSelectAll')}
+                </button>
+                <span className="text-slate-300 dark:text-slate-600">|</span>
+                <button type="button" onClick={deselectAll} className="text-slate-500 hover:underline">
+                  {t('rolesPage.permDeselectAll')}
+                </button>
+              </div>
+            </div>
             <div className="space-y-4 rounded-xl border border-slate-100 p-3.5 dark:border-white/[0.05]">
               {catalogue.length === 0 ? (
                 <p className="text-sm text-slate-500 dark:text-slate-400">{t('rolesPage.noPermissionsInCatalogue')}</p>
               ) : (
-                groups.map(([resource, perms]) => (
+                resourceGroups.map(([resource, perms]) => (
                   <div key={resource}>
                     <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{resource}</div>
                     <div className="space-y-1">
                       {perms.map((p) => {
-                        const locked = Boolean(p.locked)
-                        const canToggle = isSystemRole || !locked
+                        const isLocked = Boolean(p.locked)
+                        const canToggle = canTogglePermission(isLocked)
                         return (
                           <label
                             key={p.id}
-                            className={`flex items-center gap-2 py-1 ${canToggle ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'}`}
+                            className={`flex items-center gap-2 py-1 ${canToggle ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                           >
                             <input
                               type="checkbox"
                               checked={permissionIds.includes(p.id)}
                               disabled={!canToggle}
-                              onChange={() => togglePermission(p.id, canToggle)}
+                              onChange={() => togglePermission(p.id, isLocked)}
                               className="rounded border-slate-300 text-primary disabled:opacity-50"
                             />
                             <span className="text-sm text-slate-700 dark:text-slate-200">
                               {p.name ?? p.code}
-                              {locked ? (
-                                <span className="ms-1 text-xs text-amber-700 dark:text-amber-400">({t('rolesPage.permLockedBadge')})</span>
+                              {isLocked ? (
+                                <span className="ms-1.5 rounded-sm bg-amber-100 px-1 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                                  {t('rolesPage.permLockedBadge')}
+                                </span>
                               ) : null}
                             </span>
                           </label>
