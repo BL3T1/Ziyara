@@ -259,7 +259,6 @@ export function UsersPage() {
               g.id === UNGROUPED_GROUP_ID ? roles.filter((r) => !r.groupId) : roles.filter((r) => r.groupId === g.id)
             const iconColor = CARD_ICON_COLORS[i % CARD_ICON_COLORS.length]
             const isSyntheticUngrouped = g.id === UNGROUPED_GROUP_ID
-            const platform = isReservedPlatformGroupCode(g.code)
             const canDeleteGroup =
               !isSyntheticUngrouped && (g.roleCount ?? 0) === 0 && (g.userCount ?? 0) === 0
             return (
