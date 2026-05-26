@@ -62,10 +62,10 @@ const CARD_ICON_COLORS = [
   'text-indigo-600 dark:text-indigo-400',
 ]
 
-/** Platform org slices use codes Z1–Z7 (same rule as backend). */
+/** Platform org groups use codes matching C followed by digits (e.g. C1). */
 function isReservedPlatformGroupCode(code?: string | null): boolean {
   if (!code) return false
-  return /^Z[0-9]+$/i.test(code.trim())
+  return /^C[0-9]+$/i.test(code.trim())
 }
 
 function PencilIcon({ className }: { className?: string }) {

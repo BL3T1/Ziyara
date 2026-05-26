@@ -434,7 +434,7 @@ const en = {
   },
   usersPage: {
     title: 'Groups',
-    intro: 'Organization groups (Z1–Z7 platform catalog and custom groups) and linked roles. Super admin only.',
+    intro: 'Organization groups (C1 Admin platform group and custom groups) and linked roles. Super admin only.',
     introBefore:
       'All organizational groups in the system, with role and staff counts (from live user accounts). Manage roles and permissions in',
     manageRolesLink: 'Admin → Roles',
@@ -507,7 +507,7 @@ const en = {
     createGroupSubmit: 'Create group',
     editGroupTitle: 'Edit organizational group',
     editGroupHint: 'Update display fields. Custom groups can change code if no conflict.',
-    editGroupCodeLocked: 'Platform groups (Z1–Z7): code cannot be changed.',
+    editGroupCodeLocked: 'Platform group (C1 Admin): code cannot be changed.',
     editGroupSubmit: 'Save changes',
     editGroupOptionalAr: 'Optional — set Arabic fields if you use them',
     editGroupAria: 'Edit group',
@@ -1899,7 +1899,7 @@ const ar: typeof en = {
   },
   usersPage: {
     title: 'المجموعات',
-    intro: 'مجموعات المؤسسة (Z1–Z7 والمجموعات المخصصة) والأدوار المرتبطة. للمشرف الأعلى فقط.',
+    intro: 'مجموعات المؤسسة (مجموعة C1 Admin والمجموعات المخصصة) والأدوار المرتبطة. للمشرف الأعلى فقط.',
     introBefore:
       'جميع مجموعات المؤسسة في النظام مع أعداد الأدوار والموظفين (من حسابات المستخدمين الفعلية). أدر الأدوار والصلاحيات في',
     manageRolesLink: 'الإدارة ← الأدوار',
@@ -1972,7 +1972,7 @@ const ar: typeof en = {
     createGroupSubmit: 'إنشاء المجموعة',
     editGroupTitle: 'تعديل المجموعة التنظيمية',
     editGroupHint: 'تحديث الحقول الظاهرة. المجموعات المخصصة يمكنها تغيير الرمز إن لم يكن مستخدماً.',
-    editGroupCodeLocked: 'مجموعات المنصة (Z1–Z7): لا يمكن تغيير الرمز.',
+    editGroupCodeLocked: 'مجموعة المنصة (C1 Admin): لا يمكن تغيير الرمز.',
     editGroupSubmit: 'حفظ التغييرات',
     editGroupOptionalAr: 'اختياري — عربي إن كنت تستخدمه',
     editGroupAria: 'تعديل المجموعة',
