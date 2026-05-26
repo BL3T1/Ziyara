@@ -22,8 +22,7 @@ public final class ApiAuthorizationExpressions {
             + "'SALES_MANAGER','SALES_REPRESENTATIVE',"
             + "'FINANCE_MANAGER','ACCOUNTANT',"
             + "'SUPPORT_MANAGER','SUPPORT_AGENT',"
-            + "'CEO','GENERAL_MANAGER',"
-            + "'HR_MANAGER')";
+            + "'CEO','GENERAL_MANAGER')";
 
     /**
      * Website content editors for landing/CMS pages.
@@ -62,6 +61,35 @@ public final class ApiAuthorizationExpressions {
 
     /** Approve or reject pending providers (same gate as discount approval). */
     public static final String PROVIDER_APPROVE_OR_REJECT = "hasAnyRole('SUPER_ADMIN','CEO')";
+
+    /** View payments, transactions, and financial reports. */
+    public static final String PAYMENTS_READ =
+            "hasAnyRole('SUPER_ADMIN','FINANCE_MANAGER','ACCOUNTANT','CEO','GENERAL_MANAGER')"
+                    + " or hasAuthority('payments:read')";
+
+    /** Initiate or update a payment record (complete/fail state transitions). */
+    public static final String PAYMENTS_WRITE =
+            "hasAnyRole('SUPER_ADMIN','FINANCE_MANAGER','ACCOUNTANT','CEO','GENERAL_MANAGER')"
+                    + " or hasAuthority('payments:write')";
+
+    /** Issue a refund — stricter gate than PAYMENTS_WRITE. */
+    public static final String PAYMENTS_REFUND =
+            "hasAnyRole('SUPER_ADMIN','FINANCE_MANAGER')"
+                    + " or hasAuthority('payments:write')";
+
+    /**
+     * Partner portal: full management access.
+     * Matches the account owner (PROVIDER_MANAGER) or any staff assigned ProviderStaffRole.MANAGER.
+     */
+    public static final String PORTAL_MANAGER =
+            "hasRole('PROVIDER_MANAGER') or hasAuthority('PROVIDER_ROLE_MANAGER')";
+
+    /**
+     * Partner portal: financial operations (invoices, payouts, billing).
+     * Matches PROVIDER_FINANCE account or staff assigned ProviderStaffRole.FINANCIAL_ADMIN.
+     */
+    public static final String PORTAL_FINANCE =
+            "hasRole('PROVIDER_FINANCE') or hasAuthority('PROVIDER_ROLE_FINANCIAL_ADMIN')";
 
     /**
      * Runtime check (e.g. query-parameter guards) — stays aligned with {@link UserRole#isCompanyDirectoryUser()}.

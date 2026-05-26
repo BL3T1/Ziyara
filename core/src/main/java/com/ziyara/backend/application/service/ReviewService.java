@@ -4,6 +4,7 @@ import com.ziyara.backend.application.dto.request.CreateReviewRequest;
 import com.ziyara.backend.application.dto.response.ReviewResponse;
 import com.ziyara.backend.application.exception.BusinessException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.UnauthorizedException;
 import com.ziyara.backend.domain.entity.Review;
 import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.domain.enums.ReviewStatus;
@@ -98,22 +99,24 @@ public class ReviewService {
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
     }
 
-    /** Phase 3: Update review (rating, comment). */
+    /** Update review — only the author or company staff may edit. */
     @Transactional
-    public ReviewResponse updateReview(UUID id, com.ziyara.backend.application.dto.request.UpdateReviewRequest request) {
+    public ReviewResponse updateReview(UUID id, com.ziyara.backend.application.dto.request.UpdateReviewRequest request,
+                                       UUID requestingUserId, boolean isStaff) {
         Review review = reviewRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
+        assertCanModify(review, requestingUserId, isStaff);
         if (request.getRating() != null) review.setRating(request.getRating());
         if (request.getComment() != null) review.setComment(request.getComment());
         return mapToResponse(reviewRepository.save(review));
     }
 
-    /** Phase 3: Delete review. */
+    /** Delete review — only the author or company staff may delete. */
     @Transactional
-    public void deleteReview(UUID id) {
-        if (!reviewRepository.findById(id).isPresent()) {
-            throw new ResourceNotFoundException("Review not found");
-        }
+    public void deleteReview(UUID id, UUID requestingUserId, boolean isStaff) {
+        Review review = reviewRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
+        assertCanModify(review, requestingUserId, isStaff);
         reviewRepository.deleteById(id);
     }
 
@@ -125,6 +128,12 @@ public class ReviewService {
                 new ModerateReviewUseCase.Input(id, approve, request.getRejectionReason(), null));
         if (!result.success()) throw new BusinessException(result.error());
         return mapToResponse(result.review());
+    }
+
+    private void assertCanModify(Review review, UUID requestingUserId, boolean isStaff) {
+        if (!isStaff && !review.getUserId().equals(requestingUserId)) {
+            throw new UnauthorizedException("You don't have access to this review");
+        }
     }
 
     private ReviewResponse mapToResponse(Review review) {
