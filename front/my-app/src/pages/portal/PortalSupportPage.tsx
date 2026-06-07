@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
+import { usePermission } from '../../hooks/usePermission'
 import { resolveCompanyDashboardUrl } from '../../config/appSurface'
 import { getApiErrorMessage, portalSupportAPI } from '../../services/api'
 import type { PortalSupportRequestDto } from '../../types/api'
@@ -26,6 +27,7 @@ function fmtWhen(iso: string | undefined, locale: string) {
 
 export function PortalSupportPage() {
   const { t, locale } = useLanguage()
+  const canAccess = usePermission('portal:access')
   const [rows, setRows] = useState<PortalSupportRequestDto[]>([])
   const [loadingList, setLoadingList] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -119,9 +121,11 @@ export function PortalSupportPage() {
                 required
               />
             </div>
-            <button type="submit" disabled={submitting} className="dashboard-btn-primary disabled:opacity-50">
-              {submitting ? t('portalSupportPage.submitting') : t('portalSupportPage.submit')}
-            </button>
+            {canAccess && (
+              <button type="submit" disabled={submitting} className="dashboard-btn-primary disabled:opacity-50">
+                {submitting ? t('portalSupportPage.submitting') : t('portalSupportPage.submit')}
+              </button>
+            )}
           </form>
         </Card>
 
@@ -165,11 +169,32 @@ export function PortalSupportPage() {
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-semibold text-slate-900 dark:text-slate-100">{row.subject}</span>
-                  <span className="text-xs text-slate-400 dark:text-slate-500">{fmtWhen(row.createdAt, locale)}</span>
+                  <div className="flex items-center gap-2">
+                    {row.staffResponse ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        ✓ {t('portalSupportPage.replied')}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        {t('portalSupportPage.awaitingReply')}
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-400 dark:text-slate-500">{fmtWhen(row.createdAt, locale)}</span>
+                  </div>
                 </div>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                   {row.body}
                 </p>
+                {row.staffResponse && (
+                  <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                      {t('portalSupportPage.staffReply')} — {fmtWhen(row.respondedAt ?? undefined, locale)}
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-emerald-800 dark:text-emerald-300">
+                      {row.staffResponse}
+                    </p>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

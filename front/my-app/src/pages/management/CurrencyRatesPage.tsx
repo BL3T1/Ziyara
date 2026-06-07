@@ -9,10 +9,13 @@ import { currencyAPI, getApiErrorMessage } from '../../services/api'
 import type { ExchangeRateRowDto } from '../../types/api'
 import { Modal } from '../../components/Modal'
 import { FormField } from '../../components/FormField'
+import { formatDate } from '../../utils/formatDate'
+import { usePermission } from '../../hooks/usePermission'
 
 export function CurrencyRatesPage() {
-  const { t } = useLanguage()
+  const { t, locale } = useLanguage()
   const { refreshDisplayCurrency } = useDisplayCurrency()
+  const canWrite = usePermission('currency:write')
   const [rows, setRows] = useState<ExchangeRateRowDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -74,9 +77,9 @@ export function CurrencyRatesPage() {
     }
   }
 
-  const openDetail = async (id: string) => {
+  const openDetail = async (id: string, startEditing = false) => {
     setDetailId(id)
-    setDetailEditing(false)
+    setDetailEditing(startEditing)
     setDetailRow(null)
     setDetailLoading(true)
     setError(null)
@@ -200,26 +203,38 @@ export function CurrencyRatesPage() {
                     {fmtRate(row.rate)}
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
-                    {row.effectiveDate ?? '—'}
+                    {formatDate(row.effectiveDate, locale)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex flex-wrap items-center justify-end gap-3">
+                      {canWrite && (
+                        <button
+                          type="button"
+                          disabled={detailLoading && detailId === row.id}
+                          onClick={() => void openDetail(row.id, true)}
+                          className="text-sm text-primary hover:underline disabled:opacity-50"
+                        >
+                          {t('currencyRatesPage.editRate')}
+                        </button>
+                      )}
                       <button
                         type="button"
                         disabled={detailLoading && detailId === row.id}
-                        onClick={() => openDetail(row.id)}
-                        className="text-sm text-primary hover:underline disabled:opacity-50"
+                        onClick={() => void openDetail(row.id)}
+                        className="text-sm text-slate-500 hover:underline disabled:opacity-50 dark:text-slate-400"
                       >
                         {t('currencyRatesPage.viewDetail')}
                       </button>
-                      <button
-                        type="button"
-                        disabled={deletingId === row.id}
-                        onClick={() => handleDelete(row.id)}
-                        className="text-sm text-red-600 hover:underline disabled:opacity-50 dark:text-red-400"
-                      >
-                        {t('currencyRatesPage.delete')}
-                      </button>
+                      {canWrite && (
+                        <button
+                          type="button"
+                          disabled={deletingId === row.id}
+                          onClick={() => handleDelete(row.id)}
+                          className="text-sm text-red-600 hover:underline disabled:opacity-50 dark:text-red-400"
+                        >
+                          {t('currencyRatesPage.delete')}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -264,13 +279,15 @@ export function CurrencyRatesPage() {
               >
                 {t('ui.close')}
               </button>
-              <button
-                type="button"
-                onClick={() => setDetailEditing(true)}
-                className="dashboard-btn-primary"
-              >
-                {t('currencyRatesPage.editButton')}
-              </button>
+              {canWrite && (
+                <button
+                  type="button"
+                  onClick={() => setDetailEditing(true)}
+                  className="dashboard-btn-primary"
+                >
+                  {t('currencyRatesPage.editButton')}
+                </button>
+              )}
             </>
           ) : undefined
         }

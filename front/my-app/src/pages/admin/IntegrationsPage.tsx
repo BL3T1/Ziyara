@@ -3,8 +3,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
+import { usePermission } from '../../hooks/usePermission'
 import { getApiErrorMessage, integrationsAPI } from '../../services/api'
 import { Card } from '../../components/Card'
 import { Modal } from '../../components/Modal'
@@ -12,8 +12,7 @@ import type { FeatureFlagDto, IntegrationApiKeyCreatedDto, IntegrationApiKeySumm
 
 export function IntegrationsPage() {
   const { t } = useLanguage()
-  const { user } = useAuth()
-  const isSuperAdmin = user?.role === 'super_admin'
+  const canManageKeys = usePermission('settings:write')
 
   const [error, setError] = useState<string | null>(null)
   const [flags, setFlags] = useState<FeatureFlagDto[]>([])
@@ -44,14 +43,17 @@ export function IntegrationsPage() {
   }, [])
 
   const loadKeys = useCallback(() => {
-    if (!isSuperAdmin) return
+    if (!canManageKeys) return
     setKeysLoading(true)
     integrationsAPI
       .listApiKeys()
       .then((r) => setKeys(Array.isArray(r.data) ? r.data : []))
-      .catch(() => setKeys([]))
+      .catch((e: unknown) => {
+        setError(getApiErrorMessage(e))
+        setKeys([])
+      })
       .finally(() => setKeysLoading(false))
-  }, [isSuperAdmin])
+  }, [canManageKeys])
 
   useEffect(() => {
     loadFlags()
@@ -212,7 +214,7 @@ export function IntegrationsPage() {
         </div>
       </Card>
 
-      {isSuperAdmin && (
+      {canManageKeys && (
         <Card className="mt-8">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('integrationsPage.keysTitle')}</h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{t('integrationsPage.keysBody')}</p>

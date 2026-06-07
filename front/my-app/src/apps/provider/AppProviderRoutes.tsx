@@ -1,11 +1,15 @@
 import { lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { RequireAuth } from '../../components/RequireAuth'
+import { RequirePermission } from '../../components/RequirePermission'
 import { RequireSurfaceRole } from '../../components/RequireSurfaceRole'
 import { HomeRedirect } from '../../components/HomeRedirect'
 import { ClientPortalLayout } from '../../layouts/ClientPortalLayout'
 
 const LoginPage = lazy(() => import('../../pages/LoginPage').then((m) => ({ default: m.LoginPage })))
+const ChangePasswordPage = lazy(() =>
+  import('../../pages/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage })),
+)
 const ForgotPasswordPage = lazy(() => import('../../pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })))
 const ResetPasswordPage = lazy(() => import('../../pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
 const ClientPortalOverview = lazy(() =>
@@ -32,6 +36,15 @@ const PortalStaffPage = lazy(() =>
 const PortalSupportPage = lazy(() =>
   import('../../pages/portal/PortalSupportPage').then((m) => ({ default: m.PortalSupportPage })),
 )
+const PortalDiscountsPage = lazy(() =>
+  import('../../pages/portal/PortalDiscountsPage').then((m) => ({ default: m.PortalDiscountsPage })),
+)
+const PortalMediaPage = lazy(() =>
+  import('../../pages/portal/PortalMediaPage').then((m) => ({ default: m.PortalMediaPage })),
+)
+const PortalMapPage = lazy(() =>
+  import('../../pages/portal/PortalMapPage').then((m) => ({ default: m.PortalMapPage })),
+)
 
 export function AppProviderRoutes() {
   return (
@@ -41,17 +54,20 @@ export function AppProviderRoutes() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<RequireAuth />}>
+        <Route path="/account/change-password" element={<ChangePasswordPage />} />
         <Route element={<RequireSurfaceRole surface="provider" />}>
           <Route element={<ClientPortalLayout />}>
             <Route path="/portal" element={<ClientPortalOverview />} />
-            <Route path="/portal/listings/new" element={<PortalListingFormPage />} />
-            <Route path="/portal/listings/:id" element={<PortalListingFormPage />} />
+            <Route path="/portal/listings/:id" element={<RequirePermission code="portal:manage"><PortalListingFormPage /></RequirePermission>} />
             <Route path="/portal/listings" element={<PortalListingsPage />} />
             <Route path="/portal/bookings" element={<PortalBookingsPage />} />
             <Route path="/portal/staff" element={<PortalStaffPage />} />
-            <Route path="/portal/earnings" element={<PortalEarningsPage />} />
+            <Route path="/portal/earnings" element={<RequirePermission code="portal:finance"><PortalEarningsPage /></RequirePermission>} />
+            <Route path="/portal/discounts" element={<RequirePermission code="portal:finance"><PortalDiscountsPage /></RequirePermission>} />
             <Route path="/portal/profile" element={<PortalProfilePage />} />
             <Route path="/portal/support" element={<PortalSupportPage />} />
+            <Route path="/portal/media" element={<PortalMediaPage />} />
+            <Route path="/portal/map" element={<PortalMapPage />} />
           </Route>
         </Route>
       </Route>

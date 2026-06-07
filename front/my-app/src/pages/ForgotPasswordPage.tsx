@@ -50,7 +50,7 @@ export function ForgotPasswordPage() {
       </div>
 
       <div className="relative z-10 mb-8 flex flex-col items-center">
-        <img src="/logo.png" alt="Ziyara" className="h-36 w-auto drop-shadow-lg sm:h-40" />
+        <img src="/logo.png" alt="Ziyara" className="h-44 w-auto drop-shadow-lg sm:h-52" />
       </div>
 
       <div

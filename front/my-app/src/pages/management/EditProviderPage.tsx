@@ -3,22 +3,18 @@
  * optional profit margin, verification, and status for permitted roles.
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
-import { getApiErrorMessage, providersAPI } from '../../services/api'
+import { adminMediaAPI, getApiErrorMessage, providersAPI } from '../../services/api'
 import {
   PARTNER_SERVICE_TYPE_VALUES,
+  type ProviderMediaSubmissionDto,
   type ProviderStatusDto,
   type ServiceProviderDto,
   type UpdateServiceProviderPayload,
 } from '../../types/api'
-import {
-  canApproveRejectProvider,
-  canViewProviderCommission,
-  isCompanyStaffRole,
-} from '../../types/auth'
+import { usePermission } from '../../hooks/usePermission'
 import { isUuid } from '../../utils/isUuid'
 import { safeImageUrl } from '../../utils/safeRendering'
 import { FormField } from '../../components/FormField'
@@ -43,14 +39,15 @@ function SectionHeader({ label }: { label: string }) {
 
 export function EditProviderPage() {
   const { t } = useLanguage()
-  const { user } = useAuth()
   const navigate = useNavigate()
   const { providerId } = useParams<{ providerId: string }>()
   const id = providerId?.trim() ?? ''
 
-  const showProfitMargin = user?.role ? canViewProviderCommission(user.role) : false
-  const showGovernance = user?.role ? canApproveRejectProvider(user.role) : false
-  const allowed = user?.role ? isCompanyStaffRole(user.role) : false
+  const showProfitMargin = usePermission('payments:read')
+  const showGovernance = usePermission('providers:approve')
+  const showMediaApproval = usePermission('media_submissions:approve')
+  const allowed = usePermission('providers:read')
+  const canWrite = usePermission('providers:write')
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -64,8 +61,16 @@ export function EditProviderPage() {
   const [description, setDescription] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
   const [profitMargin, setProfitMargin] = useState('')
+  const [globalRate, setGlobalRate] = useState('')
   const [verified, setVerified] = useState(false)
   const [status, setStatus] = useState<ProviderStatusDto>('ACTIVE')
+  const [resettingPassword, setResettingPassword] = useState(false)
+  const [mediaSubs, setMediaSubs] = useState<ProviderMediaSubmissionDto[]>([])
+  const [mediaLoading, setMediaLoading] = useState(false)
+  const [mediaMsg, setMediaMsg] = useState<string | null>(null)
+  const [rejectingSubId, setRejectingSubId] = useState<string | null>(null)
+  const [rejectNote, setRejectNote] = useState('')
+  const [processingSubId, setProcessingSubId] = useState<string | null>(null)
 
   const [readOnly, setReadOnly] = useState<
     Partial<Pick<ServiceProviderDto, 'type' | 'registrationNumber' | 'rating' | 'createdAt'>>
@@ -86,7 +91,8 @@ export function EditProviderPage() {
         setAddress(p.address ?? '')
         setDescription(p.description ?? '')
         setLogoUrl(p.logoUrl ?? '')
-        setProfitMargin(p.commissionRate != null ? String(p.commissionRate) : '10')
+        setProfitMargin(p.profitMargin != null ? String(p.profitMargin) : '10')
+        setGlobalRate(p.globalRate != null ? String(p.globalRate) : '')
         setVerified(!!p.verified)
         const st = (p.status ?? 'ACTIVE').toUpperCase() as ProviderStatusDto
         setStatus(STATUS_OPTIONS.includes(st) ? st : 'ACTIVE')
@@ -95,6 +101,51 @@ export function EditProviderPage() {
       .catch((e) => setError(getApiErrorMessage(e)))
       .finally(() => setLoading(false))
   }, [id, t])
+
+  const loadMedia = useCallback(() => {
+    if (!id || !showMediaApproval) return
+    setMediaLoading(true)
+    adminMediaAPI
+      .list()
+      .then((res) => {
+        const all = Array.isArray(res.data) ? (res.data as ProviderMediaSubmissionDto[]) : []
+        setMediaSubs(all.filter((s) => s.providerId === id && s.status === 'PENDING'))
+      })
+      .catch(() => {})
+      .finally(() => setMediaLoading(false))
+  }, [id, showMediaApproval])
+
+  useEffect(() => { loadMedia() }, [loadMedia])
+
+  const handleMediaApprove = async (subId: string) => {
+    setProcessingSubId(subId)
+    setMediaMsg(null)
+    try {
+      await adminMediaAPI.approve(subId)
+      setMediaMsg(t('providerEditPage.mediaApproveSuccess'))
+      loadMedia()
+    } catch (e) {
+      setError(getApiErrorMessage(e))
+    } finally {
+      setProcessingSubId(null)
+    }
+  }
+
+  const handleMediaReject = async (subId: string) => {
+    setProcessingSubId(subId)
+    setMediaMsg(null)
+    try {
+      await adminMediaAPI.reject(subId, rejectNote.trim() || undefined)
+      setMediaMsg(t('providerEditPage.mediaRejectSuccess'))
+      setRejectingSubId(null)
+      setRejectNote('')
+      loadMedia()
+    } catch (e) {
+      setError(getApiErrorMessage(e))
+    } finally {
+      setProcessingSubId(null)
+    }
+  }
 
   if (!allowed) return <Navigate to="/management/providers" replace />
   if (!id || !isUuid(id)) return <Navigate to="/management/providers" replace />
@@ -113,6 +164,13 @@ export function EditProviderPage() {
         description: description.trim(),
         logoUrl: logoUrl.trim(),
       }
+      const grVal = parseFloat(globalRate)
+      if (!globalRate || Number.isNaN(grVal) || grVal < 1 || grVal > 5) {
+        setError(t('providerEditPage.errGlobalRate'))
+        setSaving(false)
+        return
+      }
+      payload.globalRate = grVal
       if (showProfitMargin) {
         const rate = parseFloat(profitMargin)
         if (profitMargin !== '' && (Number.isNaN(rate) || rate < 0 || rate > 100)) {
@@ -120,7 +178,7 @@ export function EditProviderPage() {
           setSaving(false)
           return
         }
-        if (profitMargin !== '') payload.commissionRate = rate
+        if (profitMargin !== '') payload.profitMargin = rate
       }
       if (showGovernance) {
         payload.verified = verified
@@ -134,7 +192,8 @@ export function EditProviderPage() {
       if (p?.address != null) setAddress(p.address)
       setDescription(p?.description ?? '')
       setLogoUrl(p?.logoUrl ?? '')
-      if (p?.commissionRate != null) setProfitMargin(String(p.commissionRate))
+      if (p?.profitMargin != null) setProfitMargin(String(p.profitMargin))
+      if (p?.globalRate != null) setGlobalRate(String(p.globalRate))
       setVerified(!!p.verified)
       const st = (p?.status ?? status).toUpperCase() as ProviderStatusDto
       if (STATUS_OPTIONS.includes(st)) setStatus(st)
@@ -245,6 +304,22 @@ export function EditProviderPage() {
                   className="modal-input"
                 />
               </FormField>
+              <FormField label={t('providerEditPage.labelGlobalRate')} hint={t('providerEditPage.hintGlobalRate')} required>
+                <div className="relative max-w-xs">
+                  <input
+                    required
+                    type="number"
+                    min="1"
+                    max="5"
+                    step="0.5"
+                    value={globalRate}
+                    onChange={(e) => setGlobalRate(e.target.value)}
+                    placeholder="e.g. 3.0"
+                    className="modal-input pr-12 font-mono"
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">★</span>
+                </div>
+              </FormField>
             </div>
 
             {/* Branding */}
@@ -302,6 +377,34 @@ export function EditProviderPage() {
               </div>
             )}
 
+            {/* Password reset */}
+            <div className="space-y-4 p-6">
+              <SectionHeader label={t('providerEditPage.sectionSecurity')} />
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  disabled={resettingPassword}
+                  onClick={async () => {
+                    if (!window.confirm(t('providerEditPage.confirmResetPassword'))) return
+                    setResettingPassword(true)
+                    setError(null)
+                    try {
+                      await providersAPI.resetPassword(id)
+                      setSuccess(t('providerEditPage.resetPasswordSuccess'))
+                    } catch (err) {
+                      setError(getApiErrorMessage(err))
+                    } finally {
+                      setResettingPassword(false)
+                    }
+                  }}
+                  className="dashboard-btn-secondary disabled:opacity-50"
+                >
+                  {resettingPassword ? t('ui.loading') : t('providerEditPage.resetPassword')}
+                </button>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t('providerEditPage.hintResetPassword')}</p>
+              </div>
+            </div>
+
             {/* Governance */}
             {showGovernance && (
               <div className="space-y-4 p-6">
@@ -336,13 +439,110 @@ export function EditProviderPage() {
               <button type="button" onClick={() => navigate('/management/providers')} className="dashboard-btn-secondary">
                 {t('ui.cancel')}
               </button>
-              <button type="submit" disabled={saving} className="dashboard-btn-primary disabled:opacity-50">
-                {saving ? t('ui.loading') : t('providersPage.save')}
-              </button>
+              {canWrite && (
+                <button type="submit" disabled={saving} className="dashboard-btn-primary disabled:opacity-50">
+                  {saving ? t('ui.loading') : t('providersPage.save')}
+                </button>
+              )}
             </div>
           </form>
         )}
       </div>
+
+      {showMediaApproval && (
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/[0.06] dark:bg-[#0d1117]">
+          <div className="p-6">
+            <SectionHeader label={t('providerEditPage.sectionMediaSubmissions')} />
+            {mediaMsg && (
+              <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">
+                {mediaMsg}
+              </div>
+            )}
+            {mediaLoading ? (
+              <div className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
+            ) : mediaSubs.length === 0 ? (
+              <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">{t('providerEditPage.mediaNoPending')}</p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {mediaSubs.map((sub) => (
+                  <div
+                    key={sub.id}
+                    className="flex flex-wrap items-start gap-4 rounded-xl border border-slate-100 bg-slate-50/60 p-4 dark:border-white/[0.04] dark:bg-white/[0.02]"
+                  >
+                    {sub.fileUrl && (
+                      <a href={sub.fileUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                        <img
+                          src={sub.fileUrl}
+                          alt={sub.altText ?? ''}
+                          className="h-16 w-24 rounded-lg border border-slate-200 object-cover dark:border-white/[0.06] hover:opacity-80 transition-opacity"
+                        />
+                      </a>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium capitalize text-slate-700 dark:text-slate-200">
+                        {sub.imageType?.toLowerCase().replace('_', ' ')}
+                        {sub.primary && (
+                          <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                            Primary
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+                        {sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString() : '—'}
+                      </p>
+                      {rejectingSubId === sub.id ? (
+                        <div className="mt-2 flex flex-col gap-2">
+                          <input
+                            value={rejectNote}
+                            onChange={(e) => setRejectNote(e.target.value)}
+                            placeholder={t('mediaSubmissionsPage.rejectNote')}
+                            className="rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              disabled={processingSubId === sub.id}
+                              onClick={() => handleMediaReject(sub.id)}
+                              className="text-xs font-semibold text-red-600 hover:underline disabled:opacity-40 dark:text-red-400"
+                            >
+                              {t('mediaSubmissionsPage.reject')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setRejectingSubId(null); setRejectNote('') }}
+                              className="text-xs text-slate-500 hover:underline"
+                            >
+                              {t('ui.cancel')}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2 flex gap-3">
+                          <button
+                            type="button"
+                            disabled={processingSubId === sub.id}
+                            onClick={() => handleMediaApprove(sub.id)}
+                            className="text-sm font-semibold text-green-600 hover:underline disabled:opacity-40 dark:text-green-400"
+                          >
+                            {t('mediaSubmissionsPage.approve')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRejectingSubId(sub.id)}
+                            className="text-sm font-semibold text-red-600 hover:underline dark:text-red-400"
+                          >
+                            {t('mediaSubmissionsPage.reject')}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

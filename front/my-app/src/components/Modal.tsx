@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useLanguage } from '../context/LanguageContext'
 
 interface ModalProps {
   open: boolean
@@ -20,6 +21,7 @@ export function Modal({
   footer,
   children,
 }: ModalProps) {
+  const { t } = useLanguage()
   const panelRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
 
@@ -80,7 +82,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             className="modal-close-btn"
-            aria-label="Close"
+            aria-label={t('common.closeModal')}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path

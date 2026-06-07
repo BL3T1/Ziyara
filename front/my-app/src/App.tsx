@@ -1,6 +1,6 @@
 import { Suspense, useState } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { APP_SURFACE } from './config/appSurface'
 import { RoutePageFallback } from './components/RoutePageFallback'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -22,17 +22,26 @@ function AppRoutes() {
   }
 }
 
+// createBrowserRouter (data router) is required for useBlocker.
+// A single wildcard route delegates all rendering to the existing <Routes> components.
+const router = createBrowserRouter([
+  {
+    path: '*',
+    element: (
+      <Suspense fallback={<RoutePageFallback />}>
+        <AppRoutes />
+      </Suspense>
+    ),
+  },
+])
+
 function App() {
   const [queryClient] = useState(() => createQueryClient())
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
-          <BrowserRouter>
-            <Suspense fallback={<RoutePageFallback />}>
-              <AppRoutes />
-            </Suspense>
-          </BrowserRouter>
+          <RouterProvider router={router} />
         </ToastProvider>
       </QueryClientProvider>
     </ErrorBoundary>

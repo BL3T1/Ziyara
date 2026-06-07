@@ -3,10 +3,36 @@ import { useNavigate } from 'react-router-dom'
 import { contentPagesAPI, getApiErrorMessage } from '../../services/api'
 import { useLanguage } from '../../context/LanguageContext'
 import { useAuth } from '../../context/AuthContext'
+import { usePermission } from '../../hooks/usePermission'
 
 type Slug = 'home' | 'about' | 'services' | 'contact' | 'faq' | 'privacy' | 'terms'
 
 const SLUGS: Slug[] = ['home', 'about', 'services', 'contact', 'faq', 'privacy', 'terms']
+
+const SLUG_TEMPLATES: Record<Slug, { en: Record<string, string>; ar: Record<string, string> }> = {
+  home: {
+    en: {
+      badge: 'Book everything for your trip',
+      heroTitle: 'Stays, dining, transport, and experiences — all in one login.',
+      heroBody: 'Discover trusted hotels, restaurants, rides, and tours. Compare prices, read reviews, and book instantly.',
+      dealsTitle: 'Your fastest way to compare curated business rates',
+      popularTitle: 'Explore top destinations this week',
+    },
+    ar: {
+      badge: 'احجز كل شيء لرحلتك',
+      heroTitle: 'إقامات، مطاعم، مواصلات وتجارب — كل شيء بحساب واحد.',
+      heroBody: 'اكتشف فنادق وتجارب موثوقة. قارن الأسعار، اقرأ التقييمات، واحجز فوراً.',
+      dealsTitle: 'أسرع طريقة لمقارنة أفضل الأسعار',
+      popularTitle: 'استكشف الوجهات الأكثر شعبية هذا الأسبوع',
+    },
+  },
+  about: { en: { title: 'About Us', body: 'Learn more about our mission and team.' }, ar: { title: 'عن الشركة', body: 'تعرف على مهمتنا وفريقنا.' } },
+  services: { en: { title: 'Our Services', body: 'Explore the services we offer.' }, ar: { title: 'خدماتنا', body: 'استكشف الخدمات التي نقدمها.' } },
+  contact: { en: { title: 'Contact Us', body: 'Get in touch with our team.' }, ar: { title: 'اتصل بنا', body: 'تواصل مع فريقنا.' } },
+  faq: { en: { title: 'Frequently Asked Questions', body: 'Find answers to common questions.' }, ar: { title: 'الأسئلة الشائعة', body: 'اعثر على إجابات للأسئلة الشائعة.' } },
+  privacy: { en: { title: 'Privacy Policy', body: 'How we handle your data.' }, ar: { title: 'سياسة الخصوصية', body: 'كيف نتعامل مع بياناتك.' } },
+  terms: { en: { title: 'Terms of Service', body: 'Rules and guidelines for using our platform.' }, ar: { title: 'شروط الخدمة', body: 'قواعد وإرشادات استخدام منصتنا.' } },
+}
 
 function safeParseJson(text: string): Record<string, unknown> | null {
   try {
@@ -35,13 +61,13 @@ export function ContentPagesPage() {
 
   const slugLabel = useMemo(() => slug.toUpperCase(), [slug])
 
+  const canEditContent = usePermission('content:write')
   if (!user) return null
-  const canEditContent = user.role === 'super_admin' || user.role === 'admin'
   if (!canEditContent) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-800 dark:bg-amber-900/20">
         <h2 className="text-xl font-semibold text-amber-800 dark:text-amber-200">{t('access.restrictedTitle')}</h2>
-        <p className="mt-2 text-amber-700 dark:text-amber-300">Only super admin and sales/admin roles can edit landing content. You are signed in as {user.role}.</p>
+        <p className="mt-2 text-amber-700 dark:text-amber-300">You don't have the content:write permission required to edit landing content.</p>
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
@@ -125,6 +151,22 @@ export function ContentPagesPage() {
             />
             Published
           </label>
+          <button
+            type="button"
+            onClick={() => {
+              const tpl = SLUG_TEMPLATES[slug]
+              const currentEn = safeParseJson(enJson)
+              const currentAr = safeParseJson(arJson)
+              const mergedEn = { ...tpl.en, ...(currentEn && Object.keys(currentEn).length > 0 ? currentEn : {}) }
+              const mergedAr = { ...tpl.ar, ...(currentAr && Object.keys(currentAr).length > 0 ? currentAr : {}) }
+              setEnJson(JSON.stringify(mergedEn, null, 2))
+              setArJson(JSON.stringify(mergedAr, null, 2))
+            }}
+            disabled={loading}
+            className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            Load template keys
+          </button>
           <button
             type="button"
             onClick={handleSave}

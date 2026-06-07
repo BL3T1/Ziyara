@@ -9,8 +9,6 @@ export const UNGROUPED_GROUP_ID = '00000000-0000-4000-8000-0000000000ff'
 export const COMPANY_STAFF_ROLE_META: { value: string; labelKey: string }[] = [
   { value: 'SALES_MANAGER', labelKey: 'usersPage.roleSalesManager' },
   { value: 'CEO', labelKey: 'usersPage.roleCeo' },
-  { value: 'GENERAL_MANAGER', labelKey: 'usersPage.roleGeneralManager' },
-  { value: 'HR_MANAGER', labelKey: 'usersPage.roleHrManager' },
   { value: 'SALES_REPRESENTATIVE', labelKey: 'usersPage.roleSalesRep' },
   { value: 'FINANCE_MANAGER', labelKey: 'usersPage.roleFinanceManager' },
   { value: 'ACCOUNTANT', labelKey: 'usersPage.roleAccountant' },

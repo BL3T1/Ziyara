@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
+import { usePermission } from '../../hooks/usePermission'
 import { getApiErrorMessage, providersAPI } from '../../services/api'
 import type { ServiceProviderDto } from '../../types/api'
 import { Card } from '../../components/Card'
@@ -29,6 +30,7 @@ function verifiedBadge(verified?: boolean | null) {
 
 export function PortalProfilePage() {
   const { t } = useLanguage()
+  const canManage = usePermission('portal:manage')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -118,10 +120,10 @@ export function PortalProfilePage() {
                   {verifiedBadge(profile.verified)}
                 </div>
               )}
-              {profile.commissionRate != null && (
+              {profile.profitMargin != null && (
                 <InfoRow
                   label={t('portalPages.profileCommission')}
-                  value={`${String(profile.commissionRate)}%`}
+                  value={`${String(profile.profitMargin)}%`}
                 />
               )}
               {profile.type && (
@@ -176,11 +178,13 @@ export function PortalProfilePage() {
                   className={inputCls}
                 />
               </div>
-              <div className="pt-1">
-                <button type="submit" disabled={saving} className="dashboard-btn-primary disabled:opacity-50">
-                  {saving ? t('portalPages.saving') : t('portalPages.saveProfile')}
-                </button>
-              </div>
+              {canManage && (
+                <div className="pt-1">
+                  <button type="submit" disabled={saving} className="dashboard-btn-primary disabled:opacity-50">
+                    {saving ? t('portalPages.saving') : t('portalPages.saveProfile')}
+                  </button>
+                </div>
+              )}
             </form>
           </Card>
         </div>

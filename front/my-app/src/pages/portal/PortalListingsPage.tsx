@@ -5,7 +5,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
+import { useDocumentMeta } from '../../hooks/useDocumentMeta'
+import { usePermission } from '../../hooks/usePermission'
 import { getApiErrorMessage, portalAPI } from '../../services/api'
+import { statusLabel } from '../../i18n/enumLabels'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { StatusBadge } from '../../components/StatusBadge'
 import type { PageDto, ServiceDto } from '../../types/api'
 
 function asPage(data: unknown): PageDto<ServiceDto> | null {
@@ -15,23 +20,17 @@ function asPage(data: unknown): PageDto<ServiceDto> | null {
   return null
 }
 
-function statusBadge(status?: string | null) {
-  if (!status) return <span className="badge badge-neutral">—</span>
-  const s = status.toLowerCase()
-  if (s === 'active' || s === 'approved') return <span className="badge badge-success">{status}</span>
-  if (s === 'pending') return <span className="badge badge-warning">{status}</span>
-  if (s === 'inactive' || s === 'rejected') return <span className="badge badge-danger">{status}</span>
-  return <span className="badge badge-neutral">{status}</span>
-}
-
 export function PortalListingsPage() {
   const { t } = useLanguage()
+  useDocumentMeta({ title: `${t('title.listings')} — Ziyara` })
+  const canManage = usePermission('portal:manage')
   const [page, setPage] = useState(0)
   const [rows, setRows] = useState<ServiceDto[]>([])
   const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -53,8 +52,7 @@ export function PortalListingsPage() {
 
   useEffect(() => { load() }, [load])
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(t('portalPages.confirmDeleteListing', { name }))) return
+  const handleDelete = async (id: string) => {
     setDeletingId(id)
     setError(null)
     try {
@@ -71,16 +69,20 @@ export function PortalListingsPage() {
     <>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="app-page-title">{t('title.listings')}</h1>
-        <Link to="/portal/listings/new" className="dashboard-btn-primary shrink-0">
-          {t('portalPages.addListing')}
-        </Link>
+        {canManage && (
+          <Link to="/portal/listings/new" className="dashboard-btn-primary shrink-0">
+            {t('portalPages.addListing')}
+          </Link>
+        )}
       </div>
 
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
-          {error}
-        </div>
-      )}
+      <div role="status" aria-live="polite" aria-atomic="true">
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+            {error}
+          </div>
+        )}
+      </div>
 
       <div className="table-shell">
         {loading ? (
@@ -105,7 +107,6 @@ export function PortalListingsPage() {
             <thead>
               <tr>
                 <th>{t('portalPages.colName')}</th>
-                <th>{t('portalPages.colType')}</th>
                 <th>{t('portalPages.colStatus')}</th>
                 <th>{t('portalPages.colPrice')}</th>
                 <th>{t('portalPages.colActions')}</th>
@@ -115,28 +116,36 @@ export function PortalListingsPage() {
               {rows.map((s) => (
                 <tr key={s.id}>
                   <td>{s.name}</td>
-                  <td className="text-slate-600 dark:text-slate-300">{s.type}</td>
-                  <td>{statusBadge(s.status)}</td>
+                  <td>
+                    <StatusBadge status={s.status} label={statusLabel(t, s.status ?? '')} />
+                    {s.status === 'REJECTED' && s.rejectionReason && (
+                      <p className="mt-1 max-w-xs text-xs text-red-600 dark:text-red-400">
+                        {s.rejectionReason}
+                      </p>
+                    )}
+                  </td>
                   <td className="tabular-nums text-slate-600 dark:text-slate-300">
                     {s.basePrice != null ? `${s.currency ?? 'USD'} ${s.basePrice}` : '—'}
                   </td>
                   <td>
-                    <div className="flex flex-wrap gap-3">
-                      <Link
-                        to={`/portal/listings/${s.id}`}
-                        className="text-sm font-semibold text-[#1e4d6b] hover:underline dark:text-[#90caff]"
-                      >
-                        {t('portalPages.edit')}
-                      </Link>
-                      <button
-                        type="button"
-                        disabled={deletingId === s.id}
-                        onClick={() => handleDelete(s.id, s.name)}
-                        className="text-sm font-semibold text-red-600 hover:underline disabled:opacity-40 dark:text-red-400"
-                      >
-                        {t('portalPages.delete')}
-                      </button>
-                    </div>
+                    {canManage && (
+                      <div className="flex flex-wrap gap-3">
+                        <Link
+                          to={`/portal/listings/${s.id}`}
+                          className="text-sm font-semibold text-primary hover:underline dark:text-secondary"
+                        >
+                          {t('portalPages.edit')}
+                        </Link>
+                        <button
+                          type="button"
+                          disabled={deletingId === s.id}
+                          onClick={() => setPendingDelete({ id: s.id, name: s.name })}
+                          className="text-sm font-semibold text-red-600 hover:underline disabled:opacity-40 dark:text-red-400"
+                        >
+                          {t('portalPages.delete')}
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -144,6 +153,16 @@ export function PortalListingsPage() {
           </table>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onClose={() => setPendingDelete(null)}
+        title={t('portalPages.delete')}
+        description={t('portalPages.confirmDeleteListing', { name: pendingDelete?.name ?? '' })}
+        confirmLabel={t('portalPages.delete')}
+        variant="danger"
+        onConfirm={() => handleDelete(pendingDelete!.id)}
+      />
 
       {totalPages > 1 && (
         <div className="flex items-center gap-3">

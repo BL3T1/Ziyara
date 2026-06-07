@@ -78,11 +78,12 @@ export function useServiceCatalog(
         setHealth(healthData)
         setPartners(partnerRows)
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         setServices([])
         setPartners([])
         setHealth(null)
-        setError(getApiErrorMessage(err, 'Failed to load services'))
+        const status = (err as { response?: { status?: number } })?.response?.status
+        setError(status === 403 ? 'Access denied. You do not have permission to view this data.' : getApiErrorMessage(err, 'Failed to load services'))
       })
       .finally(() => setLoading(false))
   }, [category, reloadToken, loadPartners])

@@ -4,19 +4,16 @@
  */
 
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { Card } from '../../components/Card'
-import { canCreateProvider } from '../../types/auth'
+import { usePermission } from '../../hooks/usePermission'
 import {
   CATEGORY_TO_PROVIDER_SERVICE_TYPE,
   parseServiceCategorySlug,
   type ServiceCategorySlug,
 } from './serviceModel'
-import { ServiceGallery } from './components/ServiceGallery'
 import { PartnerAccountsSection } from './components/PartnerAccountsSection'
 import { useServiceCatalog } from './useServiceCatalog'
-import { safeRedirect } from '../../utils/safeRedirect'
 
 const ADD_PARTNER_LABEL_KEY: Record<ServiceCategorySlug, string> = {
   hotels: 'servicesPage.ctaAddPartnerHotel',
@@ -51,12 +48,11 @@ const SERVICE_TYPE_CONFIG: Record<ServiceCategorySlug, { titleKey: string; descr
 
 export function ServiceTypePage() {
   const { t } = useLanguage()
-  const { user } = useAuth()
   const { type } = useParams<{ type: string }>()
   const navigate = useNavigate()
   const category = parseServiceCategorySlug(type)
   const config = category ? SERVICE_TYPE_CONFIG[category] : null
-  const showAddPartner = user?.role ? canCreateProvider(user.role) : false
+  const showAddPartner = usePermission('providers:write')
   const {
     services,
     partners,
@@ -140,21 +136,10 @@ export function ServiceTypePage() {
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('servicesPage.allServices', { type: pageTitle })}</h2>
         {loading ? (
           <p className="mt-4 text-slate-500 dark:text-slate-400">{t('ui.loading')}</p>
-        ) : services.length === 0 && partners.length === 0 && !error ? (
+        ) : partners.length === 0 && !error ? (
           <p className="mt-4 text-slate-500 dark:text-slate-400">{t('servicesPage.noListed', { type: pageTitle.toLowerCase() })}</p>
         ) : (
-          <>
-            {services.length > 0 && (
-              <ServiceGallery
-                services={services}
-                onOpen={(service) => {
-                  const slug = category ?? 'hotels'
-                  navigate(safeRedirect(`/${slug}/${service.id}`, '/dashboard'))
-                }}
-              />
-            )}
-            <PartnerAccountsSection partners={partners} />
-          </>
+          <PartnerAccountsSection partners={partners} services={services} category={category ?? undefined} />
         )}
       </div>
     </>

@@ -10,7 +10,11 @@ export function useLandingGSAP(locationKey: string) {
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-    if (prefersReduced) {
+    const isLowEndMobile =
+      window.matchMedia('(pointer: coarse)').matches && window.matchMedia('(max-width: 768px)').matches
+
+    if (prefersReduced || isLowEndMobile) {
+      // Snap all animated elements to their final visible state immediately.
       document.querySelectorAll<HTMLElement>('.lp-animate').forEach((el) => {
         el.style.opacity = '1'
         el.style.transform = 'none'
@@ -22,7 +26,14 @@ export function useLandingGSAP(locationKey: string) {
       // ── Hero entrance timeline (home page only) ───────────────────────────
       const hero = document.querySelector<HTMLElement>('.lp-ziyara-hero')
       if (hero) {
-        gsap.set('.lp-ziyara-hero__visual', { x: 36 })
+        // Set initial hidden state in JS so content is visible without JS
+        gsap.set([
+          '.lp-ziyara-hero .lp-eyebrow',
+          '#hero-heading',
+          '.lp-ziyara-hero .lp-hero-lede',
+          '.lp-ziyara-hero .lp-cta .lp-btn',
+        ], { opacity: 0, y: 20 })
+        gsap.set('.lp-ziyara-hero__visual', { opacity: 0, x: 36 })
 
         const tl = gsap.timeline({ delay: 0.08 })
 

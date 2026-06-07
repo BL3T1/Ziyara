@@ -18,7 +18,18 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info.componentStack)
+    const entry = {
+      timestamp: new Date().toISOString(),
+      message: error.message,
+      stack: error.stack,
+      componentStack: info.componentStack,
+    }
+    // Push to in-memory log accessible to observability tooling or future Sentry integration
+    if (typeof window !== 'undefined') {
+      ;(window as Window & { __ziyaraErrors?: typeof entry[] }).__ziyaraErrors ??= []
+      ;(window as Window & { __ziyaraErrors?: typeof entry[] }).__ziyaraErrors!.push(entry)
+    }
+    console.error('[ErrorBoundary]', entry)
   }
 
   render() {

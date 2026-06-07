@@ -1,11 +1,7 @@
-import type { Role } from '../types/auth'
-
 export interface SidebarItem {
   id: string
   label: string
   href: string
-  /** If set, only these roles see this item (e.g. Users only for super_admin). */
-  allowedRoles?: Role[]
 }
 
 export interface SidebarSection {
@@ -14,25 +10,15 @@ export interface SidebarSection {
   items: SidebarItem[]
 }
 
-/** All sidebar sections and items. Visibility is controlled by role. */
+/** All sidebar sections and items. Visibility is controlled by NAV_READ_PERMISSIONS (ABAC) or the backend nav list. */
 export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     id: 'main',
     label: 'MAIN',
     items: [
       { id: 'dashboard', label: 'Dashboard', href: '/dashboard' },
-      {
-        id: 'main_find_customer',
-        label: 'Search users',
-        href: '/admin/find-customer',
-        allowedRoles: ['super_admin'],
-      },
-      {
-        id: 'main_deleted_items',
-        label: 'Search deleted items',
-        href: '/admin/deleted-items',
-        allowedRoles: ['super_admin'],
-      },
+      { id: 'main_find_customer', label: 'Search users', href: '/admin/find-customer' },
+      { id: 'main_deleted_items', label: 'Search deleted items', href: '/admin/deleted-items' },
     ],
   },
   {
@@ -53,15 +39,13 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
       { id: 'providers', label: 'Providers', href: '/management/providers' },
       { id: 'bookings', label: 'Bookings', href: '/management/bookings' },
       { id: 'payments', label: 'Payments', href: '/management/payments' },
+      { id: 'payouts', label: 'Provider Payouts', href: '/management/payouts' },
       { id: 'discounts', label: 'Discounts', href: '/management/discounts' },
+      { id: 'media_approvals', label: 'Media Approvals', href: '/media-approvals' },
       { id: 'reports', label: 'Reports', href: '/management/reports' },
       { id: 'taxi_trips', label: 'Taxi trips', href: '/management/taxi-trips' },
-      {
-        id: 'currency_rates',
-        label: 'Currency rates',
-        href: '/management/currency-rates',
-        allowedRoles: ['super_admin', 'executive', 'finance'],
-      },
+      { id: 'currency_rates', label: 'Currency rates', href: '/management/currency-rates' },
+      { id: 'map', label: 'Map', href: '/map' },
     ],
   },
   {
@@ -70,7 +54,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     items: [
       { id: 'complaints', label: 'Complaints', href: '/support/complaints' },
       { id: 'reviews', label: 'Reviews', href: '/support/reviews' },
-      { id: 'tickets', label: 'Tickets', href: '/support/tickets' },
+      { id: 'provider_messages', label: 'Provider Messages', href: '/support/tickets' },
     ],
   },
   {
@@ -78,17 +62,14 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     label: 'ADMIN',
     items: [
       { id: 'settings', label: 'Settings', href: '/admin/settings' },
-      { id: 'users', label: 'Groups', href: '/management/users', allowedRoles: ['super_admin', 'hr'] },
-      { id: 'roles', label: 'Roles', href: '/admin/roles', allowedRoles: ['super_admin'] },
+      { id: 'users', label: 'Groups', href: '/management/users' },
+      { id: 'roles', label: 'Roles', href: '/admin/roles' },
+      { id: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions' },
       { id: 'logs', label: 'Logs', href: '/admin/logs' },
-      { id: 'content', label: 'Content', href: '/admin/content', allowedRoles: ['super_admin', 'admin'] },
-      { id: 'api', label: 'API', href: '/admin/api', allowedRoles: ['super_admin'] },
-      {
-        id: 'integrations',
-        label: 'Integrations',
-        href: '/admin/integrations',
-        allowedRoles: ['super_admin', 'executive', 'admin'],
-      },
+      { id: 'content', label: 'Content', href: '/admin/content' },
+      { id: 'api', label: 'API', href: '/admin/api' },
+      { id: 'integrations', label: 'Integrations', href: '/admin/integrations' },
+      { id: 'webhooks', label: 'Webhooks', href: '/admin/webhooks' },
     ],
   },
 ]
@@ -96,26 +77,53 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
 /** Canonical ordered list of company-dashboard nav item ids (keep aligned with backend CompanySidebarCatalog). */
 export const ALL_SIDEBAR_ITEM_IDS: string[] = SIDEBAR_SECTIONS.flatMap((s) => s.items.map((i) => i.id))
 
-/** Section IDs visible per role. Empty = no sidebar sections. */
-export const ROLE_SIDEBAR_SECTIONS: Record<Role, string[]> = {
-  super_admin: ['main', 'services', 'management', 'admin'],
-  admin: ['main', 'services', 'management', 'support'],
-  finance: ['main', 'management'],
-  support: ['main', 'support'],
-  executive: ['main', 'services', 'management', 'support'],
-  hr: ['main', 'management', 'admin'],
-  provider: ['main', 'services'],
-  user: ['main', 'services'],
+/**
+ * AUTHORITATIVE access gate for ABAC sidebar visibility.
+ * Each entry maps a nav item ID to the permission code a user must hold to see it.
+ * Undefined = always visible (no permission gate, e.g. dashboard).
+ *
+ * Rule: every new sidebar item MUST have a corresponding entry here AND in NAV_PERMISSION_MAP (RolesPage.tsx).
+ * Do NOT gate visibility using role checks elsewhere — this map is the single source of truth.
+ */
+export const NAV_READ_PERMISSIONS: Record<string, string | undefined> = {
+  dashboard:          undefined,
+  main_find_customer: 'customers:read',
+  main_deleted_items: 'deleted_items:company:read',
+  hotels:             'services:read',
+  resorts:            'services:read',
+  restaurants:        'services:read',
+  taxis:              'taxi:read',
+  trips:              'services:read',
+  providers:          'providers:read',
+  bookings:           'bookings:read',
+  payments:           'payments:read',
+  payouts:            'payouts:read',
+  discounts:          'discounts:read',
+  media_approvals:    'media_submissions:approve',
+  reports:            'reports:read',
+  taxi_trips:         'taxi:read',
+  currency_rates:     'currency:read',
+  complaints:         'complaints:read',
+  reviews:            'reviews:read',
+  provider_messages:  'providers_messages:read',
+  settings:           'settings:read',
+  users:              'users:read',
+  roles:              'roles:read',
+  logs:               'audit:read',
+  content:            'content:read',
+  api:                'settings:read',
+  integrations:       'settings:read',
+  webhooks:           'webhooks:read',
+  subscriptions:      'providers:read',
+  map:                'providers:read',
 }
 
-export function getSidebarSectionsForRole(role: Role): SidebarSection[] {
-  const sectionIds = ROLE_SIDEBAR_SECTIONS[role] ?? []
-  return SIDEBAR_SECTIONS.filter((s) => sectionIds.includes(s.id)).map((section) => ({
-    ...section,
-    items: section.items.filter(
-      (item) => !item.allowedRoles || item.allowedRoles.includes(role)
-    ),
-  }))
+/** Derive visible sidebar item IDs purely from the user's permission set (ABAC). */
+export function getVisibleItemIdsFromPermissions(has: (code: string) => boolean): string[] {
+  return ALL_SIDEBAR_ITEM_IDS.filter((id) => {
+    const perm = NAV_READ_PERMISSIONS[id]
+    return perm === undefined || has(perm)
+  })
 }
 
 /**
@@ -163,6 +171,9 @@ export const PORTAL_SIDEBAR_SECTIONS: SidebarSection[] = [
       { id: 'bookings', label: 'Bookings', href: '/portal/bookings' },
       { id: 'staff', label: 'Staff', href: '/portal/staff' },
       { id: 'earnings', label: 'Earnings', href: '/portal/earnings' },
+      { id: 'discounts', label: 'Discounts', href: '/portal/discounts' },
+      { id: 'media', label: 'Media', href: '/portal/media' },
+      { id: 'portal_map', label: 'Map', href: '/portal/map' },
       { id: 'profile', label: 'Profile', href: '/portal/profile' },
       { id: 'support', label: 'Support', href: '/portal/support' },
     ],

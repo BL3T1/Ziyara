@@ -2,13 +2,16 @@
  * Support > Complaints – list by status. View detail, Assign, Resolve, Close, Escalate, Comments.
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
-import { complaintsAPI } from '../../services/api'
+import { complaintsAPI, usersAPI } from '../../services/api'
 import { getApiErrorMessage } from '../../services/api'
 import type { ComplaintDto, PageDto } from '../../types/api'
 import { Modal } from '../../components/Modal'
 import { FormField } from '../../components/FormField'
+import { SearchableSelect, type SelectOption } from '../../components/SearchableSelect'
+import { statusLabel, priorityLabel } from '../../i18n/enumLabels'
+import { usePermission } from '../../hooks/usePermission'
 
 interface CommentDto {
   id?: string
@@ -35,12 +38,14 @@ function getList(data: unknown): ComplaintDto[] {
 
 export function ComplaintsPage() {
   const { t } = useLanguage()
+  const canWrite = usePermission('complaints:write')
   const [complaints, setComplaints] = useState<ComplaintDto[]>([])
   const [filter, setFilter] = useState<string | null>(null)
+  const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [assignId, setAssignId] = useState<string | null>(null)
-  const [assignAgentId, setAssignAgentId] = useState('')
+  const [assignAgent, setAssignAgent] = useState<SelectOption | null>(null)
   const [resolveId, setResolveId] = useState<string | null>(null)
   const [resolveNotes, setResolveNotes] = useState('')
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -51,30 +56,74 @@ export function ComplaintsPage() {
   const [includeInternalComments, setIncludeInternalComments] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [escalateModalOpen, setEscalateModalOpen] = useState(false)
-  const [escalateToUserId, setEscalateToUserId] = useState('')
+  const [escalateUser, setEscalateUser] = useState<SelectOption | null>(null)
   const [escalateLoading, setEscalateLoading] = useState(false)
+
+  const fetchStaffOptions = useCallback(async (query: string) => {
+    try {
+      const res = await usersAPI.list({ size: 50, role: 'support' })
+      const items = (Array.isArray(res.data) ? res.data : ((res.data as { content?: unknown[] })?.content ?? [])) as Array<{ id?: string; firstName?: string; lastName?: string; email?: string }>
+      const q = query.toLowerCase()
+      return items
+        .filter((u) => {
+          const name = `${u.firstName ?? ''} ${u.lastName ?? ''}`.toLowerCase()
+          return !q || name.includes(q) || (u.email ?? '').toLowerCase().includes(q)
+        })
+        .map((u) => ({
+          value: u.id ?? '',
+          label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || (u.email ?? ''),
+          sublabel: u.email,
+        }))
+    } catch {
+      return []
+    }
+  }, [])
+
+  const fetchAllStaffOptions = useCallback(async (query: string) => {
+    try {
+      const res = await usersAPI.list({ size: 100 })
+      const items = (Array.isArray(res.data) ? res.data : ((res.data as { content?: unknown[] })?.content ?? [])) as Array<{ id?: string; firstName?: string; lastName?: string; email?: string }>
+      const q = query.toLowerCase()
+      return items
+        .filter((u) => {
+          const name = `${u.firstName ?? ''} ${u.lastName ?? ''}`.toLowerCase()
+          return !q || name.includes(q) || (u.email ?? '').toLowerCase().includes(q)
+        })
+        .map((u) => ({
+          value: u.id ?? '',
+          label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || (u.email ?? ''),
+          sublabel: u.email,
+        }))
+    } catch {
+      return []
+    }
+  }, [])
 
   const load = () => {
     setLoading(true)
     setError(null)
     complaintsAPI
-      .list(filter ? { status: filter } : undefined)
+      .list({ ...(filter ? { status: filter } : {}), ...(priorityFilter ? { priority: priorityFilter } : {}) })
       .then((res) => setComplaints(getList(res.data)))
-      .catch(() => setComplaints([]))
+      .catch((e: unknown) => {
+        const status = (e as { response?: { status?: number } })?.response?.status
+        setError(status === 403 ? t('ui.accessDenied') : getApiErrorMessage(e))
+        setComplaints([])
+      })
       .finally(() => setLoading(false))
   }
 
   useEffect(() => {
     load()
-  }, [filter])
+  }, [filter, priorityFilter])
 
   const handleAssign = async () => {
-    if (!assignId || !assignAgentId.trim()) return
+    if (!assignId || !assignAgent?.value) return
     setError(null)
     try {
-      await complaintsAPI.assign(assignId, { agentId: assignAgentId.trim() })
+      await complaintsAPI.assign(assignId, { agentId: assignAgent.value })
       setAssignId(null)
-      setAssignAgentId('')
+      setAssignAgent(null)
       load()
     } catch (e) {
       setError(getApiErrorMessage(e))
@@ -112,7 +161,7 @@ export function ComplaintsPage() {
       setIncludeInternalComments(false)
       setCommentInternal(false)
       setEscalateModalOpen(false)
-      setEscalateToUserId('')
+      setEscalateUser(null)
       return
     }
     setDetailLoading(true)
@@ -134,13 +183,13 @@ export function ComplaintsPage() {
   }, [detailId, includeInternalComments])
 
   const handleEscalate = async () => {
-    if (!detailId || !escalateToUserId.trim()) return
+    if (!detailId || !escalateUser?.value) return
     setError(null)
     setEscalateLoading(true)
     try {
-      await complaintsAPI.escalate(detailId, { escalateToId: escalateToUserId.trim() })
+      await complaintsAPI.escalate(detailId, { escalateToId: escalateUser.value })
       setEscalateModalOpen(false)
-      setEscalateToUserId('')
+      setEscalateUser(null)
       complaintsAPI.get(detailId).then((r) => setDetail((r.data as ComplaintDto) ?? null))
       load()
     } catch (e) {
@@ -196,6 +245,26 @@ export function ComplaintsPage() {
           </button>
         ))}
       </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <span className="self-center text-xs text-slate-500 dark:text-slate-400">{t('complaintsPage.colPriority')}:</span>
+        <button
+          type="button"
+          onClick={() => setPriorityFilter(null)}
+          className={`text-xs ${priorityFilter === null ? 'dashboard-pill dashboard-pill--active' : 'dashboard-pill'}`}
+        >
+          {t('ui.all')}
+        </button>
+        {(['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const).map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setPriorityFilter(p)}
+            className={`text-xs ${priorityFilter === p ? 'dashboard-pill dashboard-pill--active' : 'dashboard-pill'}`}
+          >
+            {priorityLabel(t, p)}
+          </button>
+        ))}
+      </div>
 
       <div className="mt-6 table-shell">
         {loading ? (
@@ -228,8 +297,8 @@ export function ComplaintsPage() {
                       {c.subject}
                     </button>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{c.priority}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{c.status}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{priorityLabel(t, c.priority)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{statusLabel(t, c.status)}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm">
                     <button
                       type="button"
@@ -238,12 +307,12 @@ export function ComplaintsPage() {
                     >
                       {t('complaintsPage.view')}
                     </button>
-                    {(c.status ?? '').toUpperCase() === 'OPEN' || (c.status ?? '').toUpperCase() === 'IN_PROGRESS' ? (
+                    {canWrite && ((c.status ?? '').toUpperCase() === 'OPEN' || (c.status ?? '').toUpperCase() === 'IN_PROGRESS') ? (
                       <>
                         <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
                         <button
                           type="button"
-                          onClick={() => { setAssignId(c.id); setAssignAgentId(''); }}
+                          onClick={() => { setAssignId(c.id); setAssignAgent(null); }}
                           className="text-primary hover:underline"
                         >
                           {t('complaintsPage.assign')}
@@ -265,7 +334,7 @@ export function ComplaintsPage() {
                           {t('complaintsPage.close')}
                         </button>
                       </>
-                    ) : (c.status ?? '').toUpperCase() === 'RESOLVED' ? (
+                    ) : canWrite && (c.status ?? '').toUpperCase() === 'RESOLVED' ? (
                       <button
                         type="button"
                         onClick={() => handleClose(c.id)}
@@ -287,7 +356,7 @@ export function ComplaintsPage() {
       {/* Assign modal */}
       <Modal
         open={!!assignId}
-        onClose={() => { setAssignId(null); setAssignAgentId('') }}
+        onClose={() => { setAssignId(null); setAssignAgent(null) }}
         title={t('complaintsPage.assignModalTitle')}
         description={t('complaintsPage.assignModalHint')}
         size="sm"
@@ -295,15 +364,15 @@ export function ComplaintsPage() {
           <>
             <button
               type="button"
-              onClick={() => { setAssignId(null); setAssignAgentId('') }}
+              onClick={() => { setAssignId(null); setAssignAgent(null) }}
               className="dashboard-btn-secondary"
             >
               {t('ui.cancel')}
             </button>
             <button
-              type="submit"
-              form="complaint-assign-form"
-              disabled={!assignAgentId.trim()}
+              type="button"
+              disabled={!assignAgent?.value}
+              onClick={handleAssign}
               className="dashboard-btn-primary disabled:opacity-50"
             >
               {t('complaintsPage.assign')}
@@ -311,24 +380,20 @@ export function ComplaintsPage() {
           </>
         }
       >
-        <form id="complaint-assign-form" onSubmit={(e) => { e.preventDefault(); handleAssign() }}>
-          <FormField label={t('complaintsPage.agentUuidPlaceholder')} required>
-            <input
-              type="text"
-              placeholder={t('complaintsPage.agentUuidPlaceholder')}
-              value={assignAgentId}
-              onChange={(e) => setAssignAgentId(e.target.value)}
-              className="modal-input"
-              required
-            />
-          </FormField>
-        </form>
+        <FormField label={t('complaintsPage.agentUuidPlaceholder')} required>
+          <SearchableSelect
+            selectedOption={assignAgent}
+            onSelect={setAssignAgent}
+            fetchOptions={fetchStaffOptions}
+            placeholder={t('complaintsPage.agentUuidPlaceholder')}
+          />
+        </FormField>
       </Modal>
 
       {/* Escalate modal */}
       <Modal
         open={escalateModalOpen && !!detailId}
-        onClose={() => { setEscalateModalOpen(false); setEscalateToUserId('') }}
+        onClose={() => { setEscalateModalOpen(false); setEscalateUser(null) }}
         title={t('complaintsPage.escalateModalTitle')}
         description={t('complaintsPage.escalateModalHint')}
         size="sm"
@@ -336,16 +401,16 @@ export function ComplaintsPage() {
           <>
             <button
               type="button"
-              onClick={() => { setEscalateModalOpen(false); setEscalateToUserId('') }}
+              onClick={() => { setEscalateModalOpen(false); setEscalateUser(null) }}
               disabled={escalateLoading}
               className="dashboard-btn-secondary"
             >
               {t('ui.cancel')}
             </button>
             <button
-              type="submit"
-              form="complaint-escalate-form"
-              disabled={!escalateToUserId.trim() || escalateLoading}
+              type="button"
+              disabled={!escalateUser?.value || escalateLoading}
+              onClick={handleEscalate}
               className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
             >
               {t('complaintsPage.escalate')}
@@ -353,18 +418,14 @@ export function ComplaintsPage() {
           </>
         }
       >
-        <form id="complaint-escalate-form" onSubmit={(e) => { e.preventDefault(); handleEscalate() }}>
-          <FormField label={t('complaintsPage.escalateTargetPlaceholder')} required>
-            <input
-              type="text"
-              placeholder={t('complaintsPage.escalateTargetPlaceholder')}
-              value={escalateToUserId}
-              onChange={(e) => setEscalateToUserId(e.target.value)}
-              className="modal-input"
-              required
-            />
-          </FormField>
-        </form>
+        <FormField label={t('complaintsPage.escalateTargetPlaceholder')} required>
+          <SearchableSelect
+            selectedOption={escalateUser}
+            onSelect={setEscalateUser}
+            fetchOptions={fetchAllStaffOptions}
+            placeholder={t('complaintsPage.escalateTargetPlaceholder')}
+          />
+        </FormField>
       </Modal>
 
       {/* Resolve modal */}
@@ -456,18 +517,18 @@ export function ComplaintsPage() {
               ) : null}
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500 dark:text-slate-400">{t('complaintsPage.colPriority')}</dt>
-                <dd className="font-medium text-slate-900 dark:text-slate-100">{detail.priority}</dd>
+                <dd className="font-medium text-slate-900 dark:text-slate-100">{priorityLabel(t, detail.priority)}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500 dark:text-slate-400">{t('complaintsPage.colStatus')}</dt>
-                <dd className="font-medium text-slate-900 dark:text-slate-100">{detail.status}</dd>
+                <dd className="font-medium text-slate-900 dark:text-slate-100">{statusLabel(t, detail.status)}</dd>
               </div>
             </dl>
 
             {(detail.status ?? '').toUpperCase() !== 'CLOSED' && (
               <button
                 type="button"
-                onClick={() => { setEscalateModalOpen(true); setEscalateToUserId('') }}
+                onClick={() => { setEscalateModalOpen(true); setEscalateUser(null) }}
                 className="rounded-xl bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
               >
                 {t('complaintsPage.escalate')}

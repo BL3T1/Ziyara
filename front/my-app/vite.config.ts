@@ -10,7 +10,7 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
-        // Keep Host as localhost:5173 so Springdoc doesn’t emit redirects to :8080 (iframe "refused to connect").
+        // Keep Host as localhost:5173 so Springdoc doesn't emit redirects to :8080
         changeOrigin: false,
         configure: (proxy) => {
           proxy.on('proxyReq', (proxyReq, req) => {
@@ -21,6 +21,14 @@ export default defineConfig({
             }
           })
         },
+      },
+      '/api-docs': {
+        target: 'http://localhost:8080',
+        changeOrigin: false,
+      },
+      '/v3/api-docs': {
+        target: 'http://localhost:8080',
+        changeOrigin: false,
       },
     },
   },

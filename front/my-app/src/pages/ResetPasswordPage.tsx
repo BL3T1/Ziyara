@@ -4,6 +4,7 @@ import { authAPI, getApiErrorMessage } from '../services/api'
 import { useLanguage } from '../context/LanguageContext'
 import { ThemeToggleButton } from '../components/ThemeToggleButton'
 import { LanguageToggleButton } from '../components/LanguageToggleButton'
+import { PasswordInput } from '../components/PasswordInput'
 
 const KeyIcon = () => (
   <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -71,7 +72,7 @@ export function ResetPasswordPage() {
       </div>
 
       <div className="relative z-10 mb-8 flex flex-col items-center">
-        <img src="/logo.png" alt="Ziyara" className="h-36 w-auto drop-shadow-lg sm:h-40" />
+        <img src="/logo.png" alt="Ziyara" className="h-44 w-auto drop-shadow-lg sm:h-52" />
       </div>
 
       <div
@@ -134,43 +135,41 @@ export function ResetPasswordPage() {
               <label htmlFor="reset-new-password" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                 {t('landingAuth.newPassword')}
               </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
-                  <LockIcon />
-                </span>
-                <input
-                  id="reset-new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  placeholder="••••••••"
-                  className={inputCls}
-                />
-              </div>
+              <PasswordInput
+                id="reset-new-password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                placeholder="••••••••"
+                leftSlot={
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
+                    <LockIcon />
+                  </span>
+                }
+                className={inputCls}
+              />
             </div>
 
             <div>
               <label htmlFor="reset-confirm" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                 {t('landingAuth.confirmPassword')}
               </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
-                  <LockIcon />
-                </span>
-                <input
-                  id="reset-confirm"
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                  className={inputCls}
-                />
-              </div>
+              <PasswordInput
+                id="reset-confirm"
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                required
+                placeholder="••••••••"
+                leftSlot={
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
+                    <LockIcon />
+                  </span>
+                }
+                className={inputCls}
+              />
             </div>
 
             <button

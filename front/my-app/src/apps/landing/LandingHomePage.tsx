@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
+import { useDocumentMeta } from '../../hooks/useDocumentMeta'
 import { TRUST_ICONS } from './trustIcons'
 import { useLandingLiveData } from './useLandingLiveData'
 import { useLandingPageContent } from './useLandingPageContent'
@@ -18,11 +19,15 @@ function IconGrid() {
 }
 
 export function LandingHomePage() {
+  useDocumentMeta({ title: 'Ziyara — Discover Lebanon\'s best stays, dining & experiences', description: 'Book hotels, resorts, restaurants, trips and taxis across Lebanon with Ziyara.' })
   const { t } = useLanguage()
+  const navigate = useNavigate()
   const { readString: pageText } = useLandingPageContent('home')
   const servicesBrowse = '/services'
-  const partnerContact = '/contact'
   const { services, totalServices, totalCities, averageBasePrice, popularCities } = useLandingLiveData()
+  const TYPE_TO_SLUG: Record<string, string> = {
+    HOTEL: 'hotels', RESORT: 'resorts', RESTAURANT: 'restaurants', TAXI: 'taxis', TRIP: 'trips',
+  }
   const priceDeals = [
     ...services
       .filter((item) => typeof item.basePrice === 'number' && item.basePrice > 0)
@@ -30,27 +35,29 @@ export function LandingHomePage() {
       .map((item) => {
         const current = Number(item.basePrice ?? 0)
         const old = Math.round(current * 1.2)
+        const slug = TYPE_TO_SLUG[item.type ?? ''] ?? 'hotels'
         return {
           city: item.city || item.name,
           site: item.type,
           oldPrice: `$${old}`,
           newPrice: `$${current}`,
           diff: '20% lower',
+          href: `/${slug}?city=${encodeURIComponent(item.city ?? '')}`,
         }
       }),
   ]
   const trustBlocks = [
     {
       title: t('landingBusiness.trustOneTitle'),
-      body: `${totalServices || 0} active listings from the database right now.`,
+      body: t('landingBusiness.trustOneBody'),
     },
     {
       title: t('landingBusiness.trustTwoTitle'),
-      body: `${totalCities || 0} cities currently covered by partner offerings.`,
+      body: t('landingBusiness.trustTwoBody'),
     },
     {
       title: t('landingBusiness.trustThreeTitle'),
-      body: averageBasePrice ? `Average starting price: $${averageBasePrice}.` : t('landingBusiness.trustThreeBody'),
+      body: t('landingBusiness.trustThreeBody'),
     },
   ]
   const cityTiles = popularCities.length
@@ -65,6 +72,7 @@ export function LandingHomePage() {
           oldPrice: '$210',
           newPrice: '$168',
           diff: '20% lower',
+          href: `/hotels?city=${encodeURIComponent(t('landingBusiness.dealCityOne'))}`,
         },
         {
           city: t('landingBusiness.dealCityTwo'),
@@ -72,6 +80,7 @@ export function LandingHomePage() {
           oldPrice: '$190',
           newPrice: '$149',
           diff: '22% lower',
+          href: `/hotels?city=${encodeURIComponent(t('landingBusiness.dealCityTwo'))}`,
         },
       ]
 
@@ -114,7 +123,7 @@ export function LandingHomePage() {
         {averageBasePrice ? (
           <div className="lp-stat-item">
             <span className="lp-stat-num">${averageBasePrice}</span>
-            <span className="lp-stat-label">{t('landingBusiness.statsRatingLabel')}</span>
+            <span className="lp-stat-label">{t('landingBusiness.statsAvgPriceLabel')}</span>
           </div>
         ) : (
           <div className="lp-stat-item">
@@ -136,9 +145,13 @@ export function LandingHomePage() {
         <h2 className="lp-hero-title" style={{ fontSize: 'clamp(1.5rem, 2.2vw, 2rem)', marginBottom: 0 }}>
           {pageText('dealsTitle', t('landingBusiness.dealsTitle'))}
         </h2>
-        <div className="lp-deal-grid" style={{ marginTop: 20 }}>
+        <div className="lp-deal-grid mt-5">
           {dealTiles.map((deal) => (
-            <article key={deal.city} className="lp-solution-card">
+            <Link
+              key={deal.city}
+              to={deal.href ?? servicesBrowse}
+              className="lp-solution-card no-underline cursor-pointer"
+            >
               <div className="lp-solution-icon">
                 <IconGrid />
               </div>
@@ -157,22 +170,28 @@ export function LandingHomePage() {
                   <span style={{ textDecoration: 'line-through', fontSize: 14, color: '#62748e' }}>{deal.oldPrice}</span>
                 </span>
               </div>
-            </article>
+            </Link>
           ))}
         </div>
       </section>
 
       {/* ── Popular destinations ──────────────────────────────────────────── */}
-      <section className="lp-sheet lp-section lp-animate" style={{ marginTop: 36 }}>
+      <section className="lp-sheet lp-section lp-animate mt-9">
         <p className="lp-eyebrow lp-eyebrow--tight">{t('landingBusiness.popularEyebrow')}</p>
-        <h2 className="lp-h1" style={{ marginTop: 8 }}>
+        <h2 className="lp-h1 mt-2">
           {pageText('popularTitle', t('landingBusiness.popularTitle'))}
         </h2>
-        <div className="lp-deal-grid" style={{ marginTop: 20 }}>
+        <div className="lp-deal-grid mt-5">
           {cityTiles.map((city) => (
-            <div key={city} className="lp-city-chip">
+            <button
+              key={city}
+              type="button"
+              onClick={() => navigate(`/hotels?city=${encodeURIComponent(String(city))}`)}
+              className="lp-city-chip"
+              style={{ cursor: 'pointer', border: 'none', textAlign: 'start', fontFamily: 'inherit' }}
+            >
               {city}
-            </div>
+            </button>
           ))}
         </div>
       </section>
@@ -183,7 +202,7 @@ export function LandingHomePage() {
         <h2 className="lp-hero-title" style={{ fontSize: 'clamp(1.5rem, 2.2vw, 2rem)', marginBottom: 0 }}>
           {t('landingBusiness.trustTitle')}
         </h2>
-        <div className="lp-pillars" style={{ marginTop: 20 }}>
+        <div className="lp-pillars mt-5">
           {trustBlocks.map((point, i) => (
             <article key={point.title} className="lp-pillar">
               <div className="lp-pillar-icon">{TRUST_ICONS[i] ?? TRUST_ICONS[0]}</div>
@@ -194,30 +213,23 @@ export function LandingHomePage() {
         </div>
       </section>
 
-      {/* ── Partner CTA band ──────────────────────────────────────────────── */}
-      <section className="lp-partner-band lp-section">
+      {/* ── Final CTA ─────────────────────────────────────────────────────── */}
+      <section className="lp-partner-band lp-section text-center">
         <h2 className="lp-hero-title" style={{ fontSize: 'clamp(1.35rem, 2vw, 1.75rem)', marginBottom: 12 }}>
-          {t('landingBusiness.partnerTitle')}
+          {t('landingBusiness.footerHint')}
         </h2>
-        <p className="lp-hero-lede" style={{ marginBottom: 24 }}>
-          {t('landingBusiness.partnerBody')}
+        <p className="lp-hero-lede mb-6">
+          {t('landingBusiness.footerNote')}
         </p>
-        <div className="lp-cta">
-          <Link to="/login" className="lp-btn lp-btn-primary">
-            {t('landingBusiness.partnerCustomerCta')}
+        <div className="lp-cta justify-center">
+          <Link to="/services" className="lp-btn lp-btn-primary">
+            {t('landingTraveler.ctaBrowse')}
           </Link>
-          <Link to={partnerContact} className="lp-btn lp-btn-outline">
-            {t('landingBusiness.partnerProviderCta')}
+          <Link to="/login" className="lp-btn lp-btn-outline">
+            {t('landingTraveler.ctaSignIn')}
           </Link>
         </div>
       </section>
-
-      <p className="lp-section lp-muted" style={{ textAlign: 'center', marginTop: 32 }}>
-        {t('landingBusiness.footerHint')}
-      </p>
-      <p className="lp-muted" style={{ textAlign: 'center', marginTop: 8 }}>
-        {t('landingBusiness.footerNote')}
-      </p>
     </>
   )
 }

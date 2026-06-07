@@ -25,6 +25,7 @@ const TAXI_STATUSES = [
 export function TaxiTripsPage() {
   const { t } = useLanguage()
   const [rows, setRows] = useState<TaxiRow[]>([])
+  const [statusFilter, setStatusFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [detail, setDetail] = useState<TaxiRow | null>(null)
@@ -85,19 +86,35 @@ export function TaxiTripsPage() {
 
   const str = (v: unknown) => (v != null && String(v).trim() !== '' ? String(v) : '—')
 
+  const filteredRows = statusFilter
+    ? rows.filter((r) => typeof r.status === 'string' && r.status === statusFilter)
+    : rows
+
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('taxiTripsPage.title')}</h1>
         </div>
-        <button
-          type="button"
-          onClick={() => load()}
-          className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200"
-        >
-          {t('taxiTripsPage.refresh')}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+          >
+            <option value="">{t('taxiTripsPage.allStatuses')}</option>
+            {TAXI_STATUSES.map((s) => (
+              <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => load()}
+            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200"
+          >
+            {t('taxiTripsPage.refresh')}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -109,8 +126,10 @@ export function TaxiTripsPage() {
       <div className="mt-6 table-shell">
         {loading ? (
           <div className="p-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
-        ) : rows.length === 0 ? (
-          <div className="p-8 text-center text-slate-500 dark:text-slate-400">{t('taxiTripsPage.empty')}</div>
+        ) : filteredRows.length === 0 ? (
+          <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+            {rows.length === 0 ? t('taxiTripsPage.empty') : t('taxiTripsPage.emptyFiltered')}
+          </div>
         ) : (
           <table>
             <thead>
@@ -123,7 +142,7 @@ export function TaxiTripsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {filteredRows.map((r) => (
                 <tr key={String(r.id)}>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
                     {str(r.status)}

@@ -61,9 +61,10 @@ export function MfaChallengePage({ email, password, onBack, onSuccess }: MfaChal
       const res = await authAPI.login({ email, password, mfaCode: fullCode })
       const data = res.data as AuthResponseDto
       if (data?.accessToken) setStoredToken(data.accessToken as string)
-      const role = backendRoleToFrontend(data.role)
-      setUser({ id: String(data.userId), email: data.email, name: data.fullName || data.email, role })
-      onSuccess(getDashboardRouteForRole(role))
+      const role = backendRoleToFrontend(data.role, data.hasPortalAccess)
+      const mustChangePassword = Boolean(data.mustChangePassword)
+      setUser({ id: String(data.userId), email: data.email, name: data.fullName || data.email, role, mustChangePassword })
+      onSuccess(mustChangePassword ? '/account/change-password' : getDashboardRouteForRole(role))
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, 'Invalid verification code'))
       setDigits(Array(6).fill(''))

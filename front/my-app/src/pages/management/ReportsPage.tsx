@@ -7,6 +7,7 @@ import { useLanguage } from '../../context/LanguageContext'
 import { useDisplayCurrency } from '../../context/DisplayCurrencyContext'
 import { Card } from '../../components/Card'
 import { getApiErrorMessage, providersAPI, reportsAPI } from '../../services/api'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 type ActiveTab = 'revenue' | 'bookings' | 'analytics'
 import type { PageDto, ServiceProviderDto, UserDto } from '../../types/api'
@@ -64,6 +65,8 @@ export function ReportsPage() {
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('revenue')
   const [analytics, setAnalytics] = useState<Record<string, unknown> | null>(null)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+  const [hasRun, setHasRun] = useState(false)
   const [exportBusy, setExportBusy] = useState(false)
   const [revenue, setRevenue] = useState<RevenueReport | null>(null)
   const [bookings, setBookings] = useState<BookingReport | null>(null)
@@ -104,10 +107,16 @@ export function ReportsPage() {
     setError(null)
     setRevenue(null)
     setBookings(null)
+    setAnalytics(null)
+    setAnalyticsError(null)
+    setHasRun(true)
     const opts = reportOpts()
     const analyticsPromise = reportsAPI.getAnalytics(dateRange.start, dateRange.end)
       .then((r) => r.data as Record<string, unknown>)
-      .catch(() => null)
+      .catch((e: unknown) => {
+        setAnalyticsError(e instanceof Error ? e.message : 'Failed to load analytics')
+        return null
+      })
 
     Promise.all([
       reportsAPI.getRevenueReport(dateRange.start, dateRange.end, opts).then((r) => r.data as RevenueReport),
@@ -125,17 +134,17 @@ export function ReportsPage() {
       .finally(() => setLoading(false))
   }
 
-  const handleExport = async (type: 'revenue' | 'bookings', format: 'excel' | 'pdf') => {
+  const handleExport = async (type: 'revenue' | 'bookings', format: 'excel' | 'pdf' | 'csv') => {
     setExportBusy(true)
     try {
       const res = await reportsAPI.exportReport(dateRange.start, dateRange.end, type, format)
-      const blob = new Blob([res.data as BlobPart], {
-        type: format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      })
+      const mimeMap = { pdf: 'application/pdf', csv: 'text/csv', excel: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+      const extMap  = { pdf: 'pdf', csv: 'csv', excel: 'xlsx' }
+      const blob = new Blob([res.data as BlobPart], { type: mimeMap[format] })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${type}-report.${format === 'pdf' ? 'pdf' : 'xlsx'}`
+      a.download = `${type}-report.${extMap[format]}`
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
@@ -320,6 +329,14 @@ export function ReportsPage() {
             >
               Export PDF
             </button>
+            <button
+              type="button"
+              disabled={exportBusy || (!revenue && !bookings)}
+              onClick={() => handleExport(activeTab === 'bookings' ? 'bookings' : 'revenue', 'csv')}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              Export CSV
+            </button>
           </div>
         </div>
 
@@ -335,26 +352,43 @@ export function ReportsPage() {
                   {revenue.start} – {revenue.end}
                 </p>
                 {(revenue.byDay?.length ?? 0) > 0 && (
-                  <div className="mt-4 max-h-64 overflow-y-auto rounded-xl ring-1 ring-slate-200/80 dark:ring-slate-600/60">
-                    <table className="data-table text-sm">
-                      <thead>
-                        <tr>
-                          <th className="px-3 py-2.5">{t('ui.dateCol')}</th>
-                          <th className="px-3 py-2.5 text-end">{t('bookingsPage.amount')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {revenue.byDay.map((row) => (
-                          <tr key={row.date}>
-                            <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{row.date}</td>
-                            <td className="px-3 py-2 text-end font-medium text-slate-900 dark:text-slate-100">
-                              {displayInDefault(Number(row.amount ?? 0), revenue.currency)}
-                            </td>
+                  <>
+                    <div className="mt-5 h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={revenue.byDay} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                          <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '0.75rem', fontSize: 12 }}
+                            labelStyle={{ color: '#e2e8f0' }}
+                            itemStyle={{ color: '#ac9e78' }}
+                          />
+                          <Bar dataKey="amount" name={t('bookingsPage.amount')} fill="#1e4d6b" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-4 max-h-48 overflow-y-auto rounded-xl ring-1 ring-slate-200/80 dark:ring-slate-600/60">
+                      <table className="data-table text-sm">
+                        <thead>
+                          <tr>
+                            <th className="px-3 py-2.5">{t('ui.dateCol')}</th>
+                            <th className="px-3 py-2.5 text-end">{t('bookingsPage.amount')}</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {revenue.byDay.map((row) => (
+                            <tr key={row.date}>
+                              <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{row.date}</td>
+                              <td className="px-3 py-2 text-end font-medium text-slate-900 dark:text-slate-100">
+                                {displayInDefault(Number(row.amount ?? 0), revenue.currency)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </>
             ) : (
@@ -403,12 +437,12 @@ export function ReportsPage() {
 
         {activeTab === 'analytics' && (
           <Card className="mt-6 p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Platform Analytics</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('reportsPage.analyticsTitle')}</h2>
             {analytics ? (
               <div className="mt-4 space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Revenue</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('reportsPage.analyticsTotalRevenue')}</p>
                     <p className="mt-1 text-2xl font-bold text-slate-800 dark:text-slate-100">
                       {displayInDefault(Number((analytics as Record<string, unknown>).totalRevenue ?? 0), 'USD')}
                     </p>
@@ -416,7 +450,7 @@ export function ReportsPage() {
                 </div>
                 {Boolean((analytics as Record<string, unknown>).paymentStatusBreakdown) && (
                   <div>
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Payment Status Breakdown</p>
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('reportsPage.analyticsPaymentBreakdown')}</p>
                     <div className="mt-2 flex flex-wrap gap-3">
                       {Object.entries((analytics as Record<string, Record<string, number>>).paymentStatusBreakdown).map(([status, count]) => (
                         <div key={status} className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
@@ -429,13 +463,13 @@ export function ReportsPage() {
                 )}
                 {Array.isArray((analytics as Record<string, unknown>).topProvidersByBookings) && (
                   <div>
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Top Providers by Bookings</p>
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('reportsPage.analyticsTopProviders')}</p>
                     <div className="mt-2 overflow-x-auto rounded-xl ring-1 ring-slate-200/80 dark:ring-slate-600/60">
                       <table className="data-table text-sm">
                         <thead>
                           <tr>
-                            <th className="px-3 py-2.5">Provider ID</th>
-                            <th className="px-3 py-2.5 text-end">Bookings</th>
+                            <th className="px-3 py-2.5">{t('reportsPage.analyticsColProvider')}</th>
+                            <th className="px-3 py-2.5 text-end">{t('reportsPage.analyticsColBookings')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -451,8 +485,12 @@ export function ReportsPage() {
                   </div>
                 )}
               </div>
+            ) : analyticsError ? (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{analyticsError}</p>
             ) : (
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Run the report above to see analytics.</p>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                {hasRun ? t('reportsPage.analyticsEmpty') : t('reportsPage.analyticsRunFirst')}
+              </p>
             )}
           </Card>
         )}

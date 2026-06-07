@@ -3,19 +3,19 @@
  * Step 1: Status or vertical cards. Step 2: Table with commission override, Approve, Suspend.
  */
 
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
+import { useDocumentMeta } from '../../hooks/useDocumentMeta'
 import { providersAPI } from '../../services/api'
 import { getApiErrorMessage } from '../../services/api'
 import type { PageDto, ServiceProviderDto } from '../../types/api'
 import { BulkActionBar } from '../../components/BulkActionBar'
-import {
-  canApproveRejectProvider,
-  canCreateProvider,
-  canViewProviderCommission,
-} from '../../types/auth'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { statusLabel } from '../../i18n/enumLabels'
+import { usePermission } from '../../hooks/usePermission'
+import { useAuth } from '../../context/AuthContext'
+import { VITE_PROVIDER_APP_URL } from '../../config/appSurface'
 
 function asPage<T>(data: unknown): PageDto<T> | null {
   if (data && typeof data === 'object' && Array.isArray((data as PageDto<T>).content)) {
@@ -35,20 +35,27 @@ const STATUS_FILTERS = [
 
 export function ProvidersPage() {
   const { t } = useLanguage()
+  useDocumentMeta({ title: `${t('title.providers')} — Ziyara` })
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filter = searchParams.get('status')
+  const page = parseInt(searchParams.get('page') ?? '0', 10)
   const { user } = useAuth()
-  const showCommission = user?.role ? canViewProviderCommission(user.role) : false
-  const showCreate = user?.role ? canCreateProvider(user.role) : false
-  const showApproveReject = user?.role ? canApproveRejectProvider(user.role) : false
+  const isSuperAdmin = user?.role === 'super_admin'
+  const showCommission  = usePermission('payments:read')
+  const showCreate      = usePermission('providers:write')
+  const showApproveReject = usePermission('providers:approve')
   const [providers, setProviders] = useState<ServiceProviderDto[]>([])
-  const [filter, setFilter] = useState<string | null>(null)
-  const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [commissionRate, setCommissionRate] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [adminLoginLoading, setAdminLoginLoading] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const load = () => {
+  const [pendingSuspend, setPendingSuspend] = useState<{ id: string; name: string } | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<{ id: string } | null>(null)
+  const [pendingReset, setPendingReset] = useState<{ id: string; name: string } | null>(null)
+  const load = useCallback(() => {
     setLoading(true)
     providersAPI
       .list({
@@ -61,16 +68,18 @@ export function ProvidersPage() {
         setProviders(p?.content ?? [])
         setTotalPages(p?.totalPages ?? 0)
       })
-      .catch(() => {
+      .catch((e: unknown) => {
+        const status = (e as { response?: { status?: number } })?.response?.status
+        setError(status === 403 ? t('ui.accessDenied') : getApiErrorMessage(e))
         setProviders([])
         setTotalPages(0)
       })
       .finally(() => setLoading(false))
-  }
+  }, [filter, page])
 
   useEffect(() => {
     load()
-  }, [filter, page])
+  }, [load])
 
   const handleApprove = async (id: string) => {
     setError(null)
@@ -98,13 +107,49 @@ export function ProvidersPage() {
     }
   }
 
-  const handleSuspend = async (id: string) => {
+  const handleAdminLogin = async (id: string) => {
+    setAdminLoginLoading(id)
+    setError(null)
+    try {
+      const res = await providersAPI.adminToken(id)
+      const data = res.data as { accessToken?: string }
+      const token = data?.accessToken
+      if (!token) throw new Error('No token returned')
+      const portalBase = (VITE_PROVIDER_APP_URL || window.location.origin).replace(/\/$/, '')
+      window.open(`${portalBase}/login#admin_token=${encodeURIComponent(token)}`, '_blank')
+    } catch (e) {
+      setError(getApiErrorMessage(e, t('providersPage.adminLoginError')))
+    } finally {
+      setAdminLoginLoading(null)
+    }
+  }
+
+  const executeSuspend = async (id: string) => {
     setError(null)
     try {
       await providersAPI.suspend(id)
       setProviders((prev) =>
         prev.map((p) => (p.id === id ? { ...p, status: 'SUSPENDED' } : p))
       )
+    } catch (e) {
+      setError(getApiErrorMessage(e))
+    }
+  }
+
+  const executeResetPassword = async (id: string) => {
+    setError(null)
+    try {
+      await providersAPI.resetPassword(id)
+    } catch (e) {
+      setError(getApiErrorMessage(e))
+    }
+  }
+
+  const executeDelete = async (id: string) => {
+    setError(null)
+    try {
+      await providersAPI.delete(id)
+      setProviders((prev) => prev.filter((p) => p.id !== id))
     } catch (e) {
       setError(getApiErrorMessage(e))
     }
@@ -147,9 +192,9 @@ export function ProvidersPage() {
     const rate = parseFloat(commissionRate)
     if (Number.isNaN(rate) || rate < 0 || rate > 100) return
     try {
-      await providersAPI.updateCommission(editingId, { commissionRate: rate })
+      await providersAPI.updateCommission(editingId, { profitMargin: rate })
       setProviders((prev) =>
-        prev.map((p) => (p.id === editingId ? { ...p, commissionRate: rate } : p))
+        prev.map((p) => (p.id === editingId ? { ...p, profitMargin: rate } : p))
       )
       setEditingId(null)
       setCommissionRate('')
@@ -181,31 +226,28 @@ export function ProvidersPage() {
         selectedCount={selectedIds.size}
         onClearSelection={() => setSelectedIds(new Set())}
         actions={[
-          {
+          ...(showApproveReject ? [{
             label: t('providersPage.bulkApprove'),
             onClick: bulkApprove,
             disabled: ![...selectedIds].some(
               (id) => (providers.find((p) => p.id === id)?.status ?? '').toUpperCase() === 'PENDING_APPROVAL',
             ),
-          },
-          {
+          }] : []),
+          ...(showApproveReject ? [{
             label: t('providersPage.bulkSuspend'),
             onClick: bulkSuspend,
-            variant: 'danger',
+            variant: 'danger' as const,
             disabled: ![...selectedIds].some(
               (id) => (providers.find((p) => p.id === id)?.status ?? '').toUpperCase() === 'ACTIVE',
             ),
-          },
+          }] : []),
         ]}
       />
 
       <div className="mt-6 flex flex-wrap gap-4">
         <button
           type="button"
-          onClick={() => {
-            setFilter(null)
-            setPage(0)
-          }}
+          onClick={() => setSearchParams({}, { replace: true })}
           className={filter === null ? 'dashboard-pill dashboard-pill--active' : 'dashboard-pill'}
         >
           {t('ui.all')}
@@ -214,10 +256,7 @@ export function ProvidersPage() {
           <button
             key={card.id}
             type="button"
-            onClick={() => {
-              setFilter(card.id)
-              setPage(0)
-            }}
+            onClick={() => setSearchParams({ status: card.id }, { replace: true })}
             className={filter === card.id ? 'dashboard-pill dashboard-pill--active' : 'dashboard-pill'}
           >
             {t(card.labelKey)}
@@ -246,6 +285,7 @@ export function ProvidersPage() {
                 <th className="px-4 py-3.5">{t('providersPage.colType')}</th>
                 <th className="px-4 py-3.5">{t('providersPage.colStatus')}</th>
                 {showCommission && <th className="px-4 py-3.5">{t('providersPage.colCommission')}</th>}
+                <th className="px-4 py-3.5">{t('providersPage.colSubscription')}</th>
                 <th className="px-4 py-3.5">{t('providersPage.colActions')}</th>
               </tr>
             </thead>
@@ -266,7 +306,7 @@ export function ProvidersPage() {
                     </Link>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{p.type ?? t('ui.emDash')}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{String(p.status ?? t('ui.emDash'))}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{statusLabel(t, p.status)}</td>
                   {showCommission && (
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
                       {editingId === p.id ? (
@@ -284,10 +324,20 @@ export function ProvidersPage() {
                           <button type="button" onClick={() => { setEditingId(null); setCommissionRate(''); }} className="text-slate-500 text-sm hover:underline">{t('ui.cancel')}</button>
                         </div>
                       ) : (
-                        <span>{p.commissionRate != null ? `${Number(p.commissionRate)}%` : t('ui.emDash')}</span>
+                        <span>{p.profitMargin != null ? `${Number(p.profitMargin)}%` : t('ui.emDash')}</span>
                       )}
                     </td>
                   )}
+                  <td className="whitespace-nowrap px-4 py-3 text-sm">
+                    {p.subscriptionPlan ? (
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${p.subscriptionPlan === 'PRO' ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
+                        {p.subscriptionPlan}
+                        {p.staffLimit != null && ` · ${p.staffLimit}`}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm">
                     {editingId !== p.id && (
                       <>
@@ -302,7 +352,7 @@ export function ProvidersPage() {
                             <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
                             <button
                               type="button"
-                              onClick={() => { setEditingId(p.id); setCommissionRate(String(p.commissionRate ?? '10')); }}
+                              onClick={() => { setEditingId(p.id); setCommissionRate(String(p.profitMargin ?? '10')); }}
                               className="text-primary hover:underline"
                             >
                               {t('providersPage.editCommission')}
@@ -329,15 +379,50 @@ export function ProvidersPage() {
                             </button>
                           </>
                         )}
-                        {(p.status ?? '').toUpperCase() === 'ACTIVE' && (
+                        {showApproveReject && (p.status ?? '').toUpperCase() === 'ACTIVE' && (
                           <>
                             <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
                             <button
                               type="button"
-                              onClick={() => handleSuspend(p.id)}
+                              onClick={() => setPendingSuspend({ id: p.id, name: p.name })}
                               className="text-amber-600 hover:underline dark:text-amber-400"
                             >
                               {t('providersPage.suspend')}
+                            </button>
+                          </>
+                        )}
+                        <>
+                          <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setPendingReset({ id: p.id, name: p.name })}
+                            className="text-amber-600 hover:underline dark:text-amber-400"
+                          >
+                            {t('providersPage.resetPassword')}
+                          </button>
+                        </>
+                        {showApproveReject && (
+                          <>
+                            <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+                            <button
+                              type="button"
+                              onClick={() => setPendingDelete({ id: p.id })}
+                              className="text-red-600 hover:underline dark:text-red-400"
+                            >
+                              {t('providersPage.delete')}
+                            </button>
+                          </>
+                        )}
+                        {isSuperAdmin && (p.status ?? '').toUpperCase() === 'ACTIVE' && (
+                          <>
+                            <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+                            <button
+                              type="button"
+                              disabled={adminLoginLoading === p.id}
+                              onClick={() => handleAdminLogin(p.id)}
+                              className="text-indigo-600 hover:underline disabled:opacity-40 dark:text-indigo-400"
+                            >
+                              {t('providersPage.adminLogin')}
                             </button>
                           </>
                         )}
@@ -356,7 +441,7 @@ export function ProvidersPage() {
           <button
             type="button"
             disabled={page <= 0 || loading}
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            onClick={() => setSearchParams(filter ? { status: filter, page: String(page - 1) } : { page: String(page - 1) }, { replace: true })}
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-600"
           >
             {t('ui.previous')}
@@ -367,7 +452,7 @@ export function ProvidersPage() {
           <button
             type="button"
             disabled={page >= totalPages - 1 || loading}
-            onClick={() => setPage((p) => p + 1)}
+            onClick={() => setSearchParams(filter ? { status: filter, page: String(page + 1) } : { page: String(page + 1) }, { replace: true })}
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-600"
           >
             {t('ui.next')}
@@ -375,6 +460,35 @@ export function ProvidersPage() {
         </div>
       )}
 
+      <ConfirmDialog
+        open={!!pendingSuspend}
+        onClose={() => setPendingSuspend(null)}
+        title={t('providersPage.suspend')}
+        description={t('providersPage.confirmSuspend', { name: pendingSuspend?.name ?? '' })}
+        confirmLabel={t('providersPage.suspend')}
+        variant="danger"
+        onConfirm={() => executeSuspend(pendingSuspend!.id)}
+      />
+
+      <ConfirmDialog
+        open={!!pendingReset}
+        onClose={() => setPendingReset(null)}
+        title={t('providersPage.resetPassword')}
+        description={t('providersPage.confirmResetPassword', { name: pendingReset?.name ?? '' })}
+        confirmLabel={t('providersPage.resetPassword')}
+        variant="default"
+        onConfirm={() => executeResetPassword(pendingReset!.id)}
+      />
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onClose={() => setPendingDelete(null)}
+        title={t('providersPage.delete')}
+        description={t('providersPage.confirmDelete')}
+        confirmLabel={t('providersPage.delete')}
+        variant="danger"
+        onConfirm={() => executeDelete(pendingDelete!.id)}
+      />
     </>
   )
 }

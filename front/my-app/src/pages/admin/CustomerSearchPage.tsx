@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
+import { usePermission } from '../../hooks/usePermission'
 import { adminSuperAPI, getApiErrorMessage } from '../../services/api'
 import type { UserDto } from '../../types/api'
 
@@ -13,7 +14,7 @@ export function CustomerSearchPage() {
   const { t } = useLanguage()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const isSuperAdmin = user?.role === 'super_admin'
+  const canSearch = usePermission('customers:read')
   const [q, setQ] = useState('')
   const [nameFilter, setNameFilter] = useState('')
   const [phoneFilter, setPhoneFilter] = useState('')
@@ -25,13 +26,11 @@ export function CustomerSearchPage() {
 
   if (!user) return null
 
-  if (!isSuperAdmin) {
+  if (!canSearch) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-800 dark:bg-amber-900/20">
         <h2 className="text-xl font-semibold text-amber-800 dark:text-amber-200">{t('access.restrictedTitle')}</h2>
-        <p className="mt-2 text-amber-700 dark:text-amber-300">
-          {t('access.superAdminCustomersWithRole', { role: user.role })}
-        </p>
+        <p className="mt-2 text-amber-700 dark:text-amber-300">{t('access.needPermission', { permission: 'customers:read' })}</p>
         <button
           type="button"
           onClick={() => navigate('/dashboard')}

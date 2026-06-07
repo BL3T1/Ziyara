@@ -2,6 +2,7 @@ import { lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { RequireAuth } from '../../components/RequireAuth'
 import { RequireSurfaceRole } from '../../components/RequireSurfaceRole'
+import { RequirePermission } from '../../components/RequirePermission'
 import { HomeRedirect } from '../../components/HomeRedirect'
 import { PageLayout } from '../../layouts/PageLayout'
 
@@ -40,10 +41,16 @@ const DiscountsPage = lazy(() =>
 const PaymentsPage = lazy(() =>
   import('../../pages/management/PaymentsPage').then((m) => ({ default: m.PaymentsPage })),
 )
+const PayoutsPage = lazy(() =>
+  import('../../pages/management/PayoutsPage').then((m) => ({ default: m.PayoutsPage })),
+)
 const ReportsPage = lazy(() =>
   import('../../pages/management/ReportsPage').then((m) => ({ default: m.ReportsPage })),
 )
+const MapPage = lazy(() => import('../../pages/admin/MapPage').then((m) => ({ default: m.MapPage })))
 const RolesPage = lazy(() => import('../../pages/admin/RolesPage').then((m) => ({ default: m.RolesPage })))
+const RoleMembersPage = lazy(() => import('../../pages/admin/RoleMembersPage').then((m) => ({ default: m.RoleMembersPage })))
+const SubscriptionsPage = lazy(() => import('../../pages/admin/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })))
 const AuditLogsPage = lazy(() =>
   import('../../pages/admin/AuditLogsPage').then((m) => ({ default: m.AuditLogsPage })),
 )
@@ -53,6 +60,9 @@ const SettingsPage = lazy(() =>
 const ApiPage = lazy(() => import('../../pages/admin/ApiPage').then((m) => ({ default: m.ApiPage })))
 const IntegrationsPage = lazy(() =>
   import('../../pages/admin/IntegrationsPage').then((m) => ({ default: m.IntegrationsPage })),
+)
+const WebhookSubscriptionsPage = lazy(() =>
+  import('../../pages/admin/WebhookSubscriptionsPage').then((m) => ({ default: m.WebhookSubscriptionsPage })),
 )
 const ContentPagesPage = lazy(() =>
   import('../../pages/admin/ContentPagesPage').then((m) => ({ default: m.ContentPagesPage })),
@@ -72,9 +82,6 @@ const CustomerProfilePage = lazy(() =>
 const DeletedItemsPage = lazy(() =>
   import('../../pages/admin/DeletedItemsPage').then((m) => ({ default: m.DeletedItemsPage })),
 )
-const PermissionMatrixPage = lazy(() =>
-  import('../../pages/admin/PermissionMatrixPage').then((m) => ({ default: m.PermissionMatrixPage })),
-)
 const ComplaintsPage = lazy(() =>
   import('../../pages/support/ComplaintsPage').then((m) => ({ default: m.ComplaintsPage })),
 )
@@ -90,6 +97,12 @@ const CurrencyRatesPage = lazy(() =>
 const CompanyDashboardPage = lazy(() =>
   import('../../pages/CompanyDashboardPage').then((m) => ({ default: m.CompanyDashboardPage })),
 )
+const ChangePasswordPage = lazy(() =>
+  import('../../pages/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage })),
+)
+const MediaSubmissionsPage = lazy(() =>
+  import('../../pages/management/MediaSubmissionsPage').then((m) => ({ default: m.MediaSubmissionsPage })),
+)
 export function AppCompanyRoutes() {
   return (
     <Routes>
@@ -98,48 +111,55 @@ export function AppCompanyRoutes() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<RequireAuth />}>
+        <Route path="/account/change-password" element={<ChangePasswordPage />} />
         <Route element={<RequireSurfaceRole surface="company" />}>
           <Route element={<PageLayout />}>
             <Route path="/dashboard" element={<CompanyDashboardPage />} />
             <Route path="/sales" element={<Navigate to="/dashboard" replace />} />
             <Route path="/sales/providers" element={<Navigate to="/management/providers" replace />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
-            <Route path="/services/:type" element={<ServiceTypePage />} />
-            <Route path="/services/:type/:id" element={<ServiceDetailPage />} />
+            <Route path="/analytics" element={<RequirePermission code="analytics:read"><AnalyticsPage /></RequirePermission>} />
+            <Route path="/services/:type" element={<RequirePermission code="services:read"><ServiceTypePage /></RequirePermission>} />
+            <Route path="/services/:type/:id" element={<RequirePermission code="services:read"><ServiceDetailPage /></RequirePermission>} />
             <Route path="/hotels" element={<Navigate to="/services/hotels" replace />} />
             <Route path="/resorts" element={<Navigate to="/services/resorts" replace />} />
             <Route path="/restaurants" element={<Navigate to="/services/restaurants" replace />} />
             <Route path="/trips" element={<Navigate to="/services/trips" replace />} />
-            <Route path="/hotels/:id" element={<ServiceDetailPage />} />
-            <Route path="/resorts/:id" element={<ServiceDetailPage />} />
-            <Route path="/restaurants/:id" element={<ServiceDetailPage />} />
-            <Route path="/trips/:id" element={<ServiceDetailPage />} />
-            <Route path="/management/users" element={<UsersPage />} />
-            <Route path="/management/groups/:groupId/members" element={<GroupMembersPage />} />
-            <Route path="/management/staff/:userId" element={<StaffUserDetailPage />} />
-            <Route path="/management/providers/new" element={<CreateProviderPage />} />
-            <Route path="/management/providers/:providerId" element={<EditProviderPage />} />
-            <Route path="/management/providers" element={<ProvidersPage />} />
-            <Route path="/management/bookings" element={<BookingsPage />} />
-            <Route path="/management/payments" element={<PaymentsPage />} />
-            <Route path="/management/discounts" element={<DiscountsPage />} />
-            <Route path="/management/reports" element={<ReportsPage />} />
-            <Route path="/support/complaints" element={<ComplaintsPage />} />
-            <Route path="/support/reviews" element={<ReviewsPage />} />
-            <Route path="/support/tickets" element={<TicketsPage />} />
-            <Route path="/support/tickets/:ticketId" element={<TicketDetailPage />} />
-            <Route path="/management/taxi-trips" element={<TaxiTripsPage />} />
-            <Route path="/management/currency-rates" element={<CurrencyRatesPage />} />
-            <Route path="/admin/settings" element={<SettingsPage />} />
-            <Route path="/admin/roles" element={<RolesPage />} />
-            <Route path="/admin/permissions" element={<PermissionMatrixPage />} />
-            <Route path="/admin/logs" element={<AuditLogsPage />} />
-            <Route path="/admin/find-customer" element={<CustomerSearchPage />} />
-            <Route path="/admin/customers/:userId" element={<CustomerProfilePage />} />
-            <Route path="/admin/deleted-items" element={<DeletedItemsPage />} />
-            <Route path="/admin/api" element={<ApiPage />} />
-            <Route path="/admin/integrations" element={<IntegrationsPage />} />
-            <Route path="/admin/content" element={<ContentPagesPage />} />
+            <Route path="/hotels/:id" element={<RequirePermission code="services:read"><ServiceDetailPage /></RequirePermission>} />
+            <Route path="/resorts/:id" element={<RequirePermission code="services:read"><ServiceDetailPage /></RequirePermission>} />
+            <Route path="/restaurants/:id" element={<RequirePermission code="services:read"><ServiceDetailPage /></RequirePermission>} />
+            <Route path="/trips/:id" element={<RequirePermission code="services:read"><ServiceDetailPage /></RequirePermission>} />
+            <Route path="/management/users" element={<RequirePermission code="users:read"><UsersPage /></RequirePermission>} />
+            <Route path="/management/groups/:groupId/members" element={<RequirePermission code="users:read"><GroupMembersPage /></RequirePermission>} />
+            <Route path="/management/staff/:userId" element={<RequirePermission code="users:read"><StaffUserDetailPage /></RequirePermission>} />
+            <Route path="/management/providers/new" element={<RequirePermission code="providers:write"><CreateProviderPage /></RequirePermission>} />
+            <Route path="/management/providers/:providerId" element={<RequirePermission code="providers:read"><EditProviderPage /></RequirePermission>} />
+            <Route path="/management/providers" element={<RequirePermission code="providers:read"><ProvidersPage /></RequirePermission>} />
+            <Route path="/management/bookings" element={<RequirePermission code="bookings:read"><BookingsPage /></RequirePermission>} />
+            <Route path="/management/payments" element={<RequirePermission code="payments:read"><PaymentsPage /></RequirePermission>} />
+            <Route path="/management/payouts" element={<RequirePermission code="payouts:read"><PayoutsPage /></RequirePermission>} />
+            <Route path="/management/discounts" element={<RequirePermission code="discounts:read"><DiscountsPage /></RequirePermission>} />
+            <Route path="/management/reports" element={<RequirePermission code="reports:read"><ReportsPage /></RequirePermission>} />
+            <Route path="/support/complaints" element={<RequirePermission code="complaints:read"><ComplaintsPage /></RequirePermission>} />
+            <Route path="/support/reviews" element={<RequirePermission code="reviews:read"><ReviewsPage /></RequirePermission>} />
+            <Route path="/support/tickets" element={<RequirePermission code="support:read"><TicketsPage /></RequirePermission>} />
+            <Route path="/support/tickets/:ticketId" element={<RequirePermission code="support:read"><TicketDetailPage /></RequirePermission>} />
+            <Route path="/management/taxi-trips" element={<RequirePermission code="taxi:read"><TaxiTripsPage /></RequirePermission>} />
+            <Route path="/management/currency-rates" element={<RequirePermission code="currency:read"><CurrencyRatesPage /></RequirePermission>} />
+            <Route path="/map" element={<RequirePermission code="providers:read"><MapPage /></RequirePermission>} />
+            <Route path="/admin/settings" element={<RequirePermission code="settings:read"><SettingsPage /></RequirePermission>} />
+            <Route path="/admin/roles" element={<RequirePermission code="roles:read"><RolesPage /></RequirePermission>} />
+            <Route path="/admin/roles/:roleId/members" element={<RequirePermission code="roles:read"><RoleMembersPage /></RequirePermission>} />
+            <Route path="/admin/subscriptions" element={<RequirePermission code="providers:read"><SubscriptionsPage /></RequirePermission>} />
+            <Route path="/admin/logs" element={<RequirePermission code="audit:read"><AuditLogsPage /></RequirePermission>} />
+            <Route path="/admin/find-customer" element={<RequirePermission code="customers:read"><CustomerSearchPage /></RequirePermission>} />
+            <Route path="/admin/customers/:userId" element={<RequirePermission code="customers:read"><CustomerProfilePage /></RequirePermission>} />
+            <Route path="/admin/deleted-items" element={<RequirePermission code="deleted_items:company:read"><DeletedItemsPage /></RequirePermission>} />
+            <Route path="/admin/api" element={<RequirePermission code="settings:read"><ApiPage /></RequirePermission>} />
+            <Route path="/admin/integrations" element={<RequirePermission code="settings:read"><IntegrationsPage /></RequirePermission>} />
+            <Route path="/admin/webhooks" element={<RequirePermission code="webhooks:read"><WebhookSubscriptionsPage /></RequirePermission>} />
+            <Route path="/admin/content" element={<RequirePermission code="content:read"><ContentPagesPage /></RequirePermission>} />
+            <Route path="/admin/media-submissions" element={<RequirePermission code="media_submissions:approve"><MediaSubmissionsPage /></RequirePermission>} />
+            <Route path="/media-approvals" element={<RequirePermission code="media_submissions:approve"><MediaSubmissionsPage /></RequirePermission>} />
           </Route>
         </Route>
       </Route>

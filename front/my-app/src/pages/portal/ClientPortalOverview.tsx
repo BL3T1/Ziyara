@@ -58,6 +58,21 @@ export function ClientPortalOverview() {
     ? `${kpis.revenueCurrency ?? 'USD'} ${Number(kpis.totalRevenue ?? 0).toLocaleString()}`
     : '—'
 
+  function pctDelta(current?: number, previous?: number): { label: string; positive: boolean } | null {
+    if (current == null || previous == null) return null
+    if (previous === 0 && current === 0) return null
+    if (previous === 0) return { label: t('portalHome.trendNew'), positive: true }
+    const delta = Math.round(((current - previous) / previous) * 100)
+    const sign = delta >= 0 ? '+' : ''
+    return { label: `${sign}${delta}% ${t('portalHome.trendVsLast30')}`, positive: delta >= 0 }
+  }
+
+  const bookingDelta = pctDelta(kpis?.bookingsLast30Days, kpis?.bookingsPrev30Days)
+  const revenueDelta = pctDelta(
+    kpis?.revenueLast30Days != null ? Number(kpis.revenueLast30Days) : undefined,
+    kpis?.revenuePrev30Days != null ? Number(kpis.revenuePrev30Days) : undefined,
+  )
+
   return (
     <>
       <header className="pb-1">
@@ -81,15 +96,15 @@ export function ClientPortalOverview() {
               icon={<StatCardIcons.ServerIcon />}
               label={t('portalHome.revenueCompleted')}
               value={revenueDisplay}
-              trend={t('portalHome.revenueLabel')}
-              trendPositive
+              trend={revenueDelta?.label ?? t('portalHome.revenueLabel')}
+              trendPositive={revenueDelta?.positive ?? true}
             />
             <StatCard
               icon={<CalendarIcon />}
               label={t('portalHome.totalBookings')}
               value={String(kpis?.totalBookings ?? '—')}
-              trend={t('portalHome.allTimeLabel')}
-              trendPositive
+              trend={bookingDelta?.label ?? t('portalHome.allTimeLabel')}
+              trendPositive={bookingDelta?.positive ?? true}
             />
             <StatCard
               icon={<ListingsIcon />}
@@ -103,9 +118,9 @@ export function ClientPortalOverview() {
       </div>
 
       {/* Weekly revenue chart */}
-      {kpis?.weeklyRevenue && kpis.weeklyRevenue.length > 0 && (
-        <Card className="!p-5">
-          <h2 className="dashboard-card-title mb-4">{t('portalHome.weeklyRevenue')}</h2>
+      <Card className="!p-5">
+        <h2 className="dashboard-card-title mb-4">{t('portalHome.weeklyRevenue')}</h2>
+        {kpis?.weeklyRevenue && kpis.weeklyRevenue.length > 0 ? (
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={kpis.weeklyRevenue} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.12)" />
@@ -131,7 +146,7 @@ export function ClientPortalOverview() {
                 }
                 labelFormatter={(label) => {
                   const d = new Date(String(label) + 'T00:00:00')
-                  return `Week of ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+                  return `${t('portalHome.weekOf')} ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
                 }}
                 contentStyle={{
                   borderRadius: '12px',
@@ -147,8 +162,12 @@ export function ClientPortalOverview() {
               <Bar dataKey="amount" fill="#1e4d6b" radius={[4, 4, 0, 0]} maxBarSize={36} />
             </BarChart>
           </ResponsiveContainer>
-        </Card>
-      )}
+        ) : (
+          <div className="flex h-[180px] items-center justify-center">
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t('portalHome.noRevenueData')}</p>
+          </div>
+        )}
+      </Card>
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-3">

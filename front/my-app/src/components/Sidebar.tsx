@@ -2,8 +2,10 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLayout } from '../context/LayoutContext'
 import { useLanguage } from '../context/LanguageContext'
-import { SIDEBAR_SECTIONS, filterSectionsByVisibleIds, getSidebarSectionsForRole } from '../config/sidebar'
+import { usePendingCounts } from '../context/PendingCountsContext'
+import { SIDEBAR_SECTIONS, filterSectionsByVisibleIds, getVisibleItemIdsFromPermissions } from '../config/sidebar'
 import type { SidebarSection as SidebarSectionType, SidebarItem } from '../config/sidebar'
+import { usePermissions } from '../context/PermissionsContext'
 import { Logo } from './Logo'
 import { SidebarIcons, type SidebarIconId } from './SidebarIcons'
 
@@ -33,6 +35,8 @@ const SIDEBAR_ITEM_ICON: Partial<Record<string, SidebarIconId>> = {
   main_find_customer: 'search_user',
   main_deleted_items: 'search_deleted',
   currency_rates: 'sales',
+  provider_messages: 'chat',
+  map: 'map',
 }
 
 function getIconForItem(item: SidebarItem) {
@@ -50,18 +54,22 @@ function SidebarSection({
   collapsed,
   isRtl,
   t,
+  badges,
+  onNavClick,
 }: {
   section: SidebarSectionType
   collapsed: boolean
   isRtl: boolean
   t: (key: string) => string
+  badges: Record<string, number>
+  onNavClick?: () => void
 }) {
   return (
     <div className="mb-6 last:mb-2">
       {!collapsed && (
         <div className="mb-1.5 flex items-center gap-2 px-3">
           <span
-            className="text-[0.6rem] font-bold uppercase tracking-[0.18em] text-slate-400/70"
+            className="text-[0.6rem] font-bold uppercase tracking-[0.18em] text-slate-400"
           >
             {t(`section.${section.id}`)}
           </span>
@@ -70,6 +78,7 @@ function SidebarSection({
       <div className="space-y-0.5">
         {section.items.map((item) => {
           const itemLabel = t(`nav.${item.id}`)
+          const badgeCount = badges[item.id] ?? 0
           return (
             <NavLink
               key={item.id}
@@ -78,6 +87,7 @@ function SidebarSection({
               title={collapsed ? itemLabel : undefined}
               onMouseEnter={item.href === '/dashboard' ? prefetchDashboardRouteChunks : undefined}
               onFocus={item.href === '/dashboard' ? prefetchDashboardRouteChunks : undefined}
+              onClick={onNavClick}
             >
               {({ isActive }) => {
                 const pad = collapsed ? 'justify-center px-0' : 'px-2'
@@ -85,7 +95,7 @@ function SidebarSection({
 
                 const rowActive = isActive
                   ? 'bg-white/[0.07] text-white shadow-sm shadow-black/20 ring-1 ring-white/[0.07] '
-                  : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 '
+                  : 'text-slate-300 hover:bg-white/[0.04] hover:text-white '
 
                 const activeRail = isActive
                   ? isRtl
@@ -97,13 +107,27 @@ function SidebarSection({
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-150 ' +
                   (isActive
                     ? 'text-secondary/90 [filter:drop-shadow(0_0_6px_rgba(172,158,120,0.55))]'
-                    : 'text-slate-500 group-hover:text-slate-300')
+                    : 'text-slate-400 group-hover:text-slate-200')
 
                 return (
                   <span className={`${baseRow}${rowActive}${activeRail}`}>
-                    <span className={iconWrap}>{getIconForItem(item)}</span>
+                    <span className={`${iconWrap} relative`}>
+                      {getIconForItem(item)}
+                      {badgeCount > 0 && collapsed && (
+                        <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[0.55rem] font-bold text-white">
+                          {badgeCount > 9 ? '9+' : badgeCount}
+                        </span>
+                      )}
+                    </span>
                     {!collapsed && (
-                      <span className="truncate text-[0.8125rem]">{itemLabel}</span>
+                      <>
+                        <span className="flex-1 truncate text-[0.8125rem]">{itemLabel}</span>
+                        {badgeCount > 0 && (
+                          <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1 text-[0.6rem] font-bold text-white">
+                            {badgeCount > 99 ? '99+' : badgeCount}
+                          </span>
+                        )}
+                      </>
                     )}
                   </span>
                 )
@@ -117,15 +141,22 @@ function SidebarSection({
 }
 
 export function Sidebar() {
-  const { user, sidebarNav } = useAuth()
-  const { sidebarCollapsed, setSidebarCollapsed } = useLayout()
+  const { sidebarNav } = useAuth()
+  const { sidebarCollapsed, setSidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen } = useLayout()
   const { t, locale } = useLanguage()
+  const pendingCounts = usePendingCounts()
+  const { has } = usePermissions()
   const isRtl = locale === 'ar'
-  const role = user?.role ?? 'user'
   const sections =
-    sidebarNav?.source === 'rbac_role' && sidebarNav.visibleItemIds.length > 0
+    sidebarNav
       ? filterSectionsByVisibleIds(SIDEBAR_SECTIONS, sidebarNav.visibleItemIds)
-      : getSidebarSectionsForRole(role)
+      : filterSectionsByVisibleIds(SIDEBAR_SECTIONS, getVisibleItemIdsFromPermissions(has))
+
+  const badges: Record<string, number> = {
+    complaints: pendingCounts.complaints,
+    reviews: pendingCounts.reviews,
+    media_approvals: pendingCounts.media_approvals,
+  }
 
   if (sections.length === 0) return null
 
@@ -134,7 +165,7 @@ export function Sidebar() {
     ? 'shadow-[-1px_0_0_0_rgba(255,255,255,0.04),-8px_0_32px_-8px_rgba(0,0,0,0.6)]'
     : 'shadow-[1px_0_0_0_rgba(255,255,255,0.04),8px_0_32px_-8px_rgba(0,0,0,0.6)]'
 
-  return (
+  const sidebarContent = (
     <aside
       style={{ colorScheme: 'dark' }}
       className={`fixed inset-y-0 z-40 flex h-full flex-col border-white/[0.05] bg-[#0a0e14] ${railShadow} ${railBorder} transition-[width] duration-300 ease-out motion-reduce:transition-none ${
@@ -178,6 +209,8 @@ export function Sidebar() {
             collapsed={sidebarCollapsed}
             isRtl={isRtl}
             t={t}
+            badges={badges}
+            onNavClick={() => setMobileSidebarOpen(false)}
           />
         ))}
       </nav>
@@ -187,7 +220,7 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className={`flex w-full items-center rounded-xl px-2 py-2.5 text-slate-500 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/40 ${
+          className={`flex w-full items-center rounded-xl px-2 py-2.5 text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/40 ${
             sidebarCollapsed ? 'justify-center' : 'gap-3'
           }`}
           aria-label={sidebarCollapsed ? t('common.expandSidebar') : t('common.collapseSidebar')}
@@ -200,5 +233,26 @@ export function Sidebar() {
         </button>
       </div>
     </aside>
+  )
+
+  return (
+    <>
+      {/* Desktop sidebar — visible lg+ */}
+      <div className="hidden lg:block">{sidebarContent}</div>
+
+      {/* Mobile overlay + drawer */}
+      {mobileSidebarOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+            aria-hidden
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+          <div className="lg:hidden" onClick={() => setMobileSidebarOpen(false)}>
+            {sidebarContent}
+          </div>
+        </>
+      )}
+    </>
   )
 }

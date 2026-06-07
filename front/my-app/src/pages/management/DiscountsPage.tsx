@@ -4,13 +4,14 @@
 
 import { useEffect, useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
-import { useAuth } from '../../context/AuthContext'
 import { discountsAPI, providersAPI, servicesAPI } from '../../services/api'
+import { formatDate } from '../../utils/formatDate'
 import { getApiErrorMessage } from '../../services/api'
 import type { DiscountDto, PageDto, ServiceDto, ServiceProviderDto } from '../../types/api'
-import { canApproveDiscount, canCreateDiscount, isSuperAdminRole } from '../../types/auth'
+import { usePermission } from '../../hooks/usePermission'
 import { Modal } from '../../components/Modal'
 import { FormField } from '../../components/FormField'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 
 const STATUS_FILTERS = [
   { id: 'ACTIVE', labelKey: 'discountsPage.statusActive' },
@@ -61,12 +62,9 @@ function formatScopeSummary(d: DiscountDto, translate: (key: string) => string):
 }
 
 export function DiscountsPage() {
-  const { t } = useLanguage()
-  const { user } = useAuth()
-  const role = user?.role ?? 'user'
-  const superAdmin = isSuperAdminRole(user?.role)
-  const allowCreate = canCreateDiscount(role) || superAdmin
-  const allowApprove = canApproveDiscount(role) || superAdmin
+  const { t, locale } = useLanguage()
+  const allowCreate = usePermission('discounts:write')
+  const allowApprove = usePermission('discounts:approve')
   const [discounts, setDiscounts] = useState<DiscountDto[]>([])
   const [filter, setFilter] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -78,6 +76,8 @@ export function DiscountsPage() {
     description: '',
     type: 'PERCENTAGE',
     value: '',
+    companyValue: '',
+    providerValue: '',
     minBookingAmount: '',
     maxDiscountAmount: '',
     startDate: '' as string,
@@ -92,6 +92,8 @@ export function DiscountsPage() {
   })
   const [providerOptions, setProviderOptions] = useState<ServiceProviderDto[]>([])
   const [listingOptions, setListingOptions] = useState<ServiceDto[]>([])
+  const [pendingDeactivate, setPendingDeactivate] = useState<{ id: string } | null>(null)
+  const [pendingDiscountDelete, setPendingDiscountDelete] = useState<{ id: string } | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -144,16 +146,27 @@ export function DiscountsPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!createForm.code.trim() || !createForm.value || !createForm.endDate) return
-    const valueNum = parseFloat(createForm.value)
-    if (Number.isNaN(valueNum)) return
+    const isBoth = createForm.sponsor === 'BOTH'
+    if (!createForm.code.trim() || !createForm.endDate) return
+    if (isBoth) {
+      if (!createForm.companyValue || !createForm.providerValue) return
+    } else {
+      if (!createForm.value) return
+    }
+    const valueNum = isBoth ? undefined : parseFloat(createForm.value)
+    if (!isBoth && (valueNum === undefined || Number.isNaN(valueNum))) return
+    const companyValueNum = isBoth ? parseFloat(createForm.companyValue) : undefined
+    const providerValueNum = isBoth ? parseFloat(createForm.providerValue) : undefined
+    if (isBoth && (Number.isNaN(companyValueNum!) || Number.isNaN(providerValueNum!))) return
     setCreateSubmitting(true)
     try {
       await discountsAPI.create({
         code: createForm.code.trim().toUpperCase(),
         description: createForm.description.trim() || undefined,
         type: createForm.type,
-        value: valueNum,
+        ...(isBoth
+          ? { companyValue: companyValueNum, providerValue: providerValueNum }
+          : { value: valueNum }),
         minBookingAmount: createForm.minBookingAmount ? parseFloat(createForm.minBookingAmount) : undefined,
         maxDiscountAmount: createForm.maxDiscountAmount ? parseFloat(createForm.maxDiscountAmount) : undefined,
         startDate: createForm.startDate ? new Date(createForm.startDate).toISOString() : undefined,
@@ -173,6 +186,8 @@ export function DiscountsPage() {
         description: '',
         type: 'PERCENTAGE',
         value: '',
+        companyValue: '',
+        providerValue: '',
         minBookingAmount: '',
         maxDiscountAmount: '',
         startDate: '',
@@ -202,7 +217,7 @@ export function DiscountsPage() {
     }
   }
 
-  const handleDeactivate = async (id: string) => {
+  const executeDeactivate = async (id: string) => {
     try {
       await discountsAPI.deactivate(id)
       load()
@@ -211,8 +226,7 @@ export function DiscountsPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm(t('discountsPage.confirmDelete'))) return
+  const executeDiscountDelete = async (id: string) => {
     try {
       await discountsAPI.delete(id)
       load()
@@ -309,14 +323,32 @@ export function DiscountsPage() {
                     {formatScopeSummary(d, t)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
-                    {d.type === 'PERCENTAGE' ? `${d.value}%` : d.value}
+                    {d.sponsor === 'BOTH' && d.companyValue != null && d.providerValue != null ? (
+                      <span title={`${t('discountsPage.labelCompanyValue')}: ${d.type === 'PERCENTAGE' ? `${d.companyValue}%` : d.companyValue} / ${t('discountsPage.labelProviderValue')}: ${d.type === 'PERCENTAGE' ? `${d.providerValue}%` : d.providerValue}`}>
+                        {d.type === 'PERCENTAGE' ? `${d.companyValue}% + ${d.providerValue}%` : `${d.companyValue} + ${d.providerValue}`}
+                      </span>
+                    ) : (
+                      d.type === 'PERCENTAGE' ? `${d.value}%` : d.value
+                    )}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{d.status ?? t('ui.emDash')}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm">
+                    {d.status ? (
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        d.status === 'ACTIVE'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                          : d.status === 'INACTIVE' || d.status === 'PENDING'
+                          ? 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                      }`}>
+                        {d.status.charAt(0) + d.status.slice(1).toLowerCase().replace(/_/g, ' ')}
+                      </span>
+                    ) : t('ui.emDash')}
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
                     {d.usageCount ?? 0} {d.usageLimit ? `/ ${d.usageLimit}` : ''}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
-                    {d.endDate ? new Date(d.endDate).toLocaleDateString() : t('ui.emDash')}
+                    {formatDate(d.endDate, locale)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm">
                     {d.status === 'PENDING_APPROVAL' && allowApprove && (
@@ -331,7 +363,7 @@ export function DiscountsPage() {
                     {d.status === 'ACTIVE' && (
                       <button
                         type="button"
-                        onClick={() => handleDeactivate(d.id)}
+                        onClick={() => setPendingDeactivate({ id: d.id })}
                         className="text-amber-600 hover:underline dark:text-amber-400"
                       >
                         {t('discountsPage.deactivate')}
@@ -339,7 +371,7 @@ export function DiscountsPage() {
                     )}
                     <button
                       type="button"
-                      onClick={() => handleDelete(d.id)}
+                      onClick={() => setPendingDiscountDelete({ id: d.id })}
                       className="ml-3 text-red-600 hover:underline dark:text-red-400"
                     >
                       {t('discountsPage.delete')}
@@ -379,7 +411,7 @@ export function DiscountsPage() {
         }
       >
         <form id="discount-create-form" onSubmit={handleCreate} className="space-y-5">
-          {/* Two-column row for Type + Sponsor */}
+          {/* Code + Value(s) */}
           <div className="grid grid-cols-2 gap-4">
             <FormField label={t('discountsPage.labelCode')} required>
               <input
@@ -391,17 +423,55 @@ export function DiscountsPage() {
                 required
               />
             </FormField>
-            <FormField label={t('discountsPage.labelValue')} required>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={createForm.value}
-                onChange={(e) => setCreateForm((f) => ({ ...f, value: e.target.value }))}
-                className="modal-input"
-                required
-              />
-            </FormField>
+            {createForm.sponsor !== 'BOTH' ? (
+              <FormField label={t('discountsPage.labelValue')} required>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={createForm.value}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, value: e.target.value }))}
+                  className="modal-input"
+                  required
+                />
+              </FormField>
+            ) : (
+              <div className="flex flex-col gap-1">
+                <span className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+                  {t('discountsPage.labelSplitValues')}
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="mb-0.5 block text-xs text-slate-500 dark:text-slate-400">
+                      {t('discountsPage.labelCompanyValue')}
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={createForm.companyValue}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, companyValue: e.target.value }))}
+                      className="modal-input"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <span className="mb-0.5 block text-xs text-slate-500 dark:text-slate-400">
+                      {t('discountsPage.labelProviderValue')}
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={createForm.providerValue}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, providerValue: e.target.value }))}
+                      className="modal-input"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <FormField label={t('discountsPage.labelDescription')}>
@@ -588,6 +658,26 @@ export function DiscountsPage() {
           </FormField>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!pendingDeactivate}
+        onClose={() => setPendingDeactivate(null)}
+        title={t('discountsPage.deactivate')}
+        description={t('discountsPage.confirmDeactivate')}
+        confirmLabel={t('discountsPage.deactivate')}
+        variant="danger"
+        onConfirm={() => executeDeactivate(pendingDeactivate!.id)}
+      />
+
+      <ConfirmDialog
+        open={!!pendingDiscountDelete}
+        onClose={() => setPendingDiscountDelete(null)}
+        title={t('discountsPage.delete')}
+        description={t('discountsPage.confirmDelete')}
+        confirmLabel={t('discountsPage.delete')}
+        variant="danger"
+        onConfirm={() => executeDiscountDelete(pendingDiscountDelete!.id)}
+      />
     </>
   )
 }

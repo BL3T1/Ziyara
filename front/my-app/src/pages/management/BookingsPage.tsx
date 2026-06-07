@@ -3,14 +3,17 @@
  * Step 1: Status cards. Step 2: Table with View, Confirm, Cancel actions.
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
 import { useDisplayCurrency } from '../../context/DisplayCurrencyContext'
-import { bookingsAPI } from '../../services/api'
+import { bookingsAPI, providersAPI } from '../../services/api'
 import { getApiErrorMessage } from '../../services/api'
 import type { BookingDto, PageDto } from '../../types/api'
 import { BulkActionBar } from '../../components/BulkActionBar'
+import { SearchableSelect, type SelectOption } from '../../components/SearchableSelect'
+import { statusLabel } from '../../i18n/enumLabels'
+import { usePermission } from '../../hooks/usePermission'
 
 function asPage<T>(data: unknown): PageDto<T> | null {
   if (data && typeof data === 'object' && Array.isArray((data as PageDto<T>).content)) {
@@ -26,6 +29,7 @@ const PAGE_SIZE = 20
 export function BookingsPage() {
   const { t } = useLanguage()
   const { displayInDefault } = useDisplayCurrency()
+  const canWrite = usePermission('bookings:write')
   const [searchParams, setSearchParams] = useSearchParams()
   const [bookings, setBookings] = useState<BookingDto[]>([])
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
@@ -35,7 +39,7 @@ export function BookingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [providerIdFilter, setProviderIdFilter] = useState('')
+  const [providerFilter, setProviderFilter] = useState<SelectOption | null>(null)
   const [serviceTypeFilter, setServiceTypeFilter] = useState('')
   const [detailId, setDetailId] = useState<string | null>(null)
   const [detail, setDetail] = useState<BookingDto | null>(null)
@@ -44,13 +48,26 @@ export function BookingsPage() {
   const [voucherData, setVoucherData] = useState<Record<string, unknown> | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
+  const fetchProviderOptions = useCallback(async (query: string) => {
+    try {
+      const res = await providersAPI.list({ size: 100 })
+      const items = (Array.isArray(res.data) ? res.data : ((res.data as { content?: unknown[] })?.content ?? [])) as Array<{ id?: string; businessName?: string; name?: string }>
+      const q = query.toLowerCase()
+      return items
+        .filter((p) => !q || (p.businessName ?? p.name ?? '').toLowerCase().includes(q))
+        .map((p) => ({ value: p.id ?? '', label: p.businessName ?? p.name ?? p.id ?? '' }))
+    } catch {
+      return []
+    }
+  }, [])
+
   const load = () => {
     setLoading(true)
     setError(null)
     bookingsAPI
       .listAdmin({
         status: selectedStatus ?? undefined,
-        providerId: providerIdFilter || undefined,
+        providerId: providerFilter?.value || undefined,
         serviceType: serviceTypeFilter || undefined,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
@@ -62,7 +79,9 @@ export function BookingsPage() {
         setBookings(p?.content ?? [])
         setTotalPages(p?.totalPages ?? 0)
       })
-      .catch(() => {
+      .catch((e: unknown) => {
+        const status = (e as { response?: { status?: number } })?.response?.status
+        setError(status === 403 ? t('ui.accessDenied') : getApiErrorMessage(e))
         setBookings([])
         setTotalPages(0)
       })
@@ -71,7 +90,7 @@ export function BookingsPage() {
 
   useEffect(() => {
     load()
-  }, [selectedStatus, page, providerIdFilter, serviceTypeFilter, dateFrom, dateTo])
+  }, [selectedStatus, page, providerFilter, serviceTypeFilter, dateFrom, dateTo])
 
   useEffect(() => {
     const bid = searchParams.get('bookingId')
@@ -106,7 +125,7 @@ export function BookingsPage() {
   const openVoucher = (id: string) => {
     bookingsAPI
       .getVoucher(id)
-      .then((res) => setVoucherData((res.data as Record<string, unknown>) ?? null))
+      .then((res) => setVoucherData((res.data as unknown as Record<string, unknown>) ?? null))
       .catch(() => setVoucherData(null))
   }
 
@@ -240,12 +259,13 @@ export function BookingsPage() {
       </div>
 
       <div className="mt-4 flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/40">
-        <input
-          type="text"
-          value={providerIdFilter}
-          onChange={(e) => { setProviderIdFilter(e.target.value); setPage(0) }}
-          placeholder="Provider ID"
-          className="w-44 rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+        <SearchableSelect
+          selectedOption={providerFilter}
+          onSelect={(opt) => { setProviderFilter(opt); setPage(0) }}
+          fetchOptions={fetchProviderOptions}
+          placeholder={t('bookingsPage.filterProvider')}
+          clearable
+          className="w-52"
         />
         <select
           value={serviceTypeFilter}
@@ -267,10 +287,10 @@ export function BookingsPage() {
           <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(0) }}
             className="rounded border border-slate-300 px-2 py-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
         </label>
-        {(providerIdFilter || serviceTypeFilter || dateFrom || dateTo) && (
+        {(providerFilter || serviceTypeFilter || dateFrom || dateTo) && (
           <button
             type="button"
-            onClick={() => { setProviderIdFilter(''); setServiceTypeFilter(''); setDateFrom(''); setDateTo(''); setPage(0) }}
+            onClick={() => { setProviderFilter(null); setServiceTypeFilter(''); setDateFrom(''); setDateTo(''); setPage(0) }}
             className="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             Clear filters
@@ -324,7 +344,7 @@ export function BookingsPage() {
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
                     {b.totalAmount != null ? displayInDefault(Number(b.totalAmount), b.currency) : t('ui.emDash')}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{b.status ?? t('ui.emDash')}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{statusLabel(t, b.status)}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm">
                     <button
                       type="button"
@@ -341,7 +361,7 @@ export function BookingsPage() {
                     >
                       {t('ui.voucher')}
                     </button>
-                    {(b.status ?? '').toUpperCase() === 'PENDING' && (
+                    {canWrite && (b.status ?? '').toUpperCase() === 'PENDING' && (
                       <>
                         <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
                         <button
@@ -432,7 +452,7 @@ export function BookingsPage() {
                     )}
                   </div>
                 )}
-                {(detail.status ?? '').toUpperCase() === 'PENDING' && (
+                {canWrite && (detail.status ?? '').toUpperCase() === 'PENDING' && (
                   <div className="mt-4 space-y-3">
                     <button
                       type="button"

@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { setStoredToken } from '../context/AuthContext'
 import { isCompanySurface, isProviderSurface } from '../config/appSurface'
-import { authAPI, getApiErrorMessage } from '../services/api'
+import { authAPI, usersAPI, providersAPI, getApiErrorMessage } from '../services/api'
 import { backendRoleToFrontend, isCompanyStaffRole, isProviderPortalRole } from '../types/auth'
 import { getDashboardRouteForRole } from '../utils/routes'
 import { safeRedirect } from '../utils/safeRedirect'
@@ -11,9 +11,10 @@ import type { AuthResponseDto } from '../types/api'
 import type { PortalLoginError } from '../components/HomeRedirect'
 import { ThemeToggleButton } from '../components/ThemeToggleButton'
 import { LanguageToggleButton } from '../components/LanguageToggleButton'
+import { PasswordInput } from '../components/PasswordInput'
 import { useLanguage } from '../context/LanguageContext'
 import { MfaChallengePage } from './MfaChallengePage'
-import { loginSchema } from '../lib/validation'
+import { loginSchema, companyLoginSchema } from '../lib/validation'
 
 const UserIcon = () => (
   <svg className="h-5 w-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -48,6 +49,8 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [mfaCredentials, setMfaCredentials] = useState<{ email: string; password: string } | null>(null)
 
+  const fromPath = (location.state as { from?: { pathname: string } } | null)?.from?.pathname
+
   useEffect(() => {
     const portalError = (location.state as { portalError?: PortalLoginError } | null)?.portalError
     if (portalError && PORTAL_ERROR_MESSAGES[portalError]) {
@@ -56,11 +59,44 @@ export function LoginPage() {
     }
   }, [location, navigate])
 
+  // Admin handoff: provider portal opened by admin with a pre-issued token in the URL hash
+  useEffect(() => {
+    if (!isProviderSurface) return
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const handoffToken = hashParams.get('admin_token')
+    if (!handoffToken) return
+    window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    setLoading(true)
+    setStoredToken(handoffToken)
+    Promise.allSettled([usersAPI.getMe(), providersAPI.getMe()])
+      .then(([meResult, providerResult]) => {
+        if (meResult.status !== 'fulfilled') throw new Error('invalid')
+        const me = meResult.value.data as { id?: string; email?: string; role?: string; firstName?: string; lastName?: string }
+        if (!me?.role) throw new Error('invalid')
+        const hasPortalAccess = providerResult.status === 'fulfilled'
+        const role = backendRoleToFrontend(me.role, hasPortalAccess)
+        setUser({
+          id: String(me.id ?? ''),
+          email: me.email ?? '',
+          name: [me.firstName, me.lastName].filter(Boolean).join(' ') || me.email || '',
+          role,
+          mustChangePassword: false,
+        })
+        navigate(safeRedirect(getDashboardRouteForRole(role), '/dashboard'), { replace: true })
+      })
+      .catch(() => {
+        sessionStorage.removeItem('token')
+        setLoading(false)
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setFieldErrors({})
-    const parsed = loginSchema.safeParse({ email, password })
+    const schema = isCompanySurface ? companyLoginSchema : loginSchema
+    const parsed = schema.safeParse({ email, password })
     if (!parsed.success) {
       const errs = parsed.error.flatten().fieldErrors
       setFieldErrors({ email: errs.email?.[0], password: errs.password?.[0] })
@@ -76,7 +112,7 @@ export function LoginPage() {
         setError('Invalid response from server')
         return
       }
-      const role = backendRoleToFrontend(data.role)
+      const role = backendRoleToFrontend(data.role, data.hasPortalAccess)
 
       if (isCompanySurface) {
         if (role === 'provider') {
@@ -103,12 +139,18 @@ export function LoginPage() {
       } else {
         localStorage.setItem('ziyara_cookie_session', '1')
       }
+      const mustChangePassword = Boolean(data.mustChangePassword)
       setUser({
         id: String(data.userId),
         email: data.email,
         name: data.fullName || data.email,
         role,
+        mustChangePassword,
       })
+      if (mustChangePassword) {
+        navigate('/account/change-password', { replace: true })
+        return
+      }
       if (isCompanySurface && isCompanyStaffRole(role)) {
         void import('./DashboardPage')
         void import('./SalesDashboardPage')
@@ -147,7 +189,7 @@ export function LoginPage() {
         <img
           src="/logo.png"
           alt="Ziyara"
-          className="h-36 w-auto drop-shadow-lg transition-transform duration-300 hover:scale-[1.02] sm:h-40"
+          className="h-44 w-auto drop-shadow-lg transition-transform duration-300 hover:scale-[1.02] sm:h-52"
         />
       </div>
 
@@ -173,10 +215,15 @@ export function LoginPage() {
             {error}
           </div>
         )}
+        {!error && fromPath && (
+          <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-primary dark:border-primary/30 dark:bg-primary/10 dark:text-secondary">
+            {t('login.sessionRequired')}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              {t('login.email')}
+              {isCompanySurface ? t('login.username') : t('login.email')}
             </label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
@@ -184,10 +231,11 @@ export function LoginPage() {
               </span>
               <input
                 id="email"
-                type="email"
+                type={isCompanySurface ? 'text' : 'email'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={t('login.emailPlaceholder')}
+                placeholder={isCompanySurface ? t('login.usernamePlaceholder') : t('login.emailPlaceholder')}
+                autoComplete={isCompanySurface ? 'username' : 'email'}
                 className="w-full rounded-xl border bg-slate-50/80 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800/90 dark:focus:ring-primary/25 dark:focus:border-primary/40"
                 style={{ borderColor: fieldErrors.email ? '#f87171' : undefined }}
               />
@@ -199,20 +247,19 @@ export function LoginPage() {
             <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
               {t('login.password')}
             </label>
-            <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
-                <LockIcon />
-              </span>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-xl border bg-slate-50/80 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800/90 dark:focus:ring-primary/25 dark:focus:border-primary/40"
-                style={{ borderColor: fieldErrors.password ? '#f87171' : undefined }}
-              />
-            </div>
+            <PasswordInput
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              leftSlot={
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
+                  <LockIcon />
+                </span>
+              }
+              className="w-full rounded-xl border bg-slate-50/80 py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800/90 dark:focus:ring-primary/25 dark:focus:border-primary/40"
+              style={{ borderColor: fieldErrors.password ? '#f87171' : undefined }}
+            />
             {fieldErrors.password ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.password}</p> : null}
           </div>
 

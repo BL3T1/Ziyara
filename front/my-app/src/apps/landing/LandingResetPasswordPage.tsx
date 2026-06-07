@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authAPI, getApiErrorMessage } from '../../services/api'
 import { useLanguage } from '../../context/LanguageContext'
 import { LanguageToggleButton } from '../../components/LanguageToggleButton'
+import { PasswordInput } from '../../components/PasswordInput'
 import './landing-public.css'
 
 export function LandingResetPasswordPage() {
@@ -75,14 +76,14 @@ export function LandingResetPasswordPage() {
         <div className="lp-auth-card w-full max-w-md" style={{ animation: 'lp-card-enter 0.6s cubic-bezier(0.22,1,0.36,1) both' }}>
           <div className="mb-6 flex justify-center">
             <div className="lp-auth-logo-wrap">
-              <img src="/logo.png" alt="" className="lp-auth-logo" width={160} height={48} />
+              <img src="/logo.png" alt="" className="lp-auth-logo" width={360} height={120} />
             </div>
           </div>
 
           <h1 className="lp-h1 text-center" style={{ fontSize: 'clamp(1.35rem,3vw,1.6rem)' }}>
             {t('landingAuth.titleResetPassword')}
           </h1>
-          <p className="mt-2 text-center text-sm" style={{ color: 'var(--ink-muted)' }}>
+          <p className="mt-2 text-center text-sm lp-text-muted">
             {t('landingAuth.subResetPassword')}
           </p>
 
@@ -115,9 +116,8 @@ export function LandingResetPasswordPage() {
                 <label htmlFor="landing-reset-password" className="lp-field-label">
                   {t('landingAuth.newPassword')}
                 </label>
-                <input
+                <PasswordInput
                   id="landing-reset-password"
-                  type="password"
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -131,9 +131,8 @@ export function LandingResetPasswordPage() {
                 <label htmlFor="landing-reset-confirm" className="lp-field-label">
                   {t('landingAuth.confirmPassword')}
                 </label>
-                <input
+                <PasswordInput
                   id="landing-reset-confirm"
-                  type="password"
                   autoComplete="new-password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
@@ -148,11 +147,10 @@ export function LandingResetPasswordPage() {
             </form>
           )}
 
-          <p className="mt-7 text-center text-sm" style={{ color: 'var(--ink-muted)' }}>
+          <p className="mt-7 text-center text-sm lp-text-muted">
             <Link
               to="/login"
-              className="font-semibold"
-              style={{ color: 'var(--accent-teal)', textDecoration: 'underline', textDecorationColor: 'var(--accent-teal)', textUnderlineOffset: '2px' }}
+              className="font-semibold lp-text-accent underline underline-offset-[2px]"
             >
               {t('landingAuth.backToLogin')}
             </Link>
