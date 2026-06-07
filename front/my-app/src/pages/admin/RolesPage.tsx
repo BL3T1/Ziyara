@@ -201,6 +201,7 @@ export function RolesPage() {
       {editDetailsRole && (
         <EditRoleDetailsModal
           role={editDetailsRole}
+          groups={groups}
           onClose={() => setEditDetailsRole(null)}
           onSuccess={() => {
             setEditDetailsRole(null)
@@ -549,11 +550,13 @@ function EditRoleNavigationModal({
 
 function EditRoleDetailsModal({
   role,
+  groups,
   onClose,
   onSuccess,
   setError,
 }: {
   role: RoleDto
+  groups: GroupDto[]
   onClose: () => void
   onSuccess: () => void
   setError: (s: string) => void
@@ -563,6 +566,7 @@ function EditRoleDetailsModal({
   const [description, setDescription] = useState('')
   const [nameAr, setNameAr] = useState('')
   const [descriptionAr, setDescriptionAr] = useState('')
+  const [groupId, setGroupId] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState('')
@@ -576,15 +580,17 @@ function EditRoleDetailsModal({
         setDescription((d?.description ?? '').trim())
         setNameAr('')
         setDescriptionAr('')
+        setGroupId(d?.groupId ?? role.groupId ?? '')
       })
       .catch(() => {
         setName(role.name ?? '')
         setDescription('')
         setNameAr('')
         setDescriptionAr('')
+        setGroupId(role.groupId ?? '')
       })
       .finally(() => setLoading(false))
-  }, [role.id, role.name])
+  }, [role.id, role.name, role.groupId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -601,6 +607,7 @@ function EditRoleDetailsModal({
         description: description.trim() || undefined,
         nameAr: nameAr.trim() || undefined,
         descriptionAr: descriptionAr.trim() || undefined,
+        groupId: groupId || null,
       })
       onSuccess()
     } catch (err) {
@@ -657,6 +664,18 @@ function EditRoleDetailsModal({
               onChange={(e) => setDescription(e.target.value)}
               className="modal-input"
             />
+          </FormField>
+          <FormField label={t('rolesPage.groupLabel')}>
+            <select
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              className="modal-select"
+            >
+              <option value="">{t('rolesPage.groupNone')}</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
           </FormField>
           <div className="grid grid-cols-2 gap-4">
             <FormField label={t('rolesPage.nameArLabel')}>
