@@ -11,6 +11,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<LoginRequested>(_onLoginRequested);
     on<SubmitMfaCode>(_onSubmitMfaCode);
     on<LogoutRequested>(_onLogoutRequested);
+    on<SignUpRequested>(_onSignUpRequested);
   }
 
   Future<void> _onLoginRequested(
@@ -67,5 +68,28 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       // Even if the backend call fails, clear the local session
     }
     emit(AuthUnauthenticated());
+  }
+
+  Future<void> _onSignUpRequested(
+    SignUpRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    try {
+      await repository.signUp(
+        email: event.email,
+        password: event.password,
+        firstName: event.firstName,
+        lastName: event.lastName,
+        phone: event.phone,
+        dateOfBirth: event.dateOfBirth,
+      );
+      emit(AuthSignedUp(event.email));
+    } catch (e) {
+      final message = e is BackendException
+          ? e.userMessage
+          : 'حدث خطأ أثناء إنشاء الحساب، يرجى المحاولة مجدداً';
+      emit(AuthError(message));
+    }
   }
 }

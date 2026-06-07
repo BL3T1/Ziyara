@@ -1,5 +1,5 @@
 import 'dart:io';
-import '../data/models/payment_model.dart';
+import '../../data/models/payment_model.dart';
 
 abstract class PaymentRepository {
   Future<double> applyCoupon(String code, double basePrice);

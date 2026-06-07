@@ -23,7 +23,9 @@ class HotelModel {
       stars: (json['stars'] as num?)?.toInt() ?? (json['category'] as num?)?.toInt() ?? 0,
       pricePerNight: (json['pricePerNight'] as num?)?.toDouble() ??
           (json['basePrice'] as num?)?.toDouble() ?? 0.0,
-      imageUrl: json['imageUrl'] as String? ?? json['thumbnailUrl'] as String? ?? '',
+      imageUrl: (json['imageUrl'] as String? ?? json['thumbnailUrl'] as String? ?? '').isNotEmpty
+          ? (json['imageUrl'] as String? ?? json['thumbnailUrl'] as String?)!
+          : DummyImageManager.hotelSheraton,
       facilities: (json['facilities'] as List?)?.map((e) => e.toString()).toList() ??
           (json['amenities'] as List?)?.map((e) => e.toString()).toList() ?? [],
     );

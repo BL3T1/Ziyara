@@ -69,7 +69,10 @@ class TransportRepositoryImpl implements TransportRepository {
         beforeConnect: () async {
           final token = await sl<TokenStorageService>().getAccessToken();
           if (token != null) {
-            client!.config.stompConnectHeaders['Authorization'] = 'Bearer $token';
+            final headers = client!.config.stompConnectHeaders;
+            if (headers != null) {
+              headers['Authorization'] = 'Bearer $token';
+            }
           }
         },
         onDisconnect: (_) {

@@ -24,7 +24,9 @@ class TourModel {
       durationDays: (json['durationDays'] as num?)?.toInt() ??
           (json['duration'] as num?)?.toInt() ?? 1,
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
-      imageUrl: json['imageUrl'] as String? ?? json['thumbnailUrl'] as String? ?? '',
+      imageUrl: (json['imageUrl'] as String? ?? json['thumbnailUrl'] as String? ?? '').isNotEmpty
+          ? (json['imageUrl'] as String? ?? json['thumbnailUrl'] as String?)!
+          : DummyImageManager.tourKrak,
       description: json['description'] as String? ?? '',
       activities: (json['activities'] as List?)?.map((e) => e.toString()).toList() ??
           (json['highlights'] as List?)?.map((e) => e.toString()).toList() ?? [],

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/launcher_helper.dart';
 import '../../../../core/utils/app_settings.dart';
@@ -76,11 +75,11 @@ class ProfileView extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _socialIcon(FontAwesomeIcons.whatsapp, Colors.green, 'whatsapp://send?phone=00963900000000', context),
+                          _socialIcon(Icons.chat_bubble, Colors.green, 'whatsapp://send?phone=00963900000000', context),
                           const SizedBox(width: 20),
-                          _socialIcon(FontAwesomeIcons.instagram, Colors.purple, 'https://instagram.com', context),
+                          _socialIcon(Icons.camera_alt, Colors.purple, 'https://instagram.com', context),
                           const SizedBox(width: 20),
-                          _socialIcon(FontAwesomeIcons.facebook, Colors.blue, 'https://facebook.com', context),
+                          _socialIcon(Icons.public, Colors.blue, 'https://facebook.com', context),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -124,7 +123,7 @@ class ProfileView extends StatelessWidget {
   }
 
   Widget _socialIcon(IconData icon, Color color, String url, BuildContext context) {
-    return InkWell(onTap: () => LauncherHelper.openUrl(context, url), child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle, border: Border.all(color: color.withOpacity(0.2))), child: FaIcon(icon, color: color, size: 24)));
+    return InkWell(onTap: () => LauncherHelper.openUrl(context, url), child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle, border: Border.all(color: color.withOpacity(0.2))), child: Icon(icon, color: color, size: 24)));
   }
 
   Widget _buildSectionTitle(String title) { return Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 10), child: Align(alignment: Alignment.centerRight, child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textGrey)))); }

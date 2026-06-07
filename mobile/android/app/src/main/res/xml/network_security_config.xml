@@ -8,7 +8,7 @@
   To use with ipmode deployment:
     1. Run infra/certs/generate.sh to create ca.crt
     2. Copy ca.crt → android/app/src/main/res/raw/ziyara_ca.crt
-    3. Build: flutter build apk --dart-define=ZIYARA_API_URL=https://10.45.30.145:9000/api/v1
+    3. Build: flutter build apk -dart-define=ZIYARA_API_URL=https://10.45.30.145:9000/api/v1
 -->
 <network-security-config>
 
@@ -18,16 +18,6 @@
             <certificates src="system"/>
         </trust-anchors>
     </base-config>
-
-    <!-- LAN / ipmode: trust the Ziyara self-signed CA for the server IP.
-         ziyara_ca.crt must be placed in res/raw/ before building (see README.md). -->
-    <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="false">10.45.30.145</domain>
-        <trust-anchors>
-            <certificates src="system"/>
-            <certificates src="@raw/ziyara_ca"/>
-        </trust-anchors>
-    </domain-config>
 
     <!-- Debug overrides: allow cleartext to the Android emulator localhost alias -->
     <debug-overrides>

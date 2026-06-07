@@ -23,7 +23,7 @@ dependencies:
   # Networking
   dio: ^5.9.0
   connectivity_plus: ^7.0.0
-  stomp_dart_client: ^3.1.0
+  stomp_dart_client: 3.0.1
 
   # Secure token storage (Keychain on iOS, EncryptedSharedPreferences on Android)
   flutter_secure_storage: ^9.2.4
@@ -62,7 +62,6 @@ dependencies:
   pdf: ^3.11.3
   printing: ^5.14.2
   share_plus: ^12.0.1
-  font_awesome_flutter: ^10.9.1
   flutter_native_splash: ^2.4.7
 
 dev_dependencies:
@@ -80,4 +79,4 @@ flutter:
 
   assets:
     - assets/images/
-    - assets/translations/
+    - assets/flags/

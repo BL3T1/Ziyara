@@ -32,6 +32,13 @@ class AuthError extends AuthState {
   List<Object?> get props => [message];
 }
 
+class AuthSignedUp extends AuthState {
+  final String email;
+  const AuthSignedUp(this.email);
+  @override
+  List<Object?> get props => [email];
+}
+
 /// Emitted when the backend requires a TOTP code (account has MFA enabled).
 /// The login page navigates to [MfaChallengeScreen] on this state.
 /// Stores credentials so they can be re-submitted with the code.

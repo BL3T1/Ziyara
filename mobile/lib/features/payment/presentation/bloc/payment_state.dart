@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../data/models/payment_model.dart';
+import '../../data/models/payment_model.dart';
 
 abstract class PaymentState extends Equatable {
   final int personCount;

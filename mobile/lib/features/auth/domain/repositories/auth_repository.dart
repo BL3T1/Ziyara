@@ -1,4 +1,4 @@
-import '../data/models/user_model.dart';
+import '../../data/models/user_model.dart';
 
 abstract class AuthRepository {
   /// [mfaCode] is the 6-digit TOTP code — only required when the account has MFA enabled.
@@ -8,6 +8,8 @@ abstract class AuthRepository {
     required String password,
     required String firstName,
     required String lastName,
+    String? phone,
+    String? dateOfBirth,
   });
   Future<void> logout();
 

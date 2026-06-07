@@ -1,4 +1,4 @@
-import '../data/models/transport_model.dart';
+import '../../data/models/transport_model.dart';
 
 abstract class TransportRepository {
   Future<List<TransportModel>> getTransportTypes();

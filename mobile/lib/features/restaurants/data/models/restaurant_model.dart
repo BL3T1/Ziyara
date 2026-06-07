@@ -20,7 +20,9 @@ class RestaurantModel {
       location: json['city'] as String? ?? json['location'] as String? ?? '',
       type: json['cuisineType'] as String? ?? json['type'] as String? ?? '',
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
-      imageUrl: json['imageUrl'] as String? ?? json['thumbnailUrl'] as String? ?? '',
+      imageUrl: (json['imageUrl'] as String? ?? json['thumbnailUrl'] as String? ?? '').isNotEmpty
+          ? (json['imageUrl'] as String? ?? json['thumbnailUrl'] as String?)!
+          : DummyImageManager.restaurantNaranj,
       isOpenNow: json['isOpenNow'] as bool? ?? json['openNow'] as bool? ?? false,
       workingHours: json['workingHours'] as String? ?? json['openingHours'] as String? ?? '',
       menuHighlights: (json['menuHighlights'] as List?)?.map((e) => e.toString()).toList() ??
