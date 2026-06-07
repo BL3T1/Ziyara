@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Ziyara DB",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "ziyarah",
+      "Username": "ziyarah_user",
+      "SSLMode": "prefer",
+      "PassFile": "/pgpass"
+    }
+  }
+}

@@ -178,3 +178,6 @@ docker compose up -d backend
 - Flyway migrations: `core/src/main/resources/db/migration/V0__*.sql … V17__*.sql`
 - Dev seed data (never in prod): `database/seed_dev.sql`
 - Environment template: `.env.example`
+
+
+- session id: 2841e41a-891d-4b7f-816e-b4b5dd34c32c

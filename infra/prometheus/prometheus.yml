@@ -1,0 +1,68 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: 'ziyara'
+
+scrape_configs:
+  # Spring Boot Actuator — JVM, HTTP request rates, DB pool, Kafka, Redis
+  - job_name: 'ziyara-backend'
+    metrics_path: '/api/v1/actuator/prometheus'
+    static_configs:
+      - targets: ['backend:8080']
+    scrape_interval: 10s
+
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Host machine metrics (CPU, RAM, disk, network)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Per-container Docker metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metric_relabel_configs:
+      # Extract 12-char short container ID from the cgroup id path.
+      # /docker/180f88675f3b... → container="180f88675f3b"
+      # Non-container paths (/, /docker, /docker/buildkit) produce no match → container=""
+      - source_labels: [id]
+        regex: '/docker/([a-f0-9]{12})[a-f0-9]+'
+        target_label: container
+        replacement: '$1'
+
+  # PostgreSQL internals — query stats, connections, locks, table bloat
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # Redis — memory, hit/miss rate, evictions, connected clients
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # Kafka — consumer group lag, topic offsets, broker health
+  - job_name: 'kafka-exporter'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+
+  # Blackbox — HTTP probing and SSL cert expiry checks
+  # Add more target URLs to the list below as needed.
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://backend:8080/api/v1/actuator/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

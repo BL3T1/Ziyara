@@ -1,0 +1,187 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [master, V1]
+  pull_request:
+    branches: [master, V1]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '21'
+  NODE_VERSION: '22'
+
+# ─────────────────────────────────────────────────────────────────
+# JOB 1 — Backend: compile, ArchUnit, unit tests
+# ─────────────────────────────────────────────────────────────────
+jobs:
+  backend:
+    name: Backend (Java ${{ env.JAVA_VERSION }})
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: ziyarah_test
+          POSTGRES_USER: ziyarah_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ziyarah_user -d ziyarah_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x core/gradlew
+        working-directory: .
+
+      - name: Build and test
+        working-directory: core
+        run: ./gradlew test --no-daemon
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/ziyarah_test
+          SPRING_DATASOURCE_USERNAME: ziyarah_user
+          SPRING_DATASOURCE_PASSWORD: test_password
+
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-report
+          path: core/build/reports/tests/
+
+# ─────────────────────────────────────────────────────────────────
+# JOB 2 — Frontend: TypeScript build (all 3 surfaces)
+# ─────────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend (Node ${{ env.NODE_VERSION }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: front/my-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: front/my-app
+        run: npm ci
+
+      - name: Build (company surface)
+        working-directory: front/my-app
+        run: npm run build
+        env:
+          VITE_APP_SURFACE: company
+          VITE_API_URL: /api/v1
+
+      - name: Build (provider surface)
+        working-directory: front/my-app
+        run: npm run build
+        env:
+          VITE_APP_SURFACE: provider
+          VITE_API_URL: /api/v1
+
+      - name: Build (landing surface)
+        working-directory: front/my-app
+        run: npm run build
+        env:
+          VITE_APP_SURFACE: landing
+          VITE_API_URL: /api/v1
+
+# ─────────────────────────────────────────────────────────────────
+# JOB 3 — Mobile: Flutter + Android release APK
+# ─────────────────────────────────────────────────────────────────
+  mobile:
+    name: Mobile (Flutter Android)
+    runs-on: ubuntu-latest
+    # Only build on push (not PRs) to avoid burning minutes on draft work
+    if: github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+          cache: true
+
+      - name: Decode keystore
+        working-directory: mobile/android/app
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > ziyara-release.jks
+
+      - name: Flutter pub get
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build release APK
+        working-directory: mobile
+        run: |
+          flutter build apk --release
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/mobile/android/app/ziyara-release.jks
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          ANDROID_KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ziyara-release-${{ github.sha }}
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+# ─────────────────────────────────────────────────────────────────
+# JOB 4 — Deploy: SSH to VPS and restart Docker Compose stack
+#          Runs only on push to master (not on PRs)
+# ─────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to VPS
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            set -e
+            cd /opt/ziyara
+
+            echo "==> Pulling latest code"
+            git pull origin master
+
+            echo "==> Rebuilding and restarting containers (portmode)"
+            docker compose --profile portmode up -d --build --remove-orphans
+
+            echo "==> Pruning dangling images"
+            docker image prune -f
+
+            echo "==> Deploy complete"
+            docker compose ps

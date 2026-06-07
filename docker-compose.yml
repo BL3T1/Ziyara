@@ -13,14 +13,24 @@
 #                 http://localhost:7050   → Company dashboard
 #                 http://localhost:7060   → Provider portal
 #                 http://localhost:7070   → Landing page
-#                 http://localhost:8080   → API (direct)
+#                 http://localhost:7005   → API (direct)
 #                 From LAN: replace localhost with PORTMODE_HOST in .env, then rebuild.
+#                 Fast rebuild alternative (builds JS once, packages 3 images): .\build-portmode.ps1
 #
 #  multidomain  – nginx proxy routing by Host header (requires /etc/hosts entries):
 #                   127.0.0.1  app.local
 #                   127.0.0.1  partners.local
 #                   127.0.0.1  www.local
 #                 Does NOT work with a raw IP address — use portmode instead.
+#
+#  npm          – Nginx Proxy Manager (always-on, no profile needed).
+#                 Domain-based reverse proxy with a web UI. Replaces the static nginx gateway.
+#                 Ports: 7080 (HTTP), 7082 (HTTPS), 7081 (Admin UI).
+#                 Admin UI: http://localhost:7081   login: admin@example.com / changeme
+#                 npm-init auto-configures 7 proxy hosts on first boot using *.ziyara.local
+#                 placeholder domains. Replace with real domains in the NPM UI for production.
+#                 NOTE: NPM binds port 80/443. The 'full' and 'multidomain' profiles no longer
+#                 expose port 80 — they now serve as NPM upstreams instead.
 #
 #  ipmode       – single gateway nginx with TLS termination on BIND_IP (for mobile/Android).
 #                 Requires running infra/certs/generate.sh first (needs openssl + bash/WSL).
@@ -53,7 +63,7 @@ services:
     ports:
       # Loopback only — reachable from local dev tools (TablePlus, psql) but NOT from LAN.
       # Internal Docker network always exposes postgres:5432 to other containers regardless.
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:7001:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -66,53 +76,6 @@ services:
       start_period: 30s
 
 
-  # =============================================================================
-  # DATABASE SERVICE - PostgreSQL
-  # =============================================================================
-  jira-db:
-    image: postgres:15.17-alpine3.23
-    pull_policy: never
-    container_name: ziyarah-jira-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: jiradb
-      POSTGRES_USER: jira
-      POSTGRES_PASSWORD: jira
-    ports:
-      - "5433:5432"   # exposed separately so you can connect with a DB client
-    volumes:
-      - jira_pgdata:/var/lib/postgresql/data
-    networks:
-      - ziyarah-network
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U jira -d jiradb" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  jira:
-    image: atlassian/jira-servicemanagement:10.3.2-ubi9
-    pull_policy: never
-    container_name: ziyarah-jira
-    restart: unless-stopped
-    ports:
-      - "8090:8080"   # Jira UI → http://localhost:8090
-    environment:
-      ATL_JDBC_URL: jdbc:postgresql://jira-db:5432/jiradb
-      ATL_JDBC_USER: jira
-      ATL_JDBC_PASSWORD: jira
-      ATL_DB_DRIVER: org.postgresql.Driver
-      ATL_DB_TYPE: postgres72
-      ATL_DB_SCHEMA_NAME: public
-      JVM_MINIMUM_MEMORY: 384m
-      JVM_MAXIMUM_MEMORY: 1536m
-    volumes:
-      - jira_data:/var/atlassian/application-data/jira
-    networks:
-      - ziyarah-network
-    depends_on:
-      jira-db:
-        condition: service_healthy
 
 
 
@@ -139,7 +102,7 @@ services:
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     ports:
       # Loopback only — Kafka is an internal messaging bus; not needed outside the host.
-      - "127.0.0.1:9092:9092"
+      - "127.0.0.1:7004:9092"
     networks:
       - ziyarah-network
     healthcheck:
@@ -160,7 +123,7 @@ services:
     command: redis-server --save 60 1 --loglevel warning
     ports:
       # Loopback only — Redis is an internal cache; not needed outside the host.
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:7003:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -195,7 +158,7 @@ services:
       APP_DEMO_PASSWORD: ${APP_DEMO_PASSWORD:-Demo123!}
       JWT_EXPIRATION: 86400000
       SERVER_PORT: 8080
-      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus
       # Use underscores; hyphens break relaxed binding for show-details
       MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: when_authorized
       APP_MEDIA_STORAGE_ROOT: /data/media
@@ -206,9 +169,9 @@ services:
       # Leave empty to use allow-local-defaults (localhost/127.0.0.1) in dev.
       ZIYARA_CORS_ALLOWED_ORIGINS: ${ZIYARA_CORS_ALLOWED_ORIGINS:-}
     ports:
-      # BACKEND_BIND_IP defaults to 0.0.0.0 in dev (direct access via localhost:8080).
+      # BACKEND_BIND_IP defaults to 0.0.0.0 in dev (direct access via localhost:7005).
       # In ipmode set BACKEND_BIND_IP=127.0.0.1 so only the gateway can reach the API.
-      - "${BACKEND_BIND_IP:-0.0.0.0}:${BACKEND_PORT:-8080}:8080"
+      - "${BACKEND_BIND_IP:-0.0.0.0}:${BACKEND_PORT:-7005}:8080"
     volumes:
       - media_data:/data/media
     depends_on:
@@ -242,8 +205,10 @@ services:
     image: ziyarah-frontend:latest
     container_name: ziyarah-frontend
     restart: unless-stopped
-    ports:
-      - "80:80"
+    # Port 80 removed — NPM proxies to this container on the internal network.
+    # Access via NPM: http://app.ziyara.local (or your real domain configured in NPM UI).
+    expose:
+      - "80"
     depends_on:
       backend:
         condition: service_healthy
@@ -272,7 +237,7 @@ services:
     container_name: ziyarah-dashboard
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "7020:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -298,6 +263,7 @@ services:
       args:
         VITE_API_URL: /api/v1
         VITE_APP_SURFACE: company
+        VITE_PROVIDER_APP_URL: http://partners.local
     image: ziyarah-dashboard-company:latest
     container_name: ziyarah-dashboard-company
     restart: unless-stopped
@@ -375,8 +341,10 @@ services:
     image: nginx:1.28.2-alpine
     container_name: ziyarah-proxy
     restart: unless-stopped
-    ports:
-      - "80:80"
+    # Port 80 removed — NPM is now the single entry point on port 80/443.
+    # The multidomain profile's static nginx is superseded by NPM's UI-managed routing.
+    expose:
+      - "80"
     volumes:
       - ./infra/nginx/multi-domain.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
@@ -401,7 +369,7 @@ services:
   #   http://localhost:7050  — Company dashboard
   #   http://localhost:7060  — Provider portal
   #   http://localhost:7070  — Landing / booking
-  #   http://localhost:8080  — API
+  #   http://localhost:7005  — API
   # Access (LAN): set PORTMODE_HOST=<your-lan-ip> in .env and rebuild.
   # =============================================================================
   company-portmode:
@@ -413,6 +381,7 @@ services:
       args:
         VITE_API_URL: /api/v1
         VITE_APP_SURFACE: company
+        VITE_PROVIDER_APP_URL: http://${PORTMODE_HOST:-localhost}:${PROVIDER_PORT:-7060}
     image: ziyarah-company-portmode:latest
     container_name: ziyarah-company-portmode
     restart: unless-stopped
@@ -496,7 +465,7 @@ services:
   #   BIND_IP=10.45.30.145
   #   BACKEND_BIND_IP=127.0.0.1
   #   PGADMIN_BIND_IP=127.0.0.1
-  #   API_EXTERNAL_URL=https://10.45.30.145:9000/api/v1
+  #   API_EXTERNAL_URL=https://10.45.30.145:7005/api/v1
   #   ZIYARA_CORS_ALLOWED_ORIGINS=https://10.45.30.145:7050,...
   #
   # Start with:
@@ -514,6 +483,7 @@ services:
         # For ipmode: set API_EXTERNAL_URL=https://10.45.30.145:9000/api/v1 in .env before building.
         VITE_API_URL: ${API_EXTERNAL_URL:-https://10.45.30.145:9000/api/v1}
         VITE_APP_SURFACE: company
+        VITE_PROVIDER_APP_URL: ${PROVIDER_URL:-https://10.45.30.145:7060}
     image: ziyarah-company-ipmode:latest
     container_name: ziyarah-company-ipmode
     restart: unless-stopped
@@ -598,7 +568,7 @@ services:
     ports:
       # Default 127.0.0.1 keeps gateway off the LAN when BIND_IP is unset (non-ipmode contexts).
       # For ipmode deployments BIND_IP MUST be set to the server LAN IP (e.g. 10.45.30.145).
-      - "${BIND_IP:-127.0.0.1}:${BACKEND_PORT:-9000}:${BACKEND_PORT:-9000}"
+      - "${BIND_IP:-127.0.0.1}:${BACKEND_PORT:-7005}:${BACKEND_PORT:-7005}"
       - "${BIND_IP:-127.0.0.1}:${COMPANY_PORT:-7050}:${COMPANY_PORT:-7050}"
       - "${BIND_IP:-127.0.0.1}:${PROVIDER_PORT:-7060}:${PROVIDER_PORT:-7060}"
       - "${BIND_IP:-127.0.0.1}:${LANDING_PORT:-7070}:${LANDING_PORT:-7070}"
@@ -622,6 +592,206 @@ services:
       - ziyarah-network
 
   # =============================================================================
+  # NODE EXPORTER — host / VM metrics (profile: monitoring)
+  # Shows CPU, RAM, disk, network of the host (or Docker Desktop Linux VM on Windows).
+  # Access: http://localhost:7084/metrics
+  # =============================================================================
+  node-exporter:
+    profiles:
+      - monitoring
+      - portmode
+    image: prom/node-exporter:v1.8.2
+    container_name: ziyarah-node-exporter
+    restart: unless-stopped
+    pid: "host"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "${BIND_IP:-127.0.0.1}:7084:9100"
+    networks:
+      - ziyarah-network
+
+  # =============================================================================
+  # CADVISOR — Docker container metrics (profile: monitoring)
+  # Shows per-container CPU, RAM, network, and I/O.
+  # Access: http://localhost:7086/metrics
+  # =============================================================================
+  cadvisor:
+    profiles:
+      - monitoring
+      - portmode
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: ziyarah-cadvisor
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    ports:
+      - "${BIND_IP:-127.0.0.1}:7086:8080"
+    networks:
+      - ziyarah-network
+
+  # =============================================================================
+  # PROMETHEUS — metrics scraper (profile: monitoring)
+  # Access: http://<BIND_IP>:7083  (set BIND_IP in .env for remote/ipmode access)
+  # =============================================================================
+  prometheus:
+    profiles:
+      - monitoring
+      - portmode
+    image: ubuntu/prometheus:3.11-26.04_stable
+    pull_policy: never
+    container_name: ziyarah-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${PROMETHEUS_PORT:-7083}:9090"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "/bin/promtool", "check", "healthy", "--url=http://localhost:9090"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # =============================================================================
+  # GRAFANA — dashboards (profile: monitoring)
+  # Access: http://<BIND_IP>:7085   login: admin / admin  (change on first login)
+  # =============================================================================
+  grafana:
+    profiles:
+      - monitoring
+      - portmode
+    image: grafana/grafana:11.6.0
+    pull_policy: missing
+    container_name: ziyarah-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${GRAFANA_PORT:-7085}:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # =============================================================================
+  # POSTGRES EXPORTER — PostgreSQL metrics for Prometheus (profile: monitoring)
+  # Exposes query stats, connection counts, lock waits, table bloat, and more.
+  # Access: http://localhost:7087/metrics
+  # =============================================================================
+  postgres-exporter:
+    profiles:
+      - monitoring
+      - portmode
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: ziyarah-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://ziyarah_user:${POSTGRES_PASSWORD}@postgres:5432/ziyarah?sslmode=disable"
+    ports:
+      - "${BIND_IP:-127.0.0.1}:7087:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+
+  # =============================================================================
+  # REDIS EXPORTER — Redis metrics for Prometheus (profile: monitoring)
+  # Exposes memory usage, hit/miss rates, evictions, and connected clients.
+  # Access: http://localhost:7088/metrics
+  # =============================================================================
+  redis-exporter:
+    profiles:
+      - monitoring
+      - portmode
+    image: oliver006/redis_exporter:v1.62.0
+    container_name: ziyarah-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+    ports:
+      - "${BIND_IP:-127.0.0.1}:7088:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+
+  # =============================================================================
+  # KAFKA EXPORTER — Kafka metrics for Prometheus (profile: monitoring)
+  # Exposes consumer group lag, topic offsets, and broker health.
+  # Access: http://localhost:7089/metrics
+  # =============================================================================
+  kafka-exporter:
+    profiles:
+      - monitoring
+      - portmode
+    image: danielqsj/kafka-exporter:v1.7.0
+    container_name: ziyarah-kafka-exporter
+    restart: unless-stopped
+    command:
+      - "--kafka.server=kafka:9092"
+    ports:
+      - "${BIND_IP:-127.0.0.1}:7089:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+
+  # =============================================================================
+  # BLACKBOX EXPORTER — external HTTP/SSL probing (profile: monitoring)
+  # Probes endpoints from outside the app and checks SSL cert expiry.
+  # Access: http://localhost:7090/metrics
+  # Add probe targets in infra/prometheus/prometheus.yml (blackbox job).
+  # =============================================================================
+  blackbox-exporter:
+    profiles:
+      - monitoring
+      - portmode
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: ziyarah-blackbox-exporter
+    restart: unless-stopped
+    volumes:
+      - ./infra/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    ports:
+      - "${BIND_IP:-127.0.0.1}:7090:9115"
+    networks:
+      - ziyarah-network
+
+  # =============================================================================
   # PGADMIN - PostgreSQL admin UI (optional: docker compose up ... pgadmin)
   # Login: PGADMIN_DEFAULT_EMAIL / PGADMIN_DEFAULT_PASSWORD (defaults below).
   # Add server: Host=postgres, Port=5432, DB=ziyarah, User=ziyarah_user, Password=${POSTGRES_PASSWORD}
@@ -635,14 +805,65 @@ services:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?PGADMIN_DEFAULT_PASSWORD must be set}
       PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
     ports:
-      # PGADMIN_BIND_IP defaults to 0.0.0.0 in dev (direct access via localhost:5050).
+      # PGADMIN_BIND_IP defaults to 0.0.0.0 in dev (direct access via localhost:7065).
       # In ipmode set PGADMIN_BIND_IP=127.0.0.1 so only the gateway serves pgAdmin.
-      - "${PGADMIN_BIND_IP:-0.0.0.0}:${PGADMIN_PORT:-5050}:80"
+      - "${PGADMIN_BIND_IP:-0.0.0.0}:${PGADMIN_PORT:-7065}:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+      - ./infra/pgadmin/servers.json:/pgadmin4/servers.json:ro
     depends_on:
       postgres:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+
+  # =============================================================================
+  # NGINX PROXY MANAGER — domain-based reverse proxy with web UI (always-on)
+  # Admin UI : http://localhost:7081   login: admin@example.com / changeme
+  # HTTP     : http://localhost:7080   (public traffic)
+  # HTTPS    : https://localhost:7082 (public traffic, after issuing certs in UI)
+  #
+  # npm-init auto-configures proxy hosts on first boot (see infra/npm/init.sh).
+  # For production VPS: replace *.ziyara.local domains with real ones in the UI
+  # and issue Let's Encrypt certificates per proxy host.
+  # =============================================================================
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:2.15.1
+    container_name: ziyarah-npm
+    restart: unless-stopped
+    ports:
+      - "7080:80"
+      - "7082:443"
+      - "${BIND_IP:-0.0.0.0}:7081:81"
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:81/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # One-shot init container: configures NPM proxy hosts via its API on first boot.
+  # Exits after completion; will not restart. Re-run manually if needed:
+  #   docker compose run --rm npm-init
+  npm-init:
+    image: alpine:3.20
+    container_name: ziyarah-npm-init
+    restart: "no"
+    command: sh -c "apk add -q --no-cache curl && sh /init.sh"
+    volumes:
+      - ./infra/npm/init.sh:/init.sh:ro
+    environment:
+      NPM_ADMIN_EMAIL: ${NPM_ADMIN_EMAIL:-admin@example.com}
+      NPM_ADMIN_PASS: ${NPM_ADMIN_PASS:-changeme}
+    depends_on:
+      nginx-proxy-manager:
         condition: service_healthy
     networks:
       - ziyarah-network
@@ -659,9 +880,13 @@ volumes:
     driver: local
   pgadmin_data:
     driver: local
-  jira_pgdata:
+  prometheus_data:
     driver: local
-  jira_data:
+  grafana_data:
+    driver: local
+  npm_data:
+    driver: local
+  npm_letsencrypt:
     driver: local
 
 

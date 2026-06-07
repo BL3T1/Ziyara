@@ -1,0 +1,32 @@
+modules:
+
+  # Standard HTTP GET — expects any 2xx response.
+  # Used to probe the backend health endpoint and any public URLs.
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: []   # empty = accept any 2xx
+      method: GET
+      follow_redirects: true
+      preferred_ip_protocol: "ip4"
+
+  # HTTPS probe — same as http_2xx but also validates the TLS certificate.
+  # Use this for production public-facing URLs to get SSL expiry metrics.
+  https_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: []
+      method: GET
+      follow_redirects: true
+      preferred_ip_protocol: "ip4"
+      tls_config:
+        insecure_skip_verify: false
+
+  # TCP connect check — useful for raw port reachability (DB, Kafka, Redis).
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
