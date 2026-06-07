@@ -38,16 +38,13 @@ The form is split into two sections:
 | Contact Email | No | Public-facing email |
 | Address | Yes | Physical or registered address |
 | Registration Number | No | Commercial registration / CR number |
-| Company Profit Margin | No (defaults to 10%) | % of each booking revenue kept by the platform |
+| Company Profit Margin | — (always 10% by default) | Set by Admin only — not shown during creation |
 | Description | No | Shown on the provider profile page |
 | Logo URL | No | Absolute URL or relative `/media/…` path |
 
 #### Section 2 — Manager Account
 
-Choose one of two modes:
-
-- **Create new account**: Enter manager email, password, and optional phone. A new user is created with the `PROVIDER_MANAGER` role, linked to this provider.
-- **Link existing account**: Enter the email of a user who already exists in the system. That user is assigned the `PROVIDER_MANAGER` role for this provider.
+Enter the manager email, password, and optional phone. A new user is created with the `PROVIDER_MANAGER` role and linked to this provider. The manager immediately receives portal access once the provider is activated.
 
 ### 3. Submit
 
@@ -62,30 +59,27 @@ On success:
 
 The profit margin is how much of each booking's revenue the platform retains before paying out to the provider.
 
-- **Default**: 10%
-- **Who sets it**: Platform Admin or Company Manager/Staff at creation time, or any time via **Edit Profit** in the Providers list or the provider's edit page.
+- **Default**: 10% (set automatically — not shown on the creation form)
+- **Who can change it**: Platform Admin only, via **Edit Profit** in the Providers list or the **Financial** section of the provider's edit page.
 - **Who can see it**: Only roles with `canViewProviderCommission` permission (Platform Admin, Company Manager, Company Staff). Providers and customers never see this value.
-- **Backend field**: `commissionRate` (the UI label says "Company Profit Margin").
+- **API field**: `profitMargin` (both request and response).
 
 ---
 
 ## How the Provider Appears on Service Pages
 
-Once created, the provider shows up automatically on the relevant service page (e.g. **Hotels**, **Taxis**, **Restaurants**). The service page has two sections:
+Once created, the provider shows up on the relevant service page (e.g. **Hotels**, **Taxis**, **Restaurants**) as a card in the **Partner Accounts** section.
 
-### Section 1 — Services/Listings
-A table or grid of the actual bookable items (hotel rooms, taxi vehicles, menu items) owned by this provider. Initially empty until the manager adds listings.
-
-### Section 2 — Partner Accounts
-A card grid showing every provider linked to that service type. Each card displays:
-- Provider name and type
+Each card displays:
+- Provider name and type badge
 - Status badge (ACTIVE = green, SUSPENDED = red, PENDING = amber)
 - Contact email and phone
 - Company profit margin (visible to permitted roles only)
 - Average rating (if available)
-- **"Edit Account"** link (for company staff) or **"View Account"** link (for other roles) — goes directly to `/management/providers/{id}`
+- **"Edit Account"** / **"View Account"** link → `/management/providers/{id}`
+- **Listings toggle** — click to expand/collapse that provider's bookable listings inline
 
-This means staff can jump straight from a service page to the provider's edit page without going through the provider list.
+Expanding a card shows the provider's services (name + price). Clicking a listing navigates to its detail page. If no listings have been added yet, the card shows "No listings yet."
 
 ---
 
@@ -140,4 +134,4 @@ Changes are saved immediately on submit. The manager user can also edit their ow
 | Approve | POST | `/api/providers/{id}/approve` |
 | Reject | POST | `/api/providers/{id}/reject` |
 | Suspend | POST | `/api/providers/{id}/suspend` |
-| Update commission | PUT | `/api/providers/{id}/commission` |
+| Update profit margin | PATCH | `/api/providers/{id}/commission` |
