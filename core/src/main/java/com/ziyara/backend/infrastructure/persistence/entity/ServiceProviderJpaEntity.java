@@ -61,9 +61,13 @@ public class ServiceProviderJpaEntity {
     /** NUMERIC(3,2): exact rating 0.00–5.00 (V16 type change from DOUBLE PRECISION). */
     @Column(name = "rating", precision = 3, scale = 2)
     private BigDecimal rating = BigDecimal.ZERO;
-    
+
     @Column(name = "review_count")
     private Integer reviewCount = 0;
+
+    /** NUMERIC(3,1): official classification (e.g. 3.0 = 3-star). 0 = unset. V30. */
+    @Column(name = "global_rate", precision = 3, scale = 1, nullable = false)
+    private BigDecimal globalRate = BigDecimal.ZERO;
     
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
@@ -74,6 +78,12 @@ public class ServiceProviderJpaEntity {
 
     @Column(name = "commission_rate", precision = 5, scale = 2)
     private BigDecimal commissionRate;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
 
     @Column(name = "created_by")
     private UUID createdBy;
@@ -86,9 +96,12 @@ public class ServiceProviderJpaEntity {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-    
+
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {

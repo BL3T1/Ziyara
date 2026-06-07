@@ -2,10 +2,15 @@ package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.BookingResponse;
+import com.ziyara.backend.application.dto.request.ApproveCashPaymentRequest;
 import com.ziyara.backend.application.dto.request.CreateMenuItemRequest;
+import com.ziyara.backend.application.dto.request.RecordPaymentRequest;
+import com.ziyara.backend.application.dto.response.PaymentResponse;
+import com.ziyara.backend.application.service.PortalPaymentService;
 import com.ziyara.backend.application.dto.request.CreateMenuSectionRequest;
 import com.ziyara.backend.application.dto.request.CreateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceImageRequest;
+import com.ziyara.backend.application.dto.request.CreatePortalDiscountRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceRequest;
 import com.ziyara.backend.application.dto.request.PayoutRequestPayload;
 import com.ziyara.backend.application.dto.request.UpdateMenuItemRequest;
@@ -13,9 +18,13 @@ import com.ziyara.backend.application.dto.request.UpdateMenuSectionRequest;
 import com.ziyara.backend.application.dto.request.UpdateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceRequest;
+import com.ziyara.backend.application.dto.response.DiscountResponse;
 import com.ziyara.backend.application.dto.response.PayoutRequestResponse;
+import com.ziyara.backend.application.dto.response.PortalDiscountBalanceResponse;
 import com.ziyara.backend.application.dto.response.PortalDashboardResponse;
 import com.ziyara.backend.application.dto.response.PortalEarningsResponse;
+import com.ziyara.backend.application.dto.response.ProviderMediaSubmissionResponse;
+import com.ziyara.backend.application.service.ProviderMediaSubmissionService;
 import com.ziyara.backend.application.dto.response.RestaurantMenuItemResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuSectionResponse;
@@ -26,7 +35,7 @@ import com.ziyara.backend.application.dto.response.ServiceResponse;
 import com.ziyara.backend.application.service.PortalService;
 import com.ziyara.backend.application.service.ServiceProviderService;
 import com.ziyara.backend.domain.enums.ServiceImageCategory;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,6 +43,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -42,6 +52,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.ziyara.backend.application.exception.BusinessException;
+import com.ziyara.backend.application.annotation.RateLimit;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -55,13 +66,15 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/portal")
 @RequiredArgsConstructor
-@PreAuthorize(ApiAuthorizationExpressions.PROVIDER_PORTAL)
+@PreAuthorize(PROVIDER_PORTAL)
 @Tag(name = "Provider Portal", description = "Provider-scoped dashboard, services, bookings, earnings")
 @SecurityRequirement(name = "bearerAuth")
 public class PortalController {
 
     private final PortalService portalService;
     private final ServiceProviderService providerService;
+    private final ProviderMediaSubmissionService mediaSubmissionService;
+    private final PortalPaymentService portalPaymentService;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Portal dashboard", description = "KPIs for current provider (services, bookings, revenue)")
@@ -326,7 +339,46 @@ public class PortalController {
         return ResponseEntity.ok(ApiResponse.success(portalService.getBookings(providerId)));
     }
 
+    @GetMapping("/bookings/{bookingId}/payments")
+    @Operation(summary = "List payments for a booking")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> listBookingPayments(@PathVariable UUID bookingId) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalPaymentService.listBookingPayments(bookingId, providerId)));
+    }
+
+    @PostMapping("/bookings/{bookingId}/payments/cash-approve")
+    @PreAuthorize(PORTAL_FINANCE)
+    @Operation(summary = "Approve cash payment collection for a booking")
+    public ResponseEntity<ApiResponse<PaymentResponse>> approveCashPayment(
+            @PathVariable UUID bookingId,
+            @Valid @RequestBody ApproveCashPaymentRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(portalPaymentService.approveCashPayment(bookingId, providerId, request)));
+    }
+
+    @PostMapping("/bookings/{bookingId}/payments")
+    @PreAuthorize(PORTAL_FINANCE)
+    @Operation(summary = "Record an offline/manual payment for a booking")
+    public ResponseEntity<ApiResponse<PaymentResponse>> recordPayment(
+            @PathVariable UUID bookingId,
+            @Valid @RequestBody RecordPaymentRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(portalPaymentService.recordPayment(bookingId, providerId, request)));
+    }
+
+    @GetMapping("/payout-requests")
+    @Operation(summary = "Payout request history", description = "List the signed-in provider's payout requests, newest first")
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<PayoutRequestResponse>>> listPayoutRequests(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.listPayoutRequests(providerId, page, size)));
+    }
+
     @PostMapping("/payout-request")
+    @RateLimit(key = "POST:/portal/payout-request", maxPerMinute = 3)
     @Operation(summary = "Request payout", description = "Provider submits a withdrawal request for ops team to process")
     public ResponseEntity<ApiResponse<PayoutRequestResponse>> requestPayout(
             @Valid @RequestBody PayoutRequestPayload payload) {
@@ -336,13 +388,115 @@ public class PortalController {
     }
 
     @GetMapping("/earnings")
-    @Operation(summary = "My earnings", description = "Total completed payment amount for provider's bookings")
+    @Operation(summary = "My earnings", description = "Earnings summary with profit-share breakdown and per-service detail")
     public ResponseEntity<ApiResponse<PortalEarningsResponse>> getEarnings(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
         UUID providerId = requireCurrentProviderId();
         return ResponseEntity.ok(ApiResponse.success(portalService.getEarnings(providerId, start, end)));
     }
+
+    @GetMapping("/earnings/export")
+    @Operation(summary = "Export my earnings", description = "Download earnings breakdown as CSV")
+    public ResponseEntity<byte[]> exportEarnings(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+        UUID providerId = requireCurrentProviderId();
+        PortalEarningsResponse earnings = portalService.getEarnings(providerId, start, end);
+        byte[] csv = portalService.buildEarningsCsv(earnings);
+        String startLabel = start != null ? start.toString() : "all";
+        String endLabel   = end   != null ? end.toString()   : "now";
+        String filename   = String.format("earnings-%s-to-%s.csv", startLabel, endLabel);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csv);
+    }
+
+    @PostMapping(value = "/services/{id}/images/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Submit service image for approval", description = "Upload an image for a service listing — requires admin approval before going live")
+    public ResponseEntity<ApiResponse<ProviderMediaSubmissionResponse>> submitServiceImage(
+            @PathVariable UUID id,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) String altText,
+            @RequestParam(required = false) String imageType,
+            @RequestParam(required = false, defaultValue = "false") Boolean primary) {
+        UUID providerId = requireCurrentProviderId();
+        UUID userId = getCurrentUserId();
+        final byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException("Could not read uploaded file");
+        }
+        ProviderMediaSubmissionResponse created = mediaSubmissionService.submitServiceImage(
+                providerId, id, bytes, file.getContentType(), file.getOriginalFilename(),
+                imageType, altText, Boolean.TRUE.equals(primary), userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Image submitted for approval", created));
+    }
+
+    @PostMapping(value = "/logo/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Submit provider logo for approval", description = "Upload a new logo — requires admin approval before going live")
+    public ResponseEntity<ApiResponse<ProviderMediaSubmissionResponse>> submitProviderLogo(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) String altText) {
+        UUID providerId = requireCurrentProviderId();
+        UUID userId = getCurrentUserId();
+        final byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException("Could not read uploaded file");
+        }
+        ProviderMediaSubmissionResponse created = mediaSubmissionService.submitProviderLogo(
+                providerId, bytes, file.getContentType(), file.getOriginalFilename(), altText, userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Logo submitted for approval", created));
+    }
+
+    @GetMapping("/media-submissions")
+    @Operation(summary = "List own media submissions", description = "Get all image submissions for current provider with their status")
+    public ResponseEntity<ApiResponse<List<ProviderMediaSubmissionResponse>>> getMySubmissions() {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(mediaSubmissionService.getProviderSubmissions(providerId)));
+    }
+
+    // ── Self-discount engine ──────────────────────────────────────────────
+
+    @GetMapping("/discount-balance")
+    @Operation(summary = "Discount balance", description = "Current provider's self-discount balance (allocated / spent / available)")
+    public ResponseEntity<ApiResponse<PortalDiscountBalanceResponse>> getDiscountBalance() {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.getDiscountBalance(providerId)));
+    }
+
+    @GetMapping("/discounts")
+    @Operation(summary = "My discounts", description = "List self-funded discount codes for the current provider")
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<DiscountResponse>>> listDiscounts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.listProviderDiscounts(providerId, page, size)));
+    }
+
+    @PostMapping("/discounts")
+    @RateLimit(key = "POST:/portal/discounts", maxPerMinute = 10)
+    @Operation(summary = "Create self-discount", description = "Create a provider-funded discount code, debiting from your balance")
+    public ResponseEntity<ApiResponse<DiscountResponse>> createDiscount(
+            @Valid @RequestBody CreatePortalDiscountRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        DiscountResponse created = portalService.createProviderDiscount(providerId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Discount submitted for review", created));
+    }
+
+    @DeleteMapping("/discounts/{discountId}")
+    @Operation(summary = "Deactivate self-discount", description = "Deactivate own discount code")
+    public ResponseEntity<ApiResponse<Void>> deactivateDiscount(@PathVariable UUID discountId) {
+        UUID providerId = requireCurrentProviderId();
+        portalService.deactivateProviderDiscount(providerId, discountId);
+        return ResponseEntity.ok(ApiResponse.success("Discount deactivated", null));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     private UUID requireCurrentProviderId() {
         UUID userId = getCurrentUserId();

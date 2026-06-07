@@ -55,7 +55,7 @@ public class ReviewService {
                 .notificationType(NotificationType.SYSTEM_ALERT.name())
                 .title("Review pending moderation")
                 .message("A new review is pending for booking " + saved.getBookingId())
-                .notifyRoles(List.of("SUPPORT_MANAGER"))
+                .notifyRoles(List.of("SUPPORT_MANAGER", "SUPPORT_AGENT"))
                 .metadata("{\"reviewId\":\"" + saved.getId() + "\"}")
                 .build());
         return mapToResponse(saved);

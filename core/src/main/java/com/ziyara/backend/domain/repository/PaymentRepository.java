@@ -18,6 +18,7 @@ public interface PaymentRepository {
     Payment save(Payment payment);
     Optional<Payment> findById(UUID id);
     Optional<Payment> findByBookingId(UUID bookingId);
+    List<Payment> findAllByBookingId(UUID bookingId);
     Optional<Payment> findByTransactionReference(String reference);
     Optional<Payment> findByGatewayReference(String gatewayReference);
     Optional<Payment> findByIdempotencyKey(String idempotencyKey);
@@ -35,6 +36,9 @@ public interface PaymentRepository {
 
     BigDecimal sumCompletedAmountBetween(LocalDateTime from, LocalDateTime to);
     BigDecimal sumCompletedAmountByBookingIds(java.util.List<UUID> bookingIds);
+
+    /** Platform-wide sum of payments with the given status (no date filter). */
+    BigDecimal sumByStatus(PaymentStatus status);
 
     /** Completed payments for the given booking IDs on or after {@code since}. Used for weekly chart. */
     List<Payment> findCompletedByBookingIdsSince(List<UUID> bookingIds, LocalDateTime since);

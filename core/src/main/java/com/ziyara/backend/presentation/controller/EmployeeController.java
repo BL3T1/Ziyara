@@ -5,7 +5,7 @@ import com.ziyara.backend.application.dto.request.CreateEmployeeRequest;
 import com.ziyara.backend.application.dto.request.UpdateEmployeeRequest;
 import com.ziyara.backend.application.dto.response.EmployeeResponse;
 import com.ziyara.backend.application.service.EmployeeService;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -30,7 +30,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/employees")
 @RequiredArgsConstructor
-@PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+@PreAuthorize(COMPANY_STAFF)
 @Tag(name = "Employees", description = "Internal employee management APIs")
 @SecurityRequirement(name = "bearerAuth")
 public class EmployeeController {

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import com.ziyara.backend.application.annotation.Audited;
 import com.ziyara.backend.application.dto.request.UpdateSystemSettingsRequest;
 import com.ziyara.backend.application.dto.response.SystemSettingsResponse;
 import com.ziyara.backend.domain.entity.SystemSetting;
@@ -23,6 +24,7 @@ public class SystemSettingsService {
     public static final String KEY_COMPANY_DISPLAY_NAME = "company.display_name";
     public static final String KEY_DEFAULT_CURRENCY = "platform.default_currency";
     public static final String KEY_MAINTENANCE_MODE = "platform.maintenance_mode";
+    public static final String KEY_PROVIDER_MAINTENANCE_MODE = "platform.provider_maintenance_mode";
 
     private static final String DEFAULT_COMPANY = "Ziyara";
     private static final String DEFAULT_CURRENCY = "USD";
@@ -36,9 +38,11 @@ public class SystemSettingsService {
                 .companyDisplayName(readString(KEY_COMPANY_DISPLAY_NAME, DEFAULT_COMPANY))
                 .defaultCurrency(readString(KEY_DEFAULT_CURRENCY, DEFAULT_CURRENCY).toUpperCase())
                 .maintenanceMode(readBoolean(KEY_MAINTENANCE_MODE))
+                .providerMaintenanceMode(readBoolean(KEY_PROVIDER_MAINTENANCE_MODE))
                 .build();
     }
 
+    @Audited(action = "SETTINGS_UPDATE", entityType = "SystemSettings")
     @Transactional
     public SystemSettingsResponse update(UpdateSystemSettingsRequest request, UUID updatedBy) {
         Instant now = Instant.now();
@@ -50,6 +54,9 @@ public class SystemSettingsService {
         }
         if (request.getMaintenanceMode() != null) {
             upsert(KEY_MAINTENANCE_MODE, BooleanNode.valueOf(request.getMaintenanceMode()), updatedBy, now);
+        }
+        if (request.getProviderMaintenanceMode() != null) {
+            upsert(KEY_PROVIDER_MAINTENANCE_MODE, BooleanNode.valueOf(request.getProviderMaintenanceMode()), updatedBy, now);
         }
         return getSettings();
     }

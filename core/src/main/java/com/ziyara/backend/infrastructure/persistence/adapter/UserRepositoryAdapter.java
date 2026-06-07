@@ -64,6 +64,15 @@ public class UserRepositoryAdapter implements UserRepository {
     }
     
     @Override
+    public Optional<User> findByUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return Optional.empty();
+        }
+        return userJpaRepository.findByUsername(username.trim())
+                .map(userMapper::toDomainEntity);
+    }
+
+    @Override
     public Optional<User> findByPhone(String phone) {
         return userJpaRepository.findByPhone(phone)
                 .map(userMapper::toDomainEntity);
@@ -117,6 +126,12 @@ public class UserRepositoryAdapter implements UserRepository {
         return userJpaRepository.existsByEmail(t) || userJpaRepository.existsByEmailIgnoreCase(t);
     }
     
+    @Override
+    public boolean existsByUsername(String username) {
+        if (username == null || username.isBlank()) return false;
+        return userJpaRepository.existsByUsername(username.trim());
+    }
+
     @Override
     public boolean existsByPhone(String phone) {
         return userJpaRepository.existsByPhone(phone);

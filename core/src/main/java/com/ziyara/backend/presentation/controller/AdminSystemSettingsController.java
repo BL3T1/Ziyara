@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,14 +32,14 @@ public class AdminSystemSettingsController {
     private final SystemSettingsService systemSettingsService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','CEO','GENERAL_MANAGER')")
+    @PreAuthorize(SETTINGS_READ)
     @Operation(summary = "Get system settings", description = "Merged defaults and stored values")
     public ResponseEntity<ApiResponse<SystemSettingsResponse>> get() {
         return ResponseEntity.ok(ApiResponse.success(systemSettingsService.getSettings()));
     }
 
     @PatchMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','CEO','GENERAL_MANAGER')")
+    @PreAuthorize(SETTINGS_WRITE)
     @Operation(summary = "Update system settings", description = "Partial update; omitted fields unchanged")
     public ResponseEntity<ApiResponse<SystemSettingsResponse>> patch(@Valid @RequestBody UpdateSystemSettingsRequest request) {
         UUID userId = getCurrentUserId();

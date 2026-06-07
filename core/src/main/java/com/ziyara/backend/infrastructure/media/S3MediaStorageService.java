@@ -66,6 +66,34 @@ public class S3MediaStorageService implements MediaStorageService {
         return buildPublicUrl(key);
     }
 
+    @Override
+    public String storeProviderImage(UUID providerId, byte[] data, String contentType, String originalFilename) {
+        if (data == null || data.length == 0) throw new BusinessException("Empty file");
+        if (data.length > MAX_BYTES) throw new BusinessException("File too large (max 10MB)");
+
+        String normalizedType = normalizeContentType(contentType);
+        if (!ALLOWED_TYPES.contains(normalizedType)) {
+            throw new BusinessException("Unsupported image type (use JPEG, PNG, WebP, or GIF)");
+        }
+        String ext = extensionFor(normalizedType);
+        String key = "providers/" + providerId + "/" + UUID.randomUUID() + ext;
+
+        PutObjectRequest request = PutObjectRequest.builder()
+                .bucket(properties.getS3Bucket())
+                .key(key)
+                .contentType(normalizedType)
+                .build();
+
+        try {
+            s3Client.putObject(request, RequestBody.fromBytes(data));
+        } catch (Exception e) {
+            log.error("S3 upload failed for key {}: {}", key, e.getMessage());
+            throw new BusinessException("Media upload failed: " + e.getMessage());
+        }
+
+        return buildPublicUrl(key);
+    }
+
     private String buildPublicUrl(String key) {
         String base = properties.getPublicBaseUrl();
         if (base != null && !base.isBlank()) {

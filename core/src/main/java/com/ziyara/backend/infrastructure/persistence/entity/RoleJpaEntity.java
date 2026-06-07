@@ -65,6 +65,9 @@ public class RoleJpaEntity {
     @Column(name = "navigation_item_ids", columnDefinition = "jsonb")
     private List<String> navigationItemIds;
 
+    @Column(name = "max_discount_pct", nullable = false)
+    private short maxDiscountPct;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

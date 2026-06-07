@@ -48,6 +48,7 @@ public class RoleManagementService implements RoleServiceApi {
     private final GroupRepository groupRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final UserRoleAssignmentRepository userRoleAssignmentRepository;
+    private final UserRepository userRepository;
     private final AuditServiceApi auditLogService;
     private final GroupManagementService groupManagementService;
     private final PermissionQueryService permissionQueryService;
@@ -118,6 +119,28 @@ public class RoleManagementService implements RoleServiceApi {
         return groupManagementService.listGroupMembers(groupId, page, size);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<UserResponse> listRoleMembers(UUID roleId, int page, int size) {
+        List<UUID> userIds = userRoleAssignmentRepository.findUserIdsByRoleId(roleId);
+        int total = userIds.size();
+        int from = Math.min(page * size, total);
+        int to = Math.min(from + size, total);
+        List<UUID> pageIds = userIds.subList(from, to);
+        List<UserResponse> users = userRepository.findAllById(pageIds).stream()
+                .map(u -> {
+                    UserResponse r = new UserResponse();
+                    r.setId(u.getId());
+                    r.setEmail(u.getEmail());
+                    r.setRole(u.getRole());
+                    return r;
+                })
+                .collect(Collectors.toList());
+        return new org.springframework.data.domain.PageImpl<>(users,
+                org.springframework.data.domain.PageRequest.of(page, size),
+                total);
+    }
+
     // ── Custom role CRUD ─────────────────────────────────────────────────────────
 
     @Transactional
@@ -126,7 +149,6 @@ public class RoleManagementService implements RoleServiceApi {
         Map<UUID, Permission> permById = permissionMap();
         if (request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
             validateAllPermissionsExist(request.getPermissionIds(), permById.keySet());
-            validateNoLockedPermissions(request.getPermissionIds(), permById);
         }
         String code = generateCustomRoleCode(request.getName());
         if (roleRepository.existsByCode(code)) {
@@ -141,6 +163,7 @@ public class RoleManagementService implements RoleServiceApi {
         role.setGroupId(resolvedGroupId);
         role.setSystemRole(false);
         role.setStatus(RoleStatus.ACTIVE);
+        role.setMaxDiscountPct(request.getMaxDiscountPct());
         Role saved = roleRepository.save(role);
         if (request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
             rolePermissionRepository.setPermissionsForRole(saved.getId(), request.getPermissionIds());
@@ -173,8 +196,22 @@ public class RoleManagementService implements RoleServiceApi {
             role.setDescriptionAr(request.getDescriptionAr().trim().isEmpty() ? null : request.getDescriptionAr().trim());
             any = true;
         }
+        if (Boolean.TRUE.equals(request.getRemoveFromGroup())) {
+            role.setGroupId(null);
+            any = true;
+        } else if (request.getGroupId() != null) {
+            if (groupRepository.findById(request.getGroupId()).isEmpty()) {
+                throw new BusinessException("Group not found: " + request.getGroupId());
+            }
+            role.setGroupId(request.getGroupId());
+            any = true;
+        }
+        if (request.getMaxDiscountPct() != null) {
+            role.setMaxDiscountPct(request.getMaxDiscountPct());
+            any = true;
+        }
         if (!any) {
-            throw new BusinessException("Provide at least one of name, description, nameAr, or descriptionAr");
+            throw new BusinessException("Provide at least one field to update");
         }
         Role saved = roleRepository.save(role);
         auditLogService.logAction("Role metadata updated", ROLE_ENTITY, roleId.toString(), currentUserId,
@@ -183,13 +220,14 @@ public class RoleManagementService implements RoleServiceApi {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = "staffRoleCatalog", allEntries = true)
+    @CacheEvict(cacheNames = {"staffRoleCatalog", "userPermissions"}, allEntries = true)
     public RoleResponse updateRoleNavigation(UUID roleId, UpdateRoleNavigationRequest request, UUID currentUserId) {
         CompanySidebarCatalog.assertAllRequestedIdsKnown(request.getVisibleItemIds());
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new BusinessException("Role not found"));
         List<String> sanitized = CompanySidebarCatalog.sanitizeVisibleItemIds(request.getVisibleItemIds());
-        role.setNavigationItemIds(sanitized.isEmpty() ? null : sanitized);
+        // Store empty list (not null) so NavigationService can distinguish "explicitly cleared" from "never customized".
+        role.setNavigationItemIds(sanitized);
         Role saved = roleRepository.save(role);
         String kind = role.isSystemRole() ? "system" : "custom";
         auditLogService.logAction("Role navigation updated (" + kind + ")", ROLE_ENTITY, roleId.toString(), currentUserId,
@@ -198,7 +236,7 @@ public class RoleManagementService implements RoleServiceApi {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = "staffRoleCatalog", allEntries = true)
+    @CacheEvict(cacheNames = {"staffRoleCatalog", "userPermissions"}, allEntries = true)
     public RoleResponse updateRolePermissions(UUID roleId, UpdateRolePermissionsRequest request, UUID currentUserId) {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new NoSuchElementException("Role not found: " + roleId));
@@ -206,9 +244,6 @@ public class RoleManagementService implements RoleServiceApi {
         List<UUID> ids = request.getPermissionIds() != null ? request.getPermissionIds() : List.of();
         if (!ids.isEmpty()) {
             validateAllPermissionsExist(ids, permById.keySet());
-            if (!role.isSystemRole()) {
-                validateNoLockedPermissions(ids, permById);
-            }
         }
         rolePermissionRepository.setPermissionsForRole(roleId, ids);
         String kind = role.isSystemRole() ? "system" : "custom";
@@ -218,13 +253,10 @@ public class RoleManagementService implements RoleServiceApi {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = "staffRoleCatalog", allEntries = true)
+    @CacheEvict(cacheNames = {"staffRoleCatalog", "userPermissions"}, allEntries = true)
     public void deleteRole(UUID roleId, DeleteRoleRequest request, UUID currentUserId) {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new NoSuchElementException("Role not found: " + roleId));
-        if (role.isSystemRole()) {
-            throw new IllegalStateException("Cannot delete a system role.");
-        }
         long userCount = userRoleAssignmentRepository.countByRoleId(roleId);
         if (userCount > 0) {
             if (request.getTargetRoleId() == null) {
@@ -240,7 +272,8 @@ public class RoleManagementService implements RoleServiceApi {
         rolePermissionRepository.deleteByRoleId(roleId);
         String roleCode = role.getCode();
         roleRepository.deleteById(roleId);
-        auditLogService.logAction("Role Deleted (with reassignment)", ROLE_ENTITY, roleId.toString(), currentUserId,
+        String kind = role.isSystemRole() ? "system" : "custom";
+        auditLogService.logAction("Role Deleted (" + kind + ")", ROLE_ENTITY, roleId.toString(), currentUserId,
                 "code=" + roleCode, null, null, null);
     }
 
@@ -309,6 +342,16 @@ public class RoleManagementService implements RoleServiceApi {
                 .map(permissionQueryService::toPermissionSummary)
                 .collect(Collectors.toList());
         long userCount = userRoleAssignmentRepository.countByRoleId(r.getId());
+        // For system roles never customized (null), return the default nav so the editor shows their effective sidebar.
+        List<String> navIds = r.getNavigationItemIds();
+        if (navIds == null && r.isSystemRole() && r.getCode() != null) {
+            try {
+                navIds = CompanySidebarCatalog.defaultVisibleItemIdsForUserRole(
+                        com.ziyara.backend.domain.enums.UserRole.valueOf(r.getCode()));
+            } catch (IllegalArgumentException ignored) {
+                navIds = List.of();
+            }
+        }
         return RoleResponse.builder()
                 .id(r.getId())
                 .name(RequestLocaleHolder.localized(r.getName(), r.getNameAr()))
@@ -322,7 +365,8 @@ public class RoleManagementService implements RoleServiceApi {
                 .permissionIds(permIds)
                 .permissions(perms)
                 .userCount(userCount)
-                .navigationItemIds(r.getNavigationItemIds())
+                .navigationItemIds(navIds)
+                .maxDiscountPct(r.getMaxDiscountPct())
                 .build();
     }
 }

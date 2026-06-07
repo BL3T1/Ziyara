@@ -1,6 +1,7 @@
 package com.ziyara.backend.application.dto;
 
 import com.ziyara.backend.domain.enums.BookingStatus;
+import com.ziyara.backend.domain.enums.PaymentMethod;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -107,6 +108,12 @@ public class BookingResponse {
     @Schema(description = "Can be modified")
     private Boolean canBeModified;
 
+    @Schema(description = "Payment method")
+    private PaymentMethod paymentMethod;
+
+    @Schema(description = "Payment status (UNPAID, PARTIALLY_PAID, PAID)")
+    private String paymentStatus;
+
     public static BookingResponseBuilder builder() {
         return new BookingResponseBuilder();
     }
@@ -140,6 +147,8 @@ public class BookingResponse {
         private LocalDateTime createdAt;
         private Boolean canBeCancelled;
         private Boolean canBeModified;
+        private PaymentMethod paymentMethod;
+        private String paymentStatus;
 
         public BookingResponseBuilder id(UUID id) { this.id = id; return this; }
         public BookingResponseBuilder bookingReference(String v) { this.bookingReference = v; return this; }
@@ -169,6 +178,8 @@ public class BookingResponse {
         public BookingResponseBuilder createdAt(LocalDateTime v) { this.createdAt = v; return this; }
         public BookingResponseBuilder canBeCancelled(Boolean v) { this.canBeCancelled = v; return this; }
         public BookingResponseBuilder canBeModified(Boolean v) { this.canBeModified = v; return this; }
+        public BookingResponseBuilder paymentMethod(PaymentMethod v) { this.paymentMethod = v; return this; }
+        public BookingResponseBuilder paymentStatus(String v) { this.paymentStatus = v; return this; }
         public BookingResponse build() {
             BookingResponse r = new BookingResponse();
             r.setId(id); r.setBookingReference(bookingReference); r.setCustomerId(customerId);
@@ -180,6 +191,7 @@ public class BookingResponse {
             r.setConfirmedAt(confirmedAt); r.setCancelledAt(cancelledAt); r.setCancellationReason(cancellationReason);
             r.setRejectionReason(rejectionReason); r.setDelayReason(delayReason); r.setInternalNotes(internalNotes);
             r.setCreatedAt(createdAt); r.setCanBeCancelled(canBeCancelled); r.setCanBeModified(canBeModified);
+            r.setPaymentMethod(paymentMethod); r.setPaymentStatus(paymentStatus);
             return r;
         }
     }

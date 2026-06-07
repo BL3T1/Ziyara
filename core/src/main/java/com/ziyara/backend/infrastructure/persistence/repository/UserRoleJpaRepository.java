@@ -28,10 +28,21 @@ public interface UserRoleJpaRepository extends JpaRepository<UserRoleJpaEntity, 
     @Query("UPDATE UserRoleJpaEntity ur SET ur.roleId = :targetRoleId WHERE ur.roleId = :fromRoleId")
     int reassignAllToRole(@Param("fromRoleId") UUID fromRoleId, @Param("targetRoleId") UUID targetRoleId);
 
+    @Modifying
+    @Query("UPDATE UserRoleJpaEntity ur SET ur.groupId = null WHERE ur.groupId = :groupId")
+    int clearGroupId(@Param("groupId") UUID groupId);
+
     @Query(value = "SELECT DISTINCT p.code FROM sys_user_roles ur " +
                    "JOIN sys_role_permissions rp ON rp.role_id = ur.role_id " +
                    "JOIN sys_permissions p ON p.id = rp.permission_id " +
                    "WHERE ur.user_id = :userId",
            nativeQuery = true)
     List<String> findPermissionCodesByUserId(@Param("userId") UUID userId);
+
+    @Query(value = "SELECT DISTINCT p.code FROM sys_roles r " +
+                   "JOIN sys_role_permissions rp ON rp.role_id = r.id " +
+                   "JOIN sys_permissions p ON p.id = rp.permission_id " +
+                   "WHERE r.code = :roleCode AND r.is_system_role = TRUE",
+           nativeQuery = true)
+    List<String> findPermissionCodesBySystemRoleCode(@Param("roleCode") String roleCode);
 }

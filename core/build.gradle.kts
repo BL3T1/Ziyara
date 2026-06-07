@@ -80,6 +80,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-cache")
 	implementation("org.springframework.boot:spring-boot-starter-aop")
 	implementation("io.micrometer:micrometer-tracing-bridge-brave")
+	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 	implementation("net.logstash.logback:logstash-logback-encoder:8.0")
 	implementation("org.springframework.kafka:spring-kafka")
 	implementation("org.springframework.security:spring-security-web")
@@ -104,6 +105,8 @@ dependencies {
 	implementation("commons-codec:commons-codec:1.17.1")
 	// Optional strength scoring (0–4); disabled when ziyara.password-policy.min-zxcvbn-score is 0.
 	implementation("com.nulab-inc:zxcvbn:1.9.0")
+	// Rate limiting: Bucket4j (in-memory token bucket; drop-in replacement for hand-rolled AOP)
+	implementation("com.bucket4j:bucket4j-core:8.10.1")
 
 	testCompileOnly("org.projectlombok:lombok:1.18.38")
 	testAnnotationProcessor("org.projectlombok:lombok:1.18.38")
@@ -161,13 +164,47 @@ tasks.named<Test>("test") {
 
 tasks.jacocoTestCoverageVerification {
 	violationRules {
+		// Service layer: raised from 60% → 75% (Phase 6 target: 80%)
 		rule {
 			element = "PACKAGE"
 			includes = listOf("com.ziyara.backend.application.service.*")
 			limit {
 				counter = "LINE"
 				value   = "COVEREDRATIO"
+				minimum = "0.75".toBigDecimal()
+			}
+		}
+		// Controller layer: must meet 60% aggregate line coverage
+		rule {
+			element = "PACKAGE"
+			includes = listOf("com.ziyara.backend.presentation.controller.*")
+			limit {
+				counter = "LINE"
+				value   = "COVEREDRATIO"
 				minimum = "0.60".toBigDecimal()
+			}
+		}
+		// Persistence adapters: must meet 60% aggregate line coverage
+		rule {
+			element = "PACKAGE"
+			includes = listOf("com.ziyara.backend.infrastructure.persistence.adapter.*")
+			limit {
+				counter = "LINE"
+				value   = "COVEREDRATIO"
+				minimum = "0.60".toBigDecimal()
+			}
+		}
+		// Critical paths: individual class gates at 80%
+		rule {
+			element = "CLASS"
+			includes = listOf(
+				"com.ziyara.backend.application.service.AuthService",
+				"com.ziyara.backend.application.service.BookingService"
+			)
+			limit {
+				counter = "LINE"
+				value   = "COVEREDRATIO"
+				minimum = "0.80".toBigDecimal()
 			}
 		}
 	}

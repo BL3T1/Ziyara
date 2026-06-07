@@ -13,7 +13,11 @@ public enum PaymentMethod {
     CASH_ON_ARRIVAL("Cash on Arrival"),
     PAYPAL("PayPal"),
     APPLE_PAY("Apple Pay"),
-    GOOGLE_PAY("Google Pay");
+    GOOGLE_PAY("Google Pay"),
+    CRYPTO_WALLET("Crypto Wallet"),
+    CASH("Cash"),
+    CHEQUE("Cheque"),
+    OTHER("Other");
 
     private final String displayName;
 

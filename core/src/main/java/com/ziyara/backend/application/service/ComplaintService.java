@@ -51,7 +51,7 @@ public class ComplaintService {
                 .notificationType(NotificationType.COMPLAINT_NEW.name())
                 .title("New complaint")
                 .message("Ticket " + saved.getTicketNumber() + ": " + saved.getSubject())
-                .notifyRoles(List.of("SUPPORT_MANAGER", "GENERAL_MANAGER", "CEO", "SALES_MANAGER"))
+                .notifyRoles(List.of("SUPPORT_MANAGER", "SUPPORT_AGENT", "CEO", "SALES_MANAGER", "SALES_REPRESENTATIVE"))
                 .metadata("{\"complaintId\":\"" + saved.getId() + "\"}")
                 .build());
         return toResponse(saved);

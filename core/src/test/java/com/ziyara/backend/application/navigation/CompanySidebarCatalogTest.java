@@ -23,16 +23,16 @@ class CompanySidebarCatalogTest {
     }
 
     @Test
-    void defaultVisible_generalManagerHasDashboardNotSalesNavItem() {
-        List<String> ids = CompanySidebarCatalog.defaultVisibleItemIdsForUserRole(UserRole.GENERAL_MANAGER);
+    void defaultVisible_staffHasDashboardAndManagement() {
+        List<String> ids = CompanySidebarCatalog.defaultVisibleItemIdsForUserRole(UserRole.STAFF);
         assertTrue(ids.contains("dashboard"));
-        assertFalse(ids.contains("sales_dashboard"));
+        assertTrue(ids.contains("providers"));
     }
 
     @Test
-    void defaultVisible_supportExcludesManagement() {
-        List<String> ids = CompanySidebarCatalog.defaultVisibleItemIdsForUserRole(UserRole.SUPPORT_AGENT);
-        assertTrue(ids.contains("complaints"));
+    void defaultVisible_customerExcludesManagement() {
+        List<String> ids = CompanySidebarCatalog.defaultVisibleItemIdsForUserRole(UserRole.CUSTOMER);
+        assertTrue(ids.contains("dashboard"));
         assertFalse(ids.contains("providers"));
     }
 

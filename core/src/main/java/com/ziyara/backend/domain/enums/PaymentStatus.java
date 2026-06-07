@@ -9,7 +9,9 @@ public enum PaymentStatus {
     COMPLETED("Completed"),
     FAILED("Failed"),
     CANCELLED("Cancelled"),
-    REFUNDED("Refunded");
+    REFUNDED("Refunded"),
+    COLLECTED("Collected"),
+    RECORDED("Recorded");
 
     private final String displayName;
 
@@ -27,5 +29,9 @@ public enum PaymentStatus {
 
     public boolean canBeRefunded() {
         return this == COMPLETED;
+    }
+
+    public boolean isPortalRecorded() {
+        return this == COLLECTED || this == RECORDED;
     }
 }

@@ -46,7 +46,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.COMPANY_STAFF;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -359,15 +359,15 @@ public class ServiceController {
     }
 
     @PostMapping("/{id}/approve")
-    @PreAuthorize(COMPANY_STAFF)
-    @Operation(summary = "Approve service", description = "Set service status to ACTIVE (company staff)")
+    @PreAuthorize(SERVICES_PUBLISH)
+    @Operation(summary = "Approve service", description = "Set service status to ACTIVE — requires services:publish permission")
     public ResponseEntity<ApiResponse<ServiceResponse>> approve(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success("Service approved", serviceService.approve(id)));
     }
 
     @PostMapping("/{id}/suspend")
-    @PreAuthorize(COMPANY_STAFF)
-    @Operation(summary = "Suspend service", description = "Set service status to SUSPENDED (company staff)")
+    @PreAuthorize(SERVICES_PUBLISH)
+    @Operation(summary = "Suspend service", description = "Set service status to SUSPENDED — requires services:publish permission")
     public ResponseEntity<ApiResponse<ServiceResponse>> suspend(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success("Service suspended", serviceService.suspend(id)));
     }

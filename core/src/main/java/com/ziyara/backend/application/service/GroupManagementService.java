@@ -179,12 +179,13 @@ public class GroupManagementService {
         if (PlatformOrgGroups.isPlatformGroupId(groupId)) {
             throw new BusinessException("Cannot delete a platform organizational group");
         }
-        if (!roleRepository.findByGroupIdOrderByName(groupId).isEmpty()) {
-            throw new BusinessException("Cannot delete group while roles are assigned to it");
+        // Cascade: move all roles in this group to ungrouped
+        for (Role role : roleRepository.findByGroupIdOrderByName(groupId)) {
+            role.setGroupId(null);
+            roleRepository.save(role);
         }
-        if (userRoleAssignmentRepository.countByGroupId(groupId) > 0) {
-            throw new BusinessException("Cannot delete group while user role assignments still reference it");
-        }
+        // Cascade: clear direct group references on user-role assignments
+        userRoleAssignmentRepository.clearGroupId(groupId);
         groupRepository.deleteById(groupId);
         auditLogService.logAction("Group deleted", GROUP_ENTITY, groupId.toString(), currentUserId,
                 null, null, null, null);

@@ -124,6 +124,7 @@ public class AuditLogService implements AuditServiceApi {
                 .id(log.getId())
                 .action(log.getAction())
                 .entityName(log.getEntityName())
+                .entityType(log.getEntityType())
                 .entityId(log.getEntityId())
                 .userId(log.getUserId())
                 .correlationId(log.getCorrelationId())
@@ -131,6 +132,8 @@ public class AuditLogService implements AuditServiceApi {
                 .userDisplay(userDisplay)
                 .resource(resource.isEmpty() ? "-" : resource)
                 .status("Success")
+                .oldValue(log.getOldValue())
+                .newValue(log.getNewValue())
                 .build();
     }
 }

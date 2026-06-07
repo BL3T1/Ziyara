@@ -11,7 +11,6 @@ public enum SidebarSurface {
     FINANCE,
     SUPPORT,
     EXECUTIVE,
-    HR,
     PROVIDER,
     USER;
 
@@ -21,13 +20,7 @@ public enum SidebarSurface {
         }
         return switch (role) {
             case SUPER_ADMIN -> SUPER_ADMIN;
-            case HR_MANAGER -> HR;
-            case CEO -> EXECUTIVE;
-            case GENERAL_MANAGER -> ADMIN;
-            case SALES_MANAGER, SALES_REPRESENTATIVE -> ADMIN;
-            case FINANCE_MANAGER, ACCOUNTANT -> FINANCE;
-            case SUPPORT_MANAGER, SUPPORT_AGENT -> SUPPORT;
-            case PROVIDER_MANAGER, PROVIDER_FINANCE, PROVIDER_STAFF, TAXI_OPERATOR -> PROVIDER;
+            case STAFF -> ADMIN;
             case CUSTOMER -> USER;
         };
     }

@@ -11,6 +11,9 @@ public class PortalSupportRequest {
     private String subject;
     private String body;
     private Instant createdAt;
+    private String staffResponse;
+    private Instant respondedAt;
+    private UUID respondedByUserId;
 
     public PortalSupportRequest() {}
 
@@ -31,4 +34,13 @@ public class PortalSupportRequest {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public String getStaffResponse() { return staffResponse; }
+    public void setStaffResponse(String staffResponse) { this.staffResponse = staffResponse; }
+
+    public Instant getRespondedAt() { return respondedAt; }
+    public void setRespondedAt(Instant respondedAt) { this.respondedAt = respondedAt; }
+
+    public UUID getRespondedByUserId() { return respondedByUserId; }
+    public void setRespondedByUserId(UUID respondedByUserId) { this.respondedByUserId = respondedByUserId; }
 }

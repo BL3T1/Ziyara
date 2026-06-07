@@ -47,6 +47,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements Ord
     private final SecurityContextRepository securityContextRepository;
     private final JwtCookieProperties jwtCookieProperties;
     private final JwtTokenBlocklistService jwtTokenBlocklistService;
+    private final JwtIdleTimeoutService jwtIdleTimeoutService;
 
     @Override
     protected void doFilterInternal(
@@ -67,6 +68,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements Ord
                 String jti = jwtService.extractJti(jwt);
                 if (jti != null && jwtTokenBlocklistService.isRevoked(jti)) {
                     log.debug("JWT rejected: revoked jti");
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+                // Reject sessions that have been idle longer than the configured timeout
+                if (jti != null && !jwtIdleTimeoutService.touchAndCheck(jti)) {
+                    log.debug("JWT rejected: idle timeout");
                     filterChain.doFilter(request, response);
                     return;
                 }
@@ -128,14 +135,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements Ord
         UUID userId = UUID.fromString(userIdStr);
         String roleName = jwtService.extractRole(jwt);
         UUID providerScope = jwtService.extractProviderScopeId(jwt);
-        boolean bypass = true;
-        if (roleName != null) {
-            try {
-                bypass = UserRole.valueOf(roleName).isCompanyDirectoryUser();
-            } catch (IllegalArgumentException ex) {
-                bypass = true;
-            }
-        }
+        // Portal users have a providerScope and must NOT bypass RLS; all others (internal staff, super admin) bypass.
+        boolean bypass = (providerScope == null);
         RlsSessionContext.set(new RlsSessionAttributes(bypass, userId, providerScope));
     }
 }

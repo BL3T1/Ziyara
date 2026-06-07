@@ -1,5 +1,6 @@
 package com.ziyara.backend.application.dto;
 
+import com.ziyara.backend.domain.enums.PaymentMethod;
 import com.ziyara.backend.domain.enums.ServiceType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
@@ -65,7 +66,10 @@ public class BookingRequest {
 
     @Schema(description = "Room type ID for scoped hotel/resort discounts")
     private UUID roomTypeId;
-    
+
+    @Schema(description = "Payment method chosen by the customer", example = "CREDIT_CARD")
+    private PaymentMethod paymentMethod = PaymentMethod.CREDIT_CARD;
+
     @NotBlank(message = "Currency is required")
     @Size(min = 3, max = 3, message = "Currency must be a 3-letter code")
     @Schema(description = "Currency code", example = "USD")
@@ -80,4 +84,5 @@ public class BookingRequest {
     public String getSpecialRequests() { return specialRequests; }
     public String getIdDocumentUrl() { return idDocumentUrl; }
     public String getCurrency() { return currency; }
+    public PaymentMethod getPaymentMethod() { return paymentMethod; }
 }

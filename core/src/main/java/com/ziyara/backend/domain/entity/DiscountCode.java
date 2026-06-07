@@ -29,6 +29,10 @@ public class DiscountCode {
     private UUID createdBy;
     /** {@link com.ziyara.backend.domain.enums.DiscountSponsor} code: COMPANY, PROVIDER, BOTH */
     private String sponsor;
+    /** Explicit company-side discount when sponsor = BOTH. Null for COMPANY/PROVIDER. */
+    private BigDecimal companyValue;
+    /** Explicit provider-side discount when sponsor = BOTH. Null for COMPANY/PROVIDER. */
+    private BigDecimal providerValue;
     /** When set, code applies only to this provider's listings. */
     private UUID providerId;
     /** When non-empty, code applies only to these service (listing) IDs. */
@@ -258,6 +262,12 @@ public class DiscountCode {
     public void setApplicableRoomTypeIds(List<UUID> applicableRoomTypeIds) {
         this.applicableRoomTypeIds = applicableRoomTypeIds;
     }
+
+    public BigDecimal getCompanyValue() { return companyValue; }
+    public void setCompanyValue(BigDecimal companyValue) { this.companyValue = companyValue; }
+
+    public BigDecimal getProviderValue() { return providerValue; }
+    public void setProviderValue(BigDecimal providerValue) { this.providerValue = providerValue; }
 
     public String getApprovalStatus() { return approvalStatus; }
     public void setApprovalStatus(String approvalStatus) { this.approvalStatus = approvalStatus; }

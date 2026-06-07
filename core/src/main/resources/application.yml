@@ -20,6 +20,7 @@ spring:
     baseline-on-migrate: true   # For existing DBs without flyway_schema_history: mark V0 as applied, then run V1+
     baseline-version: 0
     validate-on-migrate: true
+    repair-on-migrate: true
     out-of-order: false
     mixed: false                # Require all migrations to be either versioned or repeatable, not both
 

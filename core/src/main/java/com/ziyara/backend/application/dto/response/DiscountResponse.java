@@ -33,6 +33,10 @@ public class DiscountResponse {
     private LocalDateTime updatedAt;
     /** COMPANY, PROVIDER, or BOTH */
     private String sponsor;
+    /** Explicit company-side amount when sponsor = BOTH */
+    private BigDecimal companyValue;
+    /** Explicit provider-side amount when sponsor = BOTH */
+    private BigDecimal providerValue;
 
     private UUID providerId;
     private List<UUID> applicableServiceIds;

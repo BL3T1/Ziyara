@@ -23,6 +23,10 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, UUID> {
     Optional<UserJpaEntity> findByEmail(String email);
 
     Optional<UserJpaEntity> findByEmailIgnoreCase(String email);
+
+    Optional<UserJpaEntity> findByUsername(String username);
+
+    boolean existsByUsername(String username);
     
     Optional<UserJpaEntity> findByPhone(String phone);
     

@@ -3,6 +3,7 @@ package com.ziyara.backend.presentation.controller;
 import com.ziyara.backend.application.dto.request.TaxiLocationUpdate;
 import com.ziyara.backend.application.dto.response.TaxiLocationBroadcast;
 import com.ziyara.backend.application.service.TaxiBookingService;
+import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -62,7 +63,7 @@ public class TaxiTrackingController {
      * Restricted to {@code SUPER_ADMIN}.
      */
     @MessageMapping("/taxi/location/{bookingId}/admin")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize(ApiAuthorizationExpressions.TAXI_WRITE)
     public void adminPushLocation(@DestinationVariable UUID bookingId,
                                   @Payload TaxiLocationUpdate update) {
         broker.convertAndSend(

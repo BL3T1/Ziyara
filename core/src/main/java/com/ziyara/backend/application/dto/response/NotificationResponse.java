@@ -47,4 +47,7 @@ public class NotificationResponse {
     
     @Schema(description = "Creation timestamp")
     private LocalDateTime createdAt;
+
+    @Schema(description = "Reference entity ID extracted from notification metadata (e.g. media submission ID)")
+    private String referenceId;
 }

@@ -74,6 +74,29 @@ public class LocalMediaStorageService implements MediaStorageService {
         return buildPublicUrl(relative);
     }
 
+    @Override
+    public String storeProviderImage(UUID providerId, byte[] data, String contentType, String originalFilename) {
+        if (data == null || data.length == 0) throw new BusinessException("Empty file");
+        if (data.length > MAX_BYTES) throw new BusinessException("File too large (max 10MB)");
+        validateOriginalFilename(originalFilename);
+        String normalizedType = normalizeContentType(contentType);
+        if (!ALLOWED_TYPES.contains(normalizedType)) throw new BusinessException("Unsupported image type (use JPEG, PNG, WebP, or GIF)");
+        String ext = extensionFor(normalizedType);
+        String fileName = UUID.randomUUID() + ext;
+        Path base = Paths.get(properties.getStorageRoot()).toAbsolutePath().normalize();
+        Path dir = resolveUnderBase(base, base.resolve("providers").resolve(providerId.toString()));
+        try {
+            Files.createDirectories(dir);
+            if (fileName.contains("/") || fileName.contains("\\") || fileName.contains(":")) throw new BusinessException("Invalid media filename");
+            Path target = resolveUnderBase(base, dir.resolve(fileName));
+            Files.write(target, data);
+        } catch (IOException e) {
+            throw new BusinessException("Failed to store file: " + e.getMessage());
+        }
+        String relative = "providers/" + providerId + "/" + fileName;
+        return buildPublicUrl(relative);
+    }
+
     private static String normalizeContentType(String contentType) {
         if (contentType == null || contentType.isBlank()) {
             return "";

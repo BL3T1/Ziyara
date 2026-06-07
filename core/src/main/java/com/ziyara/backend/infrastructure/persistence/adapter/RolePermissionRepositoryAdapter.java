@@ -28,13 +28,15 @@ public class RolePermissionRepositoryAdapter implements RolePermissionRepository
     @Transactional
     public void setPermissionsForRole(UUID roleId, List<UUID> permissionIds) {
         jpaRepository.deleteByRoleId(roleId);
+        jpaRepository.flush();
         if (permissionIds != null && !permissionIds.isEmpty()) {
-            for (UUID permissionId : permissionIds) {
-                jpaRepository.save(RolePermissionJpaEntity.builder()
-                        .roleId(roleId)
-                        .permissionId(permissionId)
-                        .build());
-            }
+            List<RolePermissionJpaEntity> rows = permissionIds.stream()
+                    .map(permId -> RolePermissionJpaEntity.builder()
+                            .roleId(roleId)
+                            .permissionId(permId)
+                            .build())
+                    .toList();
+            jpaRepository.saveAll(rows);
         }
     }
 

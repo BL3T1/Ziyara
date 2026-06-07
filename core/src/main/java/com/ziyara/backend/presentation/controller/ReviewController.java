@@ -8,6 +8,7 @@ import com.ziyara.backend.application.dto.response.ReviewResponse;
 import com.ziyara.backend.application.service.ReviewService;
 import com.ziyara.backend.domain.enums.ReviewStatus;
 import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -25,8 +26,6 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
-
-import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.COMPANY_STAFF;
 
 /**
  * Controller: ReviewController
@@ -57,7 +56,8 @@ public class ReviewController {
     }
 
     @GetMapping("/service/{serviceId}")
-    @Operation(summary = "Get service reviews", description = "Retrieve all published reviews for a service")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Get service reviews", description = "Retrieve published reviews for a service — company staff only")
     public ResponseEntity<ApiResponse<List<ReviewResponse>>> getServiceReviews(@PathVariable UUID serviceId) {
         return ResponseEntity.ok(ApiResponse.success(reviewService.getServiceReviews(serviceId)));
     }
@@ -76,7 +76,8 @@ public class ReviewController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get review", description = "Get review by ID")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Get review", description = "Get review by ID — company staff only")
     public ResponseEntity<ApiResponse<ReviewResponse>> getReview(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(reviewService.getReview(id)));
     }
@@ -106,8 +107,8 @@ public class ReviewController {
     }
 
     @PostMapping("/{id}/moderate")
-    @PreAuthorize(COMPANY_STAFF)
-    @Operation(summary = "Moderate review", description = "Set status PUBLISHED/REJECTED/HIDDEN — staff only")
+    @PreAuthorize(REVIEWS_MODERATE)
+    @Operation(summary = "Moderate review", description = "Set status PUBLISHED/REJECTED/HIDDEN — requires reviews:moderate permission")
     public ResponseEntity<ApiResponse<ReviewResponse>> moderateReview(
             @PathVariable UUID id,
             @Valid @RequestBody ModerateReviewRequest request) {
@@ -115,7 +116,7 @@ public class ReviewController {
     }
 
     @PostMapping("/{id}/respond")
-    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_MANAGER)
+    @PreAuthorize(PORTAL_MANAGER)
     @Operation(summary = "Respond to review", description = "Provider manager response to a user review")
     public ResponseEntity<ApiResponse<ReviewResponse>> respondToReview(
             @PathVariable UUID id,

@@ -32,16 +32,16 @@ public class NavigationService {
         Optional<UUID> assignedRoleId = userRoleAssignmentRepository.findNewestRoleIdForUser(userId);
         if (assignedRoleId.isPresent()) {
             Role rbacRole = roleRepository.findById(assignedRoleId.get()).orElse(null);
-            if (rbacRole != null && rbacRole.getNavigationItemIds() != null && !rbacRole.getNavigationItemIds().isEmpty()) {
+            // Non-null (including empty list) means the nav was explicitly set by an admin — respect it exactly.
+            // null means never customized — fall through to defaults below.
+            if (rbacRole != null && rbacRole.getNavigationItemIds() != null) {
                 List<String> ids = CompanySidebarCatalog.sanitizeVisibleItemIds(rbacRole.getNavigationItemIds());
-                if (!ids.isEmpty()) {
-                    return UserNavigationResponse.builder()
-                            .visibleItemIds(ids)
-                            .source("rbac_role")
-                            .rbacRoleId(rbacRole.getId())
-                            .rbacRoleCode(rbacRole.getCode())
-                            .build();
-                }
+                return UserNavigationResponse.builder()
+                        .visibleItemIds(ids)
+                        .source("rbac_role")
+                        .rbacRoleId(rbacRole.getId())
+                        .rbacRoleCode(rbacRole.getCode())
+                        .build();
             }
         }
 

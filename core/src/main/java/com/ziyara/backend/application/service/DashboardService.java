@@ -210,8 +210,8 @@ public class DashboardService {
 
     private String buildChangeSummary(String oldVal, String newVal) {
         if (oldVal == null && newVal == null) return "";
-        if (oldVal == null) return "â†’ " + newVal;
-        if (newVal == null) return oldVal + " â†’ ";
-        return oldVal + " â†’ " + newVal;
+        if (oldVal == null) return "→ " + newVal;
+        if (newVal == null) return oldVal + " → ";
+        return oldVal + " → " + newVal;
     }
 }

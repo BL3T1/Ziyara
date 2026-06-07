@@ -33,8 +33,9 @@ public class GroupMembersQueryHandler {
     private static final String USER_ROLES = "sys_user_roles";
 
     private static final Field<UUID> F_ID = DSL.field(DSL.name(USERS, "id"), UUID.class);
-    private static final Field<String> F_EMAIL = DSL.field(DSL.name(USERS, "email"), String.class);
-    private static final Field<String> F_PHONE = DSL.field(DSL.name(USERS, "phone"), String.class);
+    private static final Field<String> F_EMAIL    = DSL.field(DSL.name(USERS, "email"),    String.class);
+    private static final Field<String> F_USERNAME = DSL.field(DSL.name(USERS, "username"), String.class);
+    private static final Field<String> F_PHONE    = DSL.field(DSL.name(USERS, "phone"),    String.class);
     private static final Field<String> F_ROLE = DSL.field(DSL.name(USERS, "role"), String.class);
     private static final Field<String> F_STATUS = DSL.field(DSL.name(USERS, "status"), String.class);
     private static final Field<Boolean> F_EMAIL_VERIFIED = DSL.field(DSL.name(USERS, "email_verified"), Boolean.class);
@@ -98,6 +99,7 @@ public class GroupMembersQueryHandler {
         return UserResponse.builder()
                 .id(r.get(F_ID))
                 .email(r.get(F_EMAIL))
+                .username(safeGet(r, F_USERNAME))
                 .phone(r.get(F_PHONE))
                 .role(parseRole(r.get(F_ROLE)))
                 .status(parseStatus(r.get(F_STATUS)))
@@ -106,6 +108,10 @@ public class GroupMembersQueryHandler {
                 .lastLoginAt(r.get(F_LAST_LOGIN_AT))
                 .createdAt(r.get(F_CREATED_AT))
                 .build();
+    }
+
+    private static <T> T safeGet(Record r, Field<T> field) {
+        try { return r.get(field); } catch (Exception e) { return null; }
     }
 
     private static UserRole parseRole(Object v) {

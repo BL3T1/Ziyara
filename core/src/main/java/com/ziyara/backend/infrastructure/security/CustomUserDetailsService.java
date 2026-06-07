@@ -1,8 +1,6 @@
 package com.ziyara.backend.infrastructure.security;
 
 import com.ziyara.backend.domain.entity.User;
-import com.ziyara.backend.domain.enums.UserRole;
-import com.ziyara.backend.domain.repository.ProviderStaffRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.domain.repository.UserRoleAssignmentRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +16,11 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Custom UserDetailsService Implementation
- * Loads user details for Spring Security
+ * Loads Spring Security authorities for a user.
+ *
+ * SUPER_ADMIN → ROLE_SUPER_ADMIN + every permission from the SUPER_ADMIN system role.
+ * STAFF       → ROLE_STAFF + permissions from the user's assigned role (sys_user_roles → sys_role_permissions).
+ * CUSTOMER    → ROLE_CUSTOMER only; no company permissions.
  */
 @Service
 @RequiredArgsConstructor
@@ -27,7 +28,6 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
     private final UserRoleAssignmentRepository userRoleAssignmentRepository;
-    private final ProviderStaffRepository providerStaffRepository;
 
     @Override
     public UserDetails loadUserByUsername(String userId) throws UsernameNotFoundException {
@@ -38,16 +38,18 @@ public class CustomUserDetailsService implements UserDetailsService {
         List<GrantedAuthority> authorities = new ArrayList<>();
         authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
 
-        for (String code : userRoleAssignmentRepository.findPermissionCodesByUserId(id)) {
-            authorities.add(new SimpleGrantedAuthority(code));
-        }
-
-        if (isProviderPortalRole(user.getRole())) {
-            providerStaffRepository.findByUserId(id).ifPresent(ps -> {
-                if (ps.getProviderRole() != null) {
-                    authorities.add(new SimpleGrantedAuthority("PROVIDER_ROLE_" + ps.getProviderRole().name()));
+        switch (user.getRole()) {
+            case SUPER_ADMIN -> {
+                for (String code : userRoleAssignmentRepository.findPermissionCodesBySystemRoleCode("SUPER_ADMIN")) {
+                    authorities.add(new SimpleGrantedAuthority(code));
                 }
-            });
+            }
+            case STAFF -> {
+                for (String code : userRoleAssignmentRepository.findPermissionCodesByUserId(id)) {
+                    authorities.add(new SimpleGrantedAuthority(code));
+                }
+            }
+            case CUSTOMER -> { /* no company permissions */ }
         }
 
         return new UserPrincipal(
@@ -58,12 +60,5 @@ public class CustomUserDetailsService implements UserDetailsService {
                 !user.isLocked(),
                 authorities
         );
-    }
-
-    private static boolean isProviderPortalRole(UserRole role) {
-        return role == UserRole.PROVIDER_MANAGER
-                || role == UserRole.PROVIDER_FINANCE
-                || role == UserRole.PROVIDER_STAFF
-                || role == UserRole.TAXI_OPERATOR;
     }
 }

@@ -9,6 +9,7 @@ import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
+import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
 import com.ziyara.backend.domain.repository.ProviderStaffRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
@@ -74,8 +75,8 @@ public class PortalStaffService {
         }
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        if (!isProviderPortalRole(user.getRole())) {
-            throw new BusinessException("User must have a provider portal role");
+        if (user.getRole() != UserRole.STAFF) {
+            throw new BusinessException("Only staff users can be added to a provider team");
         }
         serviceProviderRepository.findByUserId(request.getUserId()).ifPresent(other -> {
             if (!other.getId().equals(providerId)) {
@@ -103,25 +104,19 @@ public class PortalStaffService {
     }
 
     @Transactional
-    public PortalStaffMemberResponse createStaffUser(UUID providerId, UUID actorUserId, UserRole actorRole,
+    public PortalStaffMemberResponse createStaffUser(UUID providerId, UUID actorUserId,
                                                       CreatePortalStaffUserRequest request) {
         ServiceProvider provider = serviceProviderRepository.findById(providerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
-        if (actorRole != UserRole.PROVIDER_MANAGER) {
-            throw new BusinessException("Only provider managers can create provider staff users");
+        if (!SecurityRoleUtils.hasPortalManage()) {
+            throw new BusinessException("Only users with portal management permission can create portal staff users");
         }
         UUID ownerId = provider.getUserId();
         boolean linkedMember = providerStaffRepository.findByProviderIdAndUserId(providerId, actorUserId).isPresent();
         if (!actorUserId.equals(ownerId) && !linkedMember) {
             throw new BusinessException("You are not linked to this provider organization");
         }
-        UserRole requestedRole = request.getRole();
-        if (!isProviderPortalRole(requestedRole)) {
-            throw new BusinessException("Role must be a provider portal role");
-        }
 
-        // Seat-limit enforcement: reject if the provider's subscription does not
-        // allow an additional user. Throws BusinessException with upgrade guidance.
         subscriptionService.assertCanAddUser(providerId);
 
         String email = request.getEmail().trim().toLowerCase();
@@ -137,10 +132,10 @@ public class PortalStaffService {
         user.setEmail(email);
         user.setPhone(trimToNull(request.getPhone()));
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setRole(requestedRole);
+        user.setRole(UserRole.STAFF);
         user.setStatus(UserStatus.ACTIVE);
         user = userRepository.save(user);
-        userRbacAssignmentService.autoAssignPrimaryRoleByUserRole(user.getId(), user.getRole());
+        userRbacAssignmentService.assignPrimaryRoleByRoleId(user.getId(), request.getRoleId());
         ProviderStaff staff = new ProviderStaff();
         staff.setProviderId(providerId);
         staff.setUserId(user.getId());
@@ -164,6 +159,22 @@ public class PortalStaffService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return mapUser(user, false, link.getId(), link.getTitle(), link.getCreatedAt());
+    }
+
+    @Transactional
+    public void resetStaffPassword(UUID providerId, UUID targetUserId, String newPassword) {
+        ServiceProvider provider = serviceProviderRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
+        UUID ownerId = provider.getUserId();
+        if (ownerId != null && ownerId.equals(targetUserId)) {
+            throw new BusinessException("Cannot reset the portal owner password through this endpoint");
+        }
+        providerStaffRepository.findByProviderIdAndUserId(providerId, targetUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff member not found for this provider"));
+        User user = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 
     @Transactional
@@ -191,13 +202,6 @@ public class PortalStaffService {
                 .owner(owner)
                 .createdAt(createdAt)
                 .build();
-    }
-
-    private static boolean isProviderPortalRole(UserRole role) {
-        return role == UserRole.PROVIDER_MANAGER
-                || role == UserRole.PROVIDER_FINANCE
-                || role == UserRole.PROVIDER_STAFF
-                || role == UserRole.TAXI_OPERATOR;
     }
 
     private static String trimToNull(String s) {

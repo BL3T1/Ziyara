@@ -12,8 +12,7 @@ import lombok.Data;
 @Schema(description = "Change password request (current user)")
 public class ChangePasswordRequest {
 
-    @NotBlank
-    @Schema(description = "Current password", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Current password — required unless the account has mustChangePassword=true", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     private String currentPassword;
 
     @NotBlank

@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
-class RateLimitAspectTest {
+class Bucket4jRateLimitAspectTest {
 
     @RateLimit(key = "test:endpoint", maxPerMinute = 3)
     private void annotated3() {}
@@ -20,7 +20,7 @@ class RateLimitAspectTest {
 
     @Test
     void allowsRequestsUpToLimit() throws Throwable {
-        RateLimitAspect aspect = new RateLimitAspect();
+        Bucket4jRateLimitAspect aspect = new Bucket4jRateLimitAspect();
         ProceedingJoinPoint pjp = mockPjp();
         RateLimit limit = rateLimit("annotated3");
 
@@ -35,7 +35,7 @@ class RateLimitAspectTest {
 
     @Test
     void throwsRateLimitedAfterExceedingLimit() throws Throwable {
-        RateLimitAspect aspect = new RateLimitAspect();
+        Bucket4jRateLimitAspect aspect = new Bucket4jRateLimitAspect();
         ProceedingJoinPoint pjp = mockPjp();
         RateLimit limit = rateLimit("annotated3");
 
@@ -50,7 +50,7 @@ class RateLimitAspectTest {
 
     @Test
     void firstRequestAlwaysPasses() throws Throwable {
-        RateLimitAspect aspect = new RateLimitAspect();
+        Bucket4jRateLimitAspect aspect = new Bucket4jRateLimitAspect();
         ProceedingJoinPoint pjp = mockPjp();
         RateLimit limit = rateLimit("annotated1");
 
@@ -60,7 +60,7 @@ class RateLimitAspectTest {
 
     @Test
     void secondRequestExceedsLimitOfOne() throws Throwable {
-        RateLimitAspect aspect = new RateLimitAspect();
+        Bucket4jRateLimitAspect aspect = new Bucket4jRateLimitAspect();
         ProceedingJoinPoint pjp = mockPjp();
         RateLimit limit = rateLimit("annotated1");
 

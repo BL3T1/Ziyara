@@ -1,6 +1,7 @@
 package com.ziyara.backend.infrastructure.persistence.mapper;
 
 import com.ziyara.backend.domain.entity.Booking;
+import com.ziyara.backend.domain.enums.PaymentMethod;
 import com.ziyara.backend.infrastructure.persistence.entity.BookingJpaEntity;
 import org.springframework.stereotype.Component;
 
@@ -54,7 +55,9 @@ public class BookingMapper {
         booking.setDiscountContextMenuItemIds(fromStringList(entity.getDiscountContextMenuItemIds()));
         booking.setDiscountContextMenuSectionIds(fromStringList(entity.getDiscountContextMenuSectionIds()));
         booking.setDiscountContextRoomTypeId(entity.getDiscountContextRoomTypeId());
-        
+        booking.setPaymentMethod(entity.getPaymentMethod());
+        booking.setPaymentStatus(entity.getPaymentStatus());
+
         return booking;
     }
     
@@ -97,6 +100,8 @@ public class BookingMapper {
                 .discountContextMenuItemIds(toStringList(booking.getDiscountContextMenuItemIds()))
                 .discountContextMenuSectionIds(toStringList(booking.getDiscountContextMenuSectionIds()))
                 .discountContextRoomTypeId(booking.getDiscountContextRoomTypeId())
+                .paymentMethod(booking.getPaymentMethod())
+                .paymentStatus(booking.getPaymentStatus())
                 .build();
     }
 

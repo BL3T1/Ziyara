@@ -2,6 +2,7 @@ package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.service.AdminActivityLogService;
+import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -21,7 +22,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/admin/permissions")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('SUPER_ADMIN')")
 @Tag(name = "Admin Permissions", description = "Permission matrix management")
 @SecurityRequirement(name = "bearerAuth")
 public class AdminPermissionsController {
@@ -33,6 +33,7 @@ public class AdminPermissionsController {
     private final AdminActivityLogService activityLogService;
 
     @GetMapping("/matrix")
+    @PreAuthorize(ApiAuthorizationExpressions.ROLES_READ)
     @Operation(summary = "Get full permission matrix", description = "Returns all role × module × action entries")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getMatrix() {
         var rows = dsl.select()
@@ -47,6 +48,7 @@ public class AdminPermissionsController {
     }
 
     @PostMapping("/matrix")
+    @PreAuthorize(ApiAuthorizationExpressions.ROLES_WRITE)
     @Operation(summary = "Upsert permission entry", description = "Insert or update a single role × module × action permission")
     public ResponseEntity<ApiResponse<String>> upsertPermission(
             @RequestBody Map<String, Object> body,
@@ -88,6 +90,7 @@ public class AdminPermissionsController {
     }
 
     @PutMapping("/roles/{roleId}")
+    @PreAuthorize(ApiAuthorizationExpressions.ROLES_WRITE)
     @Operation(summary = "Bulk update role permissions", description = "Replace all permissions for a role with the provided list")
     public ResponseEntity<ApiResponse<String>> updateRolePermissions(
             @PathVariable UUID roleId,

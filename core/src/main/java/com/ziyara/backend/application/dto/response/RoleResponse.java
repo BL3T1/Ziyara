@@ -26,4 +26,6 @@ public class RoleResponse {
     @Schema(description = "Number of users assigned") private long userCount;
     @Schema(description = "Custom sidebar item ids (custom roles); null = use default user-role layout")
     private List<String> navigationItemIds;
+    @Schema(description = "Maximum discount percentage this role may approve (0–100)")
+    private short maxDiscountPct;
 }

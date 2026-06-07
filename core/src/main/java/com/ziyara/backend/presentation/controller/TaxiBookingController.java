@@ -4,7 +4,7 @@ import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.response.TaxiBookingResponse;
 import com.ziyara.backend.application.service.TaxiBookingService;
 import com.ziyara.backend.domain.enums.TaxiStatus;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -58,7 +58,7 @@ public class TaxiBookingController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+    @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Get taxi booking by ID", description = "Ops detail for a taxi trip row")
     public ResponseEntity<ApiResponse<TaxiBookingResponse>> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(taxiBookingService.getTaxiBooking(id)));

@@ -11,7 +11,7 @@ import com.ziyara.backend.application.dto.response.ServiceHealthResponse;
 import com.ziyara.backend.application.query.DashboardQueryHandler;
 import com.ziyara.backend.application.service.DashboardBootstrapService;
 import com.ziyara.backend.application.service.DashboardService;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,7 +31,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/dashboard")
 @RequiredArgsConstructor
-@PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+@PreAuthorize(COMPANY_STAFF)
 @Tag(name = "Dashboard", description = "Dashboard KPIs and activity feed")
 @SecurityRequirement(name = "bearerAuth")
 public class DashboardController {

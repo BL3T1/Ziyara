@@ -48,6 +48,12 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
         return paymentJpaRepository.findByBookingId(bookingId)
                 .map(paymentMapper::toDomainEntity);
     }
+
+    @Override
+    public List<Payment> findAllByBookingId(UUID bookingId) {
+        return paymentJpaRepository.findAllByBookingIdOrderByCreatedAtAsc(bookingId)
+                .stream().map(paymentMapper::toDomainEntity).toList();
+    }
     
     @Override
     public Optional<Payment> findByTransactionReference(String reference) {
@@ -110,6 +116,12 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
     public BigDecimal sumCompletedAmountByBookingIds(List<UUID> bookingIds) {
         if (bookingIds == null || bookingIds.isEmpty()) return BigDecimal.ZERO;
         BigDecimal result = paymentJpaRepository.sumCompletedAmountByBookingIds(PaymentStatus.COMPLETED, bookingIds);
+        return result != null ? result : BigDecimal.ZERO;
+    }
+
+    @Override
+    public BigDecimal sumByStatus(PaymentStatus status) {
+        BigDecimal result = paymentJpaRepository.sumByStatus(status);
         return result != null ? result : BigDecimal.ZERO;
     }
 

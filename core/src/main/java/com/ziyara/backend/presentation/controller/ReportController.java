@@ -16,6 +16,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,7 +31,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/reports")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'FINANCE_MANAGER', 'GENERAL_MANAGER', 'CEO')")
+@PreAuthorize(REPORTS_READ)
 @Tag(name = "Reports", description = "Revenue and booking reports")
 @SecurityRequirement(name = "bearerAuth")
 public class ReportController {
@@ -97,6 +98,10 @@ public class ReportController {
                 data = reportExportService.exportBookingsToPdf(report);
                 filename = "bookings-report.pdf";
                 contentType = "application/pdf";
+            } else if ("csv".equals(fmt)) {
+                data = reportExportService.exportBookingsToCsv(report);
+                filename = "bookings-report.csv";
+                contentType = "text/csv; charset=UTF-8";
             } else {
                 data = reportExportService.exportBookingsToExcel(report);
                 filename = "bookings-report.xlsx";
@@ -108,6 +113,10 @@ public class ReportController {
                 data = reportExportService.exportRevenueToPdf(report);
                 filename = "revenue-report.pdf";
                 contentType = "application/pdf";
+            } else if ("csv".equals(fmt)) {
+                data = reportExportService.exportRevenueToCsv(report);
+                filename = "revenue-report.csv";
+                contentType = "text/csv; charset=UTF-8";
             } else {
                 data = reportExportService.exportRevenueToExcel(report);
                 filename = "revenue-report.xlsx";

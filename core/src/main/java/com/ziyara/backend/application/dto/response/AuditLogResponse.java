@@ -44,4 +44,13 @@ public class AuditLogResponse {
 
     @Schema(description = "Status for display (e.g. Success, Failed)")
     private String status;
+
+    @Schema(description = "Entity type (e.g. ServiceProvider, User, Role)")
+    private String entityType;
+
+    @Schema(description = "State before the change")
+    private String oldValue;
+
+    @Schema(description = "State after the change")
+    private String newValue;
 }

@@ -59,8 +59,8 @@ public class ServiceProviderResponse {
     @Schema(description = "Verification status")
     private Boolean verified;
     
-    @Schema(description = "Commission rate override (e.g. 10 = 10%). Null = platform default 10%")
-    private BigDecimal commissionRate;
+    @Schema(description = "Profit margin (e.g. 10 = 10%). Null = platform default 10%")
+    private BigDecimal profitMargin;
     
     @Schema(description = "Creation timestamp")
     private LocalDateTime createdAt;
@@ -70,4 +70,13 @@ public class ServiceProviderResponse {
 
     @Schema(description = "When the provider was approved")
     private LocalDateTime approvedAt;
+
+    @Schema(description = "Subscription plan: FREE or PRO")
+    private String subscriptionPlan;
+
+    @Schema(description = "Maximum staff accounts allowed by subscription")
+    private Integer staffLimit;
+
+    @Schema(description = "Official classification (e.g. 3.0 = 3-star hotel). 0 = unset")
+    private BigDecimal globalRate;
 }

@@ -2,7 +2,7 @@ package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.response.AuditLogResponse;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import com.ziyara.backend.modules.sys.api.AuditServiceApi;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,7 +27,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/audit-logs")
 @RequiredArgsConstructor
-@PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+@PreAuthorize(COMPANY_STAFF)
 @Tag(name = "Audit Logs", description = "System activity and audit trail APIs")
 @SecurityRequirement(name = "bearerAuth")
 public class AuditLogController {

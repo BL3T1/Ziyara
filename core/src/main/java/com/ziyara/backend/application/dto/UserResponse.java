@@ -64,6 +64,9 @@ public class UserResponse {
     @Schema(description = "Marketing email opt-in (denormalized; see consents API for history)")
     private Boolean marketingOptIn;
 
+    @Schema(description = "Login username")
+    private String username;
+
     @Schema(description = "Last login time")
     private LocalDateTime lastLoginAt;
     

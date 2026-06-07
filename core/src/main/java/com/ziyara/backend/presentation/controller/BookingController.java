@@ -10,6 +10,7 @@ import com.ziyara.backend.application.dto.response.VoucherResponse;
 import com.ziyara.backend.domain.enums.BookingStatus;
 import com.ziyara.backend.domain.enums.ServiceType;
 import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import com.ziyara.backend.modules.booking.api.BookingServiceApi;
 import io.swagger.v3.oas.annotations.Operation;
@@ -74,7 +75,7 @@ public class BookingController {
     }
 
     @GetMapping("/admin")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'GENERAL_MANAGER', 'SALES_MANAGER', 'FINANCE_MANAGER', 'SUPPORT_MANAGER')")
+    @PreAuthorize(BOOKINGS_READ)
     @Operation(summary = "List all bookings (admin, paged)",
                description = "Company dashboard: all bookings with optional filters")
     public ResponseEntity<ApiResponse<Page<BookingResponse>>> listAllBookings(
@@ -157,7 +158,7 @@ public class BookingController {
     }
 
     @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'GENERAL_MANAGER', 'SALES_MANAGER', 'SUPPORT_MANAGER')")
+    @PreAuthorize(BOOKINGS_WRITE)
     @Operation(summary = "Reject booking", description = "Admin: reject a pending booking with a reason")
     public ResponseEntity<ApiResponse<BookingResponse>> rejectBooking(
             @PathVariable UUID id,

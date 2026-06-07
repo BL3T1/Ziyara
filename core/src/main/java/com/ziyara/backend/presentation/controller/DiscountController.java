@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.data.domain.Page;
@@ -41,7 +41,7 @@ public class DiscountController {
     private final DiscountQueryHandler discountQueryHandler;
 
     @GetMapping
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+    @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "List discounts", description = "Paginated list with optional status filter")
     public ResponseEntity<ApiResponse<Page<DiscountResponse>>> list(
             @RequestParam(defaultValue = "0") int page,
@@ -51,7 +51,7 @@ public class DiscountController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+    @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Get discount", description = "Get discount by ID")
     public ResponseEntity<ApiResponse<DiscountResponse>> getById(@PathVariable UUID id) {
         return discountQueryHandler.findById(id)
@@ -60,7 +60,7 @@ public class DiscountController {
     }
 
     @PostMapping
-    @PreAuthorize(ApiAuthorizationExpressions.DISCOUNT_CREATE)
+    @PreAuthorize(DISCOUNT_CREATE)
     @Operation(
             summary = "Create discount",
             description = "Create a discount. Managers and sales submit as PENDING_APPROVAL until Super Admin or CEO approves; Super Admin and CEO may create as ACTIVE.")
@@ -70,7 +70,7 @@ public class DiscountController {
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+    @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Update discount", description = "Update discount code")
     public ResponseEntity<ApiResponse<DiscountResponse>> update(
             @PathVariable UUID id,
@@ -79,7 +79,7 @@ public class DiscountController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+    @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Delete discount", description = "Delete discount code")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         discountService.deleteById(id);
@@ -87,14 +87,14 @@ public class DiscountController {
     }
 
     @PostMapping("/{id}/approve")
-    @PreAuthorize(ApiAuthorizationExpressions.DISCOUNT_APPROVE)
+    @PreAuthorize(DISCOUNT_APPROVE)
     @Operation(summary = "Approve discount", description = "Super Admin or CEO only: activate a pending discount")
     public ResponseEntity<ApiResponse<DiscountResponse>> approve(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(discountService.approve(id)));
     }
 
     @PostMapping("/{id}/deactivate")
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+    @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Deactivate discount", description = "Set discount status to INACTIVE")
     public ResponseEntity<ApiResponse<DiscountResponse>> deactivate(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(discountService.deactivate(id)));

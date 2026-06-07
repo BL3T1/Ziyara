@@ -52,6 +52,15 @@ public class AuthEmailNotificationService {
         send(toEmail.trim(), "Your Ziyara verification code", body);
     }
 
+    public void sendTempPasswordReset(String toEmail, String tempPassword) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        String body = "Your Ziyara partner portal password has been reset by an administrator.\n\n"
+                + "Temporary password: " + tempPassword + "\n\n"
+                + "You will be required to set a new password on your next login.\n"
+                + "If you did not request this change, please contact support immediately.";
+        send(toEmail.trim(), "Your Ziyara portal password has been reset", body);
+    }
+
     public void sendPasswordReset(String toEmail, String token) {
         if (toEmail == null || toEmail.isBlank() || token == null || token.isBlank()) {
             return;

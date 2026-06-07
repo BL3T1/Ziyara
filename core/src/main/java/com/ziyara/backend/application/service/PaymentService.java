@@ -3,6 +3,7 @@ package com.ziyara.backend.application.service;
 import com.ziyara.backend.application.dto.request.CreatePaymentRequest;
 import com.ziyara.backend.application.dto.request.RefundRequest;
 import com.ziyara.backend.application.dto.response.PaymentResponse;
+import com.ziyara.backend.application.dto.response.PaymentSummaryResponse;
 import com.ziyara.backend.application.dto.response.RefundResponse;
 import com.ziyara.backend.domain.entity.Payment;
 import com.ziyara.backend.domain.entity.Refund;
@@ -33,6 +34,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -168,7 +170,7 @@ public class PaymentService implements PaymentServiceApi {
                             .notificationType(NotificationType.PAYMENT_FAILED.name())
                             .title("Payment failed")
                             .message("Payment " + saved.getId() + " failed: " + (errorMessage != null ? errorMessage : ""))
-                            .notifyRoles(List.of("FINANCE_MANAGER", "ACCOUNTANT", "SUPPORT_MANAGER"))
+                            .notifyRoles(List.of("FINANCE_MANAGER", "ACCOUNTANT", "SUPPORT_MANAGER", "SUPPORT_AGENT"))
                             .metadata("{\"paymentId\":\"" + saved.getId() + "\"}")
                             .build());
                     return mapToResponse(saved);
@@ -187,7 +189,7 @@ public class PaymentService implements PaymentServiceApi {
                 .notificationType(NotificationType.PAYMENT_FAILED.name())
                 .title("Payment failed")
                 .message("Payment " + saved.getId() + " failed: " + (errorMessage != null ? errorMessage : ""))
-                .notifyRoles(List.of("FINANCE_MANAGER", "ACCOUNTANT", "SUPPORT_MANAGER"))
+                .notifyRoles(List.of("FINANCE_MANAGER", "ACCOUNTANT", "SUPPORT_MANAGER", "SUPPORT_AGENT"))
                 .metadata("{\"paymentId\":\"" + saved.getId() + "\"}")
                 .build());
         return mapToResponse(saved);
@@ -279,6 +281,20 @@ public class PaymentService implements PaymentServiceApi {
                 .errorMessage(payment.getErrorMessage())
                 .processedAt(payment.getProcessedAt())
                 .createdAt(payment.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentSummaryResponse getPaymentSummary() {
+        BigDecimal collected = paymentRepository.sumByStatus(PaymentStatus.COMPLETED);
+        BigDecimal pending   = paymentRepository.sumByStatus(PaymentStatus.PENDING);
+        BigDecimal refunded  = paymentRepository.sumByStatus(PaymentStatus.REFUNDED);
+        return PaymentSummaryResponse.builder()
+                .totalCollected(collected != null ? collected : BigDecimal.ZERO)
+                .totalPending(pending   != null ? pending   : BigDecimal.ZERO)
+                .totalRefunded(refunded != null ? refunded  : BigDecimal.ZERO)
+                .currency("USD")
                 .build();
     }
 }

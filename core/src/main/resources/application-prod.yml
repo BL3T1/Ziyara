@@ -21,7 +21,12 @@ ziyara:
     min-zxcvbn-score: ${ZIYARA_PASSWORD_MIN_ZXCVBN_SCORE:3}
   security:
     headers:
+      # HSTS: instructs browsers to remember HTTPS-only for 1 year
       hsts-enabled: true
+      # Redirect plain HTTP → HTTPS at the application layer.
+      # Set to false when HTTPS is terminated upstream (nginx/Traefik) — the proxy
+      # already enforces the redirect and sets X-Forwarded-Proto: https.
+      https-enforce: ${ZIYARA_HTTPS_ENFORCE:false}
   # P2-A: RLS must be enabled in production for multi-tenant data isolation
   rls:
     enabled: ${ZIYARA_RLS_ENABLED:true}
@@ -33,9 +38,16 @@ ziyara:
     enabled: ${ZIYARA_DATA_RETENTION_ENABLED:true}
 
 jwt:
+  # Access token: 30-minute lifetime — short window limits damage from token theft
+  expiration: ${JWT_EXPIRATION:1800000}
+  # Refresh token: 8 hours — forces daily re-authentication
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:28800000}
   cookie:
+    # Secure: cookie only sent over HTTPS
     secure: true
+    # Strict: cookie not sent on any cross-site navigation (CSRF protection)
     same-site: Strict
+    # Token omitted from response body — browser reads only the HttpOnly cookie
     also-return-token-in-body: false
 
 management:

@@ -43,4 +43,10 @@ public class AuthResponse {
     
     @Schema(description = "User full name")
     private String fullName;
+
+    @Schema(description = "True when the user must change their password before continuing")
+    private boolean mustChangePassword;
+
+    @Schema(description = "True when the user has portal:access (provider partner surface)")
+    private boolean hasPortalAccess;
 }

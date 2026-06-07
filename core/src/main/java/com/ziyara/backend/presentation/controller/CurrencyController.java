@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -39,7 +40,7 @@ public class CurrencyController {
 
     @PostMapping("/rates")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','GENERAL_MANAGER','FINANCE_MANAGER','ACCOUNTANT')")
+    @PreAuthorize(CURRENCY_WRITE)
     @Operation(summary = "Create rate", description = "Create exchange rate (Phase 3)")
     public ResponseEntity<ApiResponse<ExchangeRateResponse>> createRate(
             @Valid @RequestBody CreateExchangeRateRequest request) {
@@ -49,7 +50,7 @@ public class CurrencyController {
 
     @PatchMapping("/rates/{id}")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','GENERAL_MANAGER','FINANCE_MANAGER','ACCOUNTANT')")
+    @PreAuthorize(CURRENCY_WRITE)
     @Operation(summary = "Update rate", description = "Update exchange rate (Phase 3)")
     public ResponseEntity<ApiResponse<ExchangeRateResponse>> updateRate(
             @PathVariable UUID id,
@@ -59,7 +60,7 @@ public class CurrencyController {
 
     @GetMapping("/rates/{id}")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','GENERAL_MANAGER','FINANCE_MANAGER','ACCOUNTANT')")
+    @PreAuthorize(CURRENCY_READ)
     @Operation(summary = "Get rate by ID", description = "Single exchange rate row")
     public ResponseEntity<ApiResponse<ExchangeRateResponse>> getRate(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(currencyService.getRate(id)));
@@ -67,7 +68,7 @@ public class CurrencyController {
 
     @DeleteMapping("/rates/{id}")
     @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','GENERAL_MANAGER','FINANCE_MANAGER','ACCOUNTANT')")
+    @PreAuthorize(CURRENCY_WRITE)
     @Operation(summary = "Delete rate", description = "Remove an exchange rate row")
     public ResponseEntity<ApiResponse<Void>> deleteRate(@PathVariable UUID id) {
         currencyService.deleteRate(id);

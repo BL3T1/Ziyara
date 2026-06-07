@@ -5,9 +5,10 @@ import com.ziyara.backend.application.dto.request.ConfirmPaymentRequest;
 import com.ziyara.backend.application.dto.request.CreatePaymentRequest;
 import com.ziyara.backend.application.dto.request.RefundRequest;
 import com.ziyara.backend.application.dto.response.PaymentResponse;
+import com.ziyara.backend.application.dto.response.PaymentSummaryResponse;
 import com.ziyara.backend.application.dto.response.RefundResponse;
 import com.ziyara.backend.domain.enums.PaymentStatus;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import com.ziyara.backend.modules.payment.api.PaymentServiceApi;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -60,7 +61,7 @@ public class PaymentController {
     }
     
     @PostMapping("/{id}/complete")
-    @PreAuthorize(ApiAuthorizationExpressions.PAYMENTS_WRITE)
+    @PreAuthorize(PAYMENTS_WRITE)
     @Operation(summary = "Complete payment", description = "Confirm a successful payment via gateway callback (query params)")
     public ResponseEntity<ApiResponse<PaymentResponse>> completePayment(
             @PathVariable UUID id,
@@ -88,7 +89,7 @@ public class PaymentController {
     }
     
     @PostMapping("/{id}/fail")
-    @PreAuthorize(ApiAuthorizationExpressions.PAYMENTS_WRITE)
+    @PreAuthorize(PAYMENTS_WRITE)
     @Operation(summary = "Fail payment", description = "Record a failed payment attempt")
     public ResponseEntity<ApiResponse<PaymentResponse>> failPayment(
             @PathVariable UUID id,
@@ -99,7 +100,7 @@ public class PaymentController {
     }
 
     @PostMapping("/{id}/refund")
-    @PreAuthorize(ApiAuthorizationExpressions.PAYMENTS_REFUND)
+    @PreAuthorize(PAYMENTS_REFUND)
     @Operation(summary = "Refund payment", description = "Create a refund for a completed payment. Reason is mandatory for audit.")
     public ResponseEntity<ApiResponse<RefundResponse>> refund(
             @PathVariable UUID id,
@@ -120,8 +121,15 @@ public class PaymentController {
         return null;
     }
 
+    @GetMapping("/summary")
+    @PreAuthorize(PAYMENTS_READ)
+    @Operation(summary = "Payment totals", description = "Platform-wide aggregate: total collected, pending, and refunded — uses full table, not a single page")
+    public ResponseEntity<ApiResponse<PaymentSummaryResponse>> getPaymentSummary() {
+        return ResponseEntity.ok(ApiResponse.success(paymentService.getPaymentSummary()));
+    }
+
     @GetMapping
-    @PreAuthorize(ApiAuthorizationExpressions.PAYMENTS_READ)
+    @PreAuthorize(PAYMENTS_READ)
     @Operation(summary = "List payments (paged)", description = "Transaction ledger for dashboard (Financials); optional status filter")
     public ResponseEntity<ApiResponse<Page<PaymentResponse>>> listPayments(
             @RequestParam(defaultValue = "0") int page,
@@ -132,14 +140,14 @@ public class PaymentController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(ApiAuthorizationExpressions.PAYMENTS_READ)
+    @PreAuthorize(PAYMENTS_READ)
     @Operation(summary = "Get payment", description = "Get payment details by ID — finance staff only")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPayment(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(paymentService.getPayment(id)));
     }
 
     @GetMapping("/transaction/{ref}")
-    @PreAuthorize(ApiAuthorizationExpressions.PAYMENTS_READ)
+    @PreAuthorize(PAYMENTS_READ)
     @Operation(summary = "Get by transaction ref", description = "Get payment by gateway transaction reference — finance staff only")
     public ResponseEntity<ApiResponse<PaymentResponse>> getByTransactionRef(@PathVariable String ref) {
         return ResponseEntity.ok(ApiResponse.success(paymentService.getByTransactionRef(ref)));

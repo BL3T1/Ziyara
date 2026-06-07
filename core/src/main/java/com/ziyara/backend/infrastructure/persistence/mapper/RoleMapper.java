@@ -24,6 +24,7 @@ public class RoleMapper {
         r.setCreatedAt(entity.getCreatedAt());
         r.setUpdatedAt(entity.getUpdatedAt());
         r.setNavigationItemIds(entity.getNavigationItemIds());
+        r.setMaxDiscountPct(entity.getMaxDiscountPct());
         return r;
     }
 
@@ -43,6 +44,7 @@ public class RoleMapper {
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())
                 .navigationItemIds(domain.getNavigationItemIds())
+                .maxDiscountPct(domain.getMaxDiscountPct())
                 .build();
     }
 }

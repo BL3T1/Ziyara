@@ -80,6 +80,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/content-pages", "/content-pages/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/public/**").permitAll()
                 .requestMatchers("/auth/**", "/actuator/health", "/actuator/health/**", "/actuator/info",
+                        "/actuator/prometheus",
                         "/pay/webhooks", "/swagger-ui/**", "/swagger-ui.html",
                         "/api-docs/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/actuator/**").authenticated()

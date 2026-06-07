@@ -8,6 +8,7 @@ import com.ziyara.backend.infrastructure.config.WebMvcSecuritySliceConfiguration
 import com.ziyara.backend.infrastructure.config.SecurityConfig;
 import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
+import com.ziyara.backend.infrastructure.security.JwtIdleTimeoutService;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import com.ziyara.backend.modules.sys.api.RoleServiceApi;
 import org.junit.jupiter.api.Test;
@@ -69,9 +70,10 @@ class RoleManagementControllerWebMvcTest {
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
                                                          SecurityContextRepository securityContextRepository,
                                                          JwtCookieProperties jwtCookieProperties,
-                                                         JwtTokenBlocklistService jwtTokenBlocklistService) {
+                                                         JwtTokenBlocklistService jwtTokenBlocklistService,
+                                                         JwtIdleTimeoutService jwtIdleTimeoutService) {
             return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository,
-                    jwtCookieProperties, jwtTokenBlocklistService);
+                    jwtCookieProperties, jwtTokenBlocklistService, jwtIdleTimeoutService);
         }
     }
 

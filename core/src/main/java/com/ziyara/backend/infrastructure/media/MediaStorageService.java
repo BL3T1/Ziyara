@@ -19,4 +19,9 @@ public interface MediaStorageService {
      * @return absolute or context-relative URL suitable for storing in hotel_service_images.url
      */
     String storeServiceImage(UUID serviceId, byte[] data, String contentType, String originalFilename);
+
+    /**
+     * Store a provider-scoped image (logo, branding) and return its public URL.
+     */
+    String storeProviderImage(UUID providerId, byte[] data, String contentType, String originalFilename);
 }

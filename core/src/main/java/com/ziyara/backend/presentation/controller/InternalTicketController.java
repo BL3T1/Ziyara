@@ -9,7 +9,7 @@ import com.ziyara.backend.application.service.InternalTicketService;
 import com.ziyara.backend.domain.enums.TicketPriority;
 import com.ziyara.backend.domain.enums.TicketStatus;
 import com.ziyara.backend.domain.enums.TicketType;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,7 +32,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/tickets")
-@PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+@PreAuthorize(COMPANY_STAFF)
 @Tag(name = "Internal Tickets", description = "Internal ticket management for bug reports and feature requests")
 @SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor

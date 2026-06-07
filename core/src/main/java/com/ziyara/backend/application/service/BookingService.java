@@ -8,6 +8,7 @@ import com.ziyara.backend.application.dto.request.UpdateBookingRequest;
 import com.ziyara.backend.application.dto.response.PriceBreakdownResponse;
 import com.ziyara.backend.application.dto.response.TaxiBookingResponse;
 import com.ziyara.backend.application.dto.response.VoucherResponse;
+import com.ziyara.backend.application.annotation.Audited;
 import com.ziyara.backend.application.exception.BusinessException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import com.ziyara.backend.application.exception.UnauthorizedException;
@@ -27,6 +28,7 @@ import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import com.ziyara.backend.modules.booking.api.BookingServiceApi;
+import com.ziyara.backend.modules.webhook.api.WebhookEventPublisher;
 import lombok.RequiredArgsConstructor;
 import com.ziyara.backend.domain.common.PageQuery;
 import com.ziyara.backend.domain.common.PagedResult;
@@ -39,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -60,6 +63,7 @@ public class BookingService implements BookingServiceApi {
     private final TaxiBookingService taxiBookingService;
     // infrastructure.messaging — accepted cross-cutting dependency (see DddLayeringArchitectureTest)
     private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
+    private final WebhookEventPublisher webhookEventPublisher;
 
     // ── Used by payment module ────────────────────────────────────────────────
 
@@ -168,6 +172,7 @@ public class BookingService implements BookingServiceApi {
 
     // ── Write ─────────────────────────────────────────────────────────────────
 
+    @Audited(action = "BOOKING_CREATE", entityType = "Booking")
     @Override
     @Transactional
     public BookingResponse createBooking(UUID customerId, BookingRequest request) {
@@ -222,7 +227,18 @@ public class BookingService implements BookingServiceApi {
         if (request.getMenuItemIds() != null) booking.setDiscountContextMenuItemIds(request.getMenuItemIds());
         if (request.getMenuSectionIds() != null) booking.setDiscountContextMenuSectionIds(request.getMenuSectionIds());
         if (request.getRoomTypeId() != null) booking.setDiscountContextRoomTypeId(request.getRoomTypeId());
+        if (request.getPaymentMethod() != null) booking.setPaymentMethod(request.getPaymentMethod());
         bookingRepository.save(booking);
+
+        webhookEventPublisher.publishAfterCommit("booking.created", Map.of(
+                "bookingId", booking.getId().toString(),
+                "bookingReference", booking.getBookingReference(),
+                "serviceId", booking.getServiceId().toString(),
+                "customerId", booking.getCustomerId().toString(),
+                "totalAmount", booking.getTotalAmount(),
+                "currency", booking.getCurrency() != null ? booking.getCurrency() : "USD",
+                "status", booking.getStatus().name()
+        ));
 
         // Increment discount usage after successful booking creation
         if (resolvedDc != null) {
@@ -251,6 +267,7 @@ public class BookingService implements BookingServiceApi {
         return toResponse(bookingRepository.save(booking));
     }
 
+    @Audited(action = "BOOKING_CONFIRM", entityType = "Booking", entityIdArgIndex = 0)
     @Override
     @Transactional
     public BookingResponse confirmBooking(UUID id, UUID requestingUserId, boolean isCompanyStaff) {
@@ -265,12 +282,13 @@ public class BookingService implements BookingServiceApi {
                 .notificationType(NotificationType.BOOKING_CONFIRMED_STAFF.name())
                 .title("Booking confirmed")
                 .message("Booking " + result.booking().getBookingReference() + " was confirmed.")
-                .notifyRoles(List.of("SALES_MANAGER", "SUPPORT_MANAGER"))
+                .notifyRoles(List.of("SALES_MANAGER", "SALES_REPRESENTATIVE", "SUPPORT_MANAGER", "SUPPORT_AGENT"))
                 .metadata("{\"bookingId\":\"" + result.booking().getId() + "\"}")
                 .build());
         return toResponse(result.booking());
     }
 
+    @Audited(action = "BOOKING_REJECT", entityType = "Booking", entityIdArgIndex = 0)
     @Override
     @Transactional
     public BookingResponse rejectBooking(UUID id, UUID requestingUserId, String reason) {
@@ -280,6 +298,7 @@ public class BookingService implements BookingServiceApi {
         return toResponse(bookingRepository.save(booking));
     }
 
+    @Audited(action = "BOOKING_CANCEL", entityType = "Booking", entityIdArgIndex = 0)
     @Override
     @Transactional
     public BookingResponse cancelBooking(UUID bookingId, UUID requestingUserId,
@@ -346,6 +365,8 @@ public class BookingService implements BookingServiceApi {
                 .createdAt(b.getCreatedAt())
                 .canBeCancelled(b.canBeCancelled())
                 .canBeModified(b.canBeModified())
+                .paymentMethod(b.getPaymentMethod())
+                .paymentStatus(b.getPaymentStatus() != null ? b.getPaymentStatus().name() : null)
                 .build();
     }
 }

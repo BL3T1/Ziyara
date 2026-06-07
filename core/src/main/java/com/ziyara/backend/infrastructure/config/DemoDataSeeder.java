@@ -45,10 +45,9 @@ public class DemoDataSeeder implements ApplicationRunner {
             CreateUserRequest request = new CreateUserRequest();
             request.setEmail(email);
             request.setPassword(bootstrapPassword);
-            request.setRole(role);
             request.setStatus("ACTIVE");
             try {
-                userCommandHandler.createForBootstrap(request);
+                userCommandHandler.createForBootstrap(request, role);
                 log.info("Demo user created: {} (role: {})", email, role);
             } catch (IllegalArgumentException e) {
                 if (e.getMessage() != null && e.getMessage().contains("already exists")) {

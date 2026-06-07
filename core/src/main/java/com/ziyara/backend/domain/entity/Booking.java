@@ -1,6 +1,8 @@
 package com.ziyara.backend.domain.entity;
 
+import com.ziyara.backend.domain.enums.BookingPaymentStatus;
 import com.ziyara.backend.domain.enums.BookingStatus;
+import com.ziyara.backend.domain.enums.PaymentMethod;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -48,6 +50,8 @@ public class Booking {
     private List<UUID> discountContextMenuItemIds;
     private List<UUID> discountContextMenuSectionIds;
     private UUID discountContextRoomTypeId;
+    private PaymentMethod paymentMethod;
+    private BookingPaymentStatus paymentStatus = BookingPaymentStatus.UNPAID;
 
     // Domain behavior methods
     public boolean canBeCancelled() {
@@ -139,6 +143,21 @@ public class Booking {
     public BigDecimal calculatePenaltyAmount() {
         BigDecimal refundAmount = calculateRefundAmount();
         return totalAmount.subtract(refundAmount);
+    }
+
+    public void markPaid() {
+        this.paymentStatus = BookingPaymentStatus.PAID;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void markPartiallyPaid() {
+        this.paymentStatus = BookingPaymentStatus.PARTIALLY_PAID;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public boolean isPaymentPending() {
+        return paymentStatus == BookingPaymentStatus.UNPAID
+                || paymentStatus == BookingPaymentStatus.PARTIALLY_PAID;
     }
 
     public void applyDiscount(BigDecimal discountAmount) {
@@ -402,5 +421,21 @@ public class Booking {
 
     public void setDiscountContextRoomTypeId(UUID discountContextRoomTypeId) {
         this.discountContextRoomTypeId = discountContextRoomTypeId;
+    }
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(PaymentMethod paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public BookingPaymentStatus getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(BookingPaymentStatus paymentStatus) {
+        this.paymentStatus = paymentStatus;
     }
 }

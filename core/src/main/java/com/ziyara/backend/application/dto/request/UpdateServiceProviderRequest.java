@@ -39,6 +39,9 @@ public class UpdateServiceProviderRequest {
     @Schema(description = "Verification status")
     private Boolean verified;
     
-    @Schema(description = "Commission rate override (e.g. 10.5 = 10.5%). Null = keep current")
-    private BigDecimal commissionRate;
+    @Schema(description = "Profit margin override (e.g. 10.5 = 10.5%). Null = keep current")
+    private BigDecimal profitMargin;
+
+    @Schema(description = "Official classification (e.g. 3.0 = 3-star). Range 1.0–5.0. Null = keep current")
+    private BigDecimal globalRate;
 }

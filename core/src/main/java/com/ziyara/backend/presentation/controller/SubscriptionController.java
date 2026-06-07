@@ -6,7 +6,7 @@ import com.ziyara.backend.application.dto.request.AddSubscriptionAddOnRequest;
 import com.ziyara.backend.application.dto.response.CustomerSubscriptionResponse;
 import com.ziyara.backend.application.dto.response.PlanResponse;
 import com.ziyara.backend.application.service.SubscriptionService;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,7 +44,7 @@ public class SubscriptionController {
     // -------------------------------------------------------------------------
 
     @GetMapping("/plans")
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF + " or " + ApiAuthorizationExpressions.PROVIDER_PORTAL)
+    @PreAuthorize(COMPANY_STAFF + " or " + PROVIDER_PORTAL)
     @Operation(summary = "List available plans",
                description = "Returns the full catalogue of active subscription plans with pricing.")
     public ResponseEntity<ApiResponse<List<PlanResponse>>> listPlans(
@@ -57,7 +57,7 @@ public class SubscriptionController {
     // -------------------------------------------------------------------------
 
     @GetMapping
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF + " or " + ApiAuthorizationExpressions.PROVIDER_PORTAL)
+    @PreAuthorize(COMPANY_STAFF + " or " + PROVIDER_PORTAL)
     @Operation(summary = "Get active subscription",
                description = "Returns the provider's current plan, seat limit, seat usage, "
                            + "and any active seat-expansion add-ons. "
@@ -72,7 +72,7 @@ public class SubscriptionController {
     // -------------------------------------------------------------------------
 
     @PostMapping("/activate")
-    @PreAuthorize(ApiAuthorizationExpressions.DISCOUNT_APPROVE) // reuses SUPER_ADMIN / CEO gate
+    @PreAuthorize(DISCOUNT_APPROVE) // reuses SUPER_ADMIN / CEO gate
     @Operation(summary = "Activate a subscription plan",
                description = "Switches the provider to the specified plan. "
                            + "Any previous active subscription is cancelled first. "
@@ -86,7 +86,7 @@ public class SubscriptionController {
     }
 
     @PostMapping("/add-ons")
-    @PreAuthorize(ApiAuthorizationExpressions.DISCOUNT_APPROVE)
+    @PreAuthorize(DISCOUNT_APPROVE)
     @Operation(summary = "Add seat-expansion add-on",
                description = "Attaches a paid seat-expansion block to the provider's active subscription. "
                            + "The effective seat limit is immediately increased by extraSeats. "
@@ -100,7 +100,7 @@ public class SubscriptionController {
     }
 
     @DeleteMapping("/add-ons/{addOnId}")
-    @PreAuthorize(ApiAuthorizationExpressions.DISCOUNT_APPROVE)
+    @PreAuthorize(DISCOUNT_APPROVE)
     @Operation(summary = "Cancel a seat-expansion add-on",
                description = "Marks the add-on as CANCELLED. "
                            + "The effective seat limit drops immediately — verify no over-limit users exist first.")

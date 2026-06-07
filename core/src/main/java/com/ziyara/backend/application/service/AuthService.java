@@ -3,6 +3,7 @@ package com.ziyara.backend.application.service;
 import com.ziyara.backend.application.dto.AuthRequest;
 import com.ziyara.backend.application.dto.AuthResponse;
 import com.ziyara.backend.application.dto.request.*;
+import com.ziyara.backend.domain.entity.Customer;
 import com.ziyara.backend.domain.entity.OtpVerification;
 import com.ziyara.backend.domain.entity.PasswordResetToken;
 import com.ziyara.backend.domain.entity.ServiceProvider;
@@ -10,6 +11,7 @@ import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.enums.ProviderStatus;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
+import com.ziyara.backend.domain.repository.CustomerRepository;
 import com.ziyara.backend.domain.repository.OtpVerificationRepository;
 import com.ziyara.backend.domain.repository.PasswordResetTokenRepository;
 import com.ziyara.backend.domain.repository.ProviderStaffRepository;
@@ -18,6 +20,7 @@ import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.infrastructure.security.crypto.PiiCryptoService;
 import com.ziyara.backend.infrastructure.security.crypto.TotpService;
 import com.ziyara.backend.infrastructure.security.JwtService;
+import com.ziyara.backend.application.annotation.Audited;
 import com.ziyara.backend.application.exception.MfaEnrollmentRequiredException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -57,6 +60,7 @@ public class AuthService {
     private String mfaRequiredRolesRaw;
 
     private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
     private final ServiceProviderRepository serviceProviderRepository;
     private final ProviderStaffRepository providerStaffRepository;
     private final JwtService jwtService;
@@ -70,26 +74,27 @@ public class AuthService {
     private final PasswordPolicyService passwordPolicyService;
     private final AuthEmailNotificationService authEmailNotificationService;
 
+    @Audited(action = "USER_LOGIN", entityType = "Auth")
     @Transactional
     public AuthResponse authenticate(AuthRequest request, String ipAddress) {
-        String emailNorm = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase(Locale.ROOT);
-        log.info("Authenticating user: {}", emailNorm);
+        String identifier = request.getEmail() == null ? "" : request.getEmail().trim();
+        log.info("Authenticating user: {}", identifier);
 
-        User user = userRepository.findByEmail(emailNorm)
-                .orElseThrow(() -> new AuthenticationException("Invalid email or password"));
+        User user = userRepository.findByUsername(identifier)
+                .or(() -> userRepository.findByEmail(identifier.toLowerCase(Locale.ROOT)))
+                .orElseThrow(() -> new AuthenticationException("Invalid credentials"));
 
         if (!user.getStatus().canLogin()) {
             throw new AuthenticationException("Account is not active. Status: " + user.getStatus());
         }
 
-        if (isPartnerPortalRole(user.getRole())) {
-            serviceProviderRepository.findByUserId(user.getId()).ifPresent(sp -> {
-                if (sp.getStatus() != ProviderStatus.ACTIVE) {
-                    throw new AuthenticationException(
-                            "Partner account is not active yet. Provider status: " + sp.getStatus().name());
-                }
-            });
-        }
+        // For any user linked to a provider, enforce the provider must be ACTIVE
+        serviceProviderRepository.findByUserId(user.getId()).ifPresent(sp -> {
+            if (sp.getStatus() != ProviderStatus.ACTIVE) {
+                throw new AuthenticationException(
+                        "Partner account is not active yet. Provider status: " + sp.getStatus().name());
+            }
+        });
 
         if (user.isLocked()) {
             throw new AuthenticationException("Account is temporarily locked. Please try again later.");
@@ -98,7 +103,7 @@ public class AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             user.incrementFailedLoginAttempts();
             userRepository.save(user);
-            throw new AuthenticationException("Invalid email or password");
+            throw new AuthenticationException("Invalid credentials");
         }
 
         if (user.isMfaEnabled()) {
@@ -142,9 +147,12 @@ public class AuthService {
                 .userId(user.getId())
                 .email(user.getEmail())
                 .role(user.getRole())
+                .mustChangePassword(user.isMustChangePassword())
+                .hasPortalAccess(providerScope != null)
                 .build();
     }
 
+    @Audited(action = "USER_LOGOUT", entityType = "Auth")
     @Transactional
     public void logout(String accessToken, String refreshToken) {
         revokeTokenIfPresent(accessToken);
@@ -216,15 +224,19 @@ public class AuthService {
                 .userId(user.getId())
                 .email(user.getEmail())
                 .role(user.getRole())
+                .mustChangePassword(user.isMustChangePassword())
+                .hasPortalAccess(providerScope != null)
                 .build();
     }
 
+    @Audited(action = "USER_REGISTER", entityType = "Auth")
     @Transactional
     public void register(RegisterRequest request) {
         passwordPolicyService.assertAcceptable(request.getPassword());
-        if (isProviderPortalRole(request.getRole())) {
+        UserRole role = request.getRole() != null ? request.getRole() : UserRole.CUSTOMER;
+        if (role != UserRole.CUSTOMER) {
             throw new IllegalArgumentException(
-                    "Provider accounts must be created from provider onboarding so the provider profile is created and linked.");
+                    "Public self-registration is for customer accounts only.");
         }
         String emailNorm = normalizeEmail(request.getEmail());
         if (userRepository.existsByEmail(emailNorm)) {
@@ -238,15 +250,22 @@ public class AuthService {
         user.setEmail(emailNorm);
         user.setPhone(request.getPhone());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setRole(request.getRole());
-        user.setStatus(request.getRole() == UserRole.CUSTOMER
-                ? UserStatus.ACTIVE
-                : UserStatus.PENDING_VERIFICATION);
+        user.setRole(role);
+        user.setStatus(role == UserRole.CUSTOMER ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION);
         userRepository.save(user);
+
+        if (role == UserRole.CUSTOMER) {
+            Customer customer = new Customer(user.getId(), request.getFirstName(), request.getLastName());
+            customer.setDateOfBirth(request.getDateOfBirth());
+            customer.setNationality(request.getNationality());
+            customerRepository.save(customer);
+        }
+
         log.info("User registered: {}", user.getEmail());
         storeAndEmailOtp(emailNorm, true);
     }
 
+    @Audited(action = "PASSWORD_FORGOT", entityType = "Auth")
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
         String emailNorm = normalizeEmail(request.getEmail());
@@ -267,6 +286,7 @@ public class AuthService {
         log.info("Password reset token generated for {}", user.getEmail());
     }
 
+    @Audited(action = "PASSWORD_RESET", entityType = "Auth")
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         passwordPolicyService.assertAcceptable(request.getNewPassword());
@@ -353,19 +373,9 @@ public class AuthService {
         log.debug("OTP value for {}: {}", dest, otp);
     }
 
-    private static boolean isPartnerPortalRole(UserRole role) {
-        return isProviderPortalRole(role);
-    }
-
-    private static boolean isProviderPortalRole(UserRole role) {
-        return role == UserRole.PROVIDER_MANAGER
-                || role == UserRole.PROVIDER_FINANCE
-                || role == UserRole.PROVIDER_STAFF
-                || role == UserRole.TAXI_OPERATOR;
-    }
-
     /**
      * Parses {@code ZIYARA_SECURITY_MFA_REQUIRED_ROLES} into a set of {@link UserRole} values.
+     * Unknown names (old enum values) are silently ignored so old configs don't crash.
      * Returns an empty set when the property is blank (dev default — no enforcement).
      */
     private Set<UserRole> mfaRequiredRoles() {
@@ -375,8 +385,37 @@ public class AuthService {
         return Arrays.stream(mfaRequiredRolesRaw.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isBlank())
-                .map(UserRole::valueOf)
+                .flatMap(s -> {
+                    try {
+                        return java.util.stream.Stream.of(UserRole.valueOf(s));
+                    } catch (IllegalArgumentException e) {
+                        return java.util.stream.Stream.empty();
+                    }
+                })
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /**
+     * Generates an access token for the admin to impersonate a provider's manager account.
+     * Bypasses all normal auth checks (password, MFA, rate-limiting) and sends no notifications.
+     * Restricted to SUPER_ADMIN callers (enforced at the controller level).
+     */
+    @Transactional(readOnly = true)
+    public AuthResponse generateAdminProviderToken(UUID providerId) {
+        ServiceProvider provider = serviceProviderRepository.findById(providerId)
+                .orElseThrow(() -> new IllegalArgumentException("Provider not found: " + providerId));
+        User manager = userRepository.findById(provider.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Provider manager account not found for provider: " + providerId));
+        String accessToken = jwtService.generateAccessToken(manager, provider.getId());
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .tokenType("Bearer")
+                .expiresIn(jwtService.getExpirationTime())
+                .userId(manager.getId())
+                .email(manager.getEmail())
+                .role(manager.getRole())
+                .hasPortalAccess(true)
+                .build();
     }
 
     /**

@@ -23,4 +23,13 @@ public interface UserRoleAssignmentRepository {
 
     /** Returns all permission codes granted to the user via their assigned roles. */
     java.util.List<String> findPermissionCodesByUserId(UUID userId);
+
+    /** Returns permission codes for the system role whose code matches {@code roleCode} (e.g. "SUPER_ADMIN"). */
+    java.util.List<String> findPermissionCodesBySystemRoleCode(String roleCode);
+
+    /** Returns user IDs directly assigned to a specific role. */
+    java.util.List<UUID> findUserIdsByRoleId(UUID roleId);
+
+    /** Clears the groupId reference on all assignments belonging to the given group. */
+    void clearGroupId(UUID groupId);
 }

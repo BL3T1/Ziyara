@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Generates Excel (.xlsx) and PDF exports for revenue and booking reports.
@@ -93,6 +94,28 @@ public class ReportExportService {
             doc.close();
             return out.toByteArray();
         }
+    }
+
+    public byte[] exportRevenueToCsv(RevenueReportResponse report) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Date,Amount (").append(report.getCurrency()).append(")\n");
+        for (RevenueReportResponse.DayTotal day : report.getByDay()) {
+            sb.append(day.getDate() != null ? day.getDate() : "").append(",")
+              .append(day.getAmount() != null ? day.getAmount().toPlainString() : "0").append("\n");
+        }
+        sb.append("TOTAL,").append(report.getTotalRevenue() != null ? report.getTotalRevenue().toPlainString() : "0").append("\n");
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    public byte[] exportBookingsToCsv(BookingReportResponse report) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Date,Count\n");
+        for (BookingReportResponse.DayCount day : report.getByDay()) {
+            sb.append(day.getDate() != null ? day.getDate() : "").append(",")
+              .append(day.getCount()).append("\n");
+        }
+        sb.append("TOTAL,").append(report.getTotalBookings()).append("\n");
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     public byte[] exportBookingsToPdf(BookingReportResponse report) throws Exception {

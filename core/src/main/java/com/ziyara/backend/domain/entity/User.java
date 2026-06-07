@@ -14,6 +14,9 @@ public class User {
 
     private UUID id;
     private String email;
+    private String username;
+    private String firstName;
+    private String lastName;
     private String phone;
     private String passwordHash;
     private UserRole role;
@@ -46,6 +49,9 @@ public class User {
     private boolean marketingOptIn;
     private boolean rightToErasureRequested;
     private LocalDateTime rightToErasureCompletedAt;
+
+    /** Set by admin on create/reset; cleared when the user completes self-service password change. */
+    private boolean mustChangePassword;
 
     /** FCM push token registered by the mobile app on login. Nullable — desktop/web sessions have none. */
     private String fcmToken;
@@ -131,6 +137,30 @@ public class User {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
     }
 
     public String getPhone() {
@@ -351,6 +381,14 @@ public class User {
 
     public void setRightToErasureCompletedAt(LocalDateTime rightToErasureCompletedAt) {
         this.rightToErasureCompletedAt = rightToErasureCompletedAt;
+    }
+
+    public boolean isMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public void setMustChangePassword(boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
     }
 
     public String getFcmToken() {

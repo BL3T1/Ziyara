@@ -87,6 +87,12 @@ public class DiscountCodeJpaEntity {
     @Column(name = "provider_share_pct", precision = 5, scale = 2)
     private BigDecimal providerSharePct = new BigDecimal("0.00");
 
+    @Column(name = "company_value", precision = 12, scale = 2)
+    private BigDecimal companyValue;
+
+    @Column(name = "provider_value", precision = 12, scale = 2)
+    private BigDecimal providerValue;
+
     @Column(name = "approval_status", length = 30, nullable = false)
     private String approvalStatus = "DRAFT";
 

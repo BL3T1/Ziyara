@@ -121,6 +121,20 @@ public class NotificationService implements NotificationServiceApi {
                 .sentAt(notification.getSentAt())
                 .readAt(notification.getReadAt())
                 .createdAt(notification.getCreatedAt())
+                .referenceId(extractReferenceId(notification.getMetadata()))
                 .build();
+    }
+
+    private String extractReferenceId(String metadata) {
+        if (metadata == null || metadata.isBlank()) return null;
+        try {
+            int keyIdx = metadata.indexOf("\"submissionId\":\"");
+            if (keyIdx < 0) return null;
+            int start = keyIdx + 16;
+            int end = metadata.indexOf('"', start);
+            return (end > start) ? metadata.substring(start, end) : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

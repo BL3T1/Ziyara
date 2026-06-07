@@ -45,6 +45,9 @@ public interface RoleServiceApi {
     /** Users whose primary role code or RBAC assignment matches a role in the group (or ungrouped). */
     Page<UserResponse> listGroupMembers(UUID groupId, int page, int size);
 
+    /** Users assigned to a specific role (by RBAC assignment). */
+    Page<UserResponse> listRoleMembers(UUID roleId, int page, int size);
+
     RoleResponse createCustomRole(CreateRoleRequest request, UUID currentUserId);
 
     RoleResponse updateRolePermissions(UUID roleId, UpdateRolePermissionsRequest request, UUID currentUserId);

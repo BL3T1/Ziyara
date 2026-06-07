@@ -6,6 +6,7 @@ import com.ziyara.backend.application.service.CurrencyService;
 import com.ziyara.backend.application.service.JwtTokenBlocklistService;
 import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
+import com.ziyara.backend.infrastructure.security.JwtIdleTimeoutService;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,9 +67,10 @@ class CsrfProtectionTest {
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
                                                          SecurityContextRepository securityContextRepository,
                                                          JwtCookieProperties jwtCookieProperties,
-                                                         JwtTokenBlocklistService jwtTokenBlocklistService) {
+                                                         JwtTokenBlocklistService jwtTokenBlocklistService,
+                                                         JwtIdleTimeoutService jwtIdleTimeoutService) {
             return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository,
-                    jwtCookieProperties, jwtTokenBlocklistService);
+                    jwtCookieProperties, jwtTokenBlocklistService, jwtIdleTimeoutService);
         }
     }
 

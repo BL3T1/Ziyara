@@ -3,7 +3,7 @@ package com.ziyara.backend.presentation.controller;
 import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.response.DepartmentResponse;
 import com.ziyara.backend.application.service.DepartmentService;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,7 +22,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/departments")
 @RequiredArgsConstructor
-@PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+@PreAuthorize(COMPANY_STAFF)
 @Tag(name = "Departments", description = "Department management APIs")
 @SecurityRequirement(name = "bearerAuth")
 public class DepartmentController {

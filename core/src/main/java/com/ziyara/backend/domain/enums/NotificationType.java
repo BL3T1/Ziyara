@@ -21,7 +21,11 @@ public enum NotificationType {
     /** Company staff account was created (HR visibility). */
     STAFF_USER_CREATED("Staff User Created"),
     /** Booking moved to confirmed (ops visibility). */
-    BOOKING_CONFIRMED_STAFF("Booking Confirmed (Staff)");
+    BOOKING_CONFIRMED_STAFF("Booking Confirmed (Staff)"),
+    /** Provider portal support request submitted to Ziyara staff. */
+    PORTAL_SUPPORT_REQUEST("Provider Support Request"),
+    /** Provider submitted media (image) awaiting admin review. */
+    MEDIA_SUBMISSION_PENDING("Media Submission Pending");
 
     private final String displayName;
 

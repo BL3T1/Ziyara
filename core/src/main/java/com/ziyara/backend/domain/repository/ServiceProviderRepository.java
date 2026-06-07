@@ -31,5 +31,6 @@ public interface ServiceProviderRepository {
 
     long count();
     void deleteById(UUID id);
+    void softDelete(UUID id);
     boolean existsByName(String name);
 }

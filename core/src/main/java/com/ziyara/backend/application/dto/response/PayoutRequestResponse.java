@@ -22,6 +22,9 @@ public class PayoutRequestResponse {
     @Schema(description = "Currency code")
     private String currency;
 
+    @Schema(description = "Optional notes / bank reference from the provider")
+    private String notes;
+
     @Schema(description = "Status: PENDING | PROCESSING | COMPLETED | REJECTED")
     private String status;
 

@@ -10,7 +10,7 @@ import com.ziyara.backend.application.service.ComplaintService;
 import com.ziyara.backend.domain.enums.ComplaintPriority;
 import com.ziyara.backend.domain.enums.ComplaintStatus;
 import com.ziyara.backend.infrastructure.security.JwtService;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -34,7 +34,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/complaints")
 @RequiredArgsConstructor
-@PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+@PreAuthorize(COMPANY_STAFF)
 @Tag(name = "Complaints", description = "Support and complaint management APIs")
 @SecurityRequirement(name = "bearerAuth")
 public class ComplaintController {

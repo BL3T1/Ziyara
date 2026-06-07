@@ -33,6 +33,7 @@ public class ServiceProviderMapper {
         provider.setUserId(entity.getCreatedBy());
         provider.setRating(entity.getRating() != null ? entity.getRating() : BigDecimal.ZERO);
         provider.setReviewCount(entity.getReviewCount() != null ? entity.getReviewCount() : 0);
+        provider.setGlobalRate(entity.getGlobalRate() != null ? entity.getGlobalRate() : BigDecimal.ZERO);
         provider.setStatus(entity.getStatus());
         provider.setVerified(entity.getVerified() != null && entity.getVerified());
         provider.setCommissionRate(entity.getCommissionRate());
@@ -65,6 +66,7 @@ public class ServiceProviderMapper {
                 .createdBy(provider.getUserId())
                 .rating(provider.getRating())
                 .reviewCount(provider.getReviewCount())
+                .globalRate(provider.getGlobalRate() != null ? provider.getGlobalRate() : BigDecimal.ZERO)
                 .status(provider.getStatus())
                 .verified(provider.isVerified())
                 .commissionRate(provider.getCommissionRate())

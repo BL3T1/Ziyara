@@ -27,6 +27,8 @@ public class ServiceProvider {
     private String descriptionAr;
     private BigDecimal rating;
     private int reviewCount;
+    /** Official classification assigned by admin (e.g. 3.0 = 3-star hotel). 0 = unset. */
+    private BigDecimal globalRate;
     private ProviderStatus status;
     private boolean verified;
     /** Commission rate override (e.g. 10 = 10%). Null = use platform default 10%. */
@@ -36,6 +38,8 @@ public class ServiceProvider {
     /** User who approved activation (Super Admin / CEO workflow). */
     private UUID approvedBy;
     private LocalDateTime approvedAt;
+    private Double latitude;
+    private Double longitude;
 
     // Constructors
     public ServiceProvider() {
@@ -79,6 +83,8 @@ public class ServiceProvider {
     public void setRating(BigDecimal rating) { this.rating = rating; }
     public int getReviewCount() { return reviewCount; }
     public void setReviewCount(int reviewCount) { this.reviewCount = reviewCount; }
+    public BigDecimal getGlobalRate() { return globalRate; }
+    public void setGlobalRate(BigDecimal globalRate) { this.globalRate = globalRate; }
     public ProviderStatus getStatus() { return status; }
     public void setStatus(ProviderStatus status) { this.status = status; }
     public boolean isVerified() { return verified; }
@@ -93,4 +99,8 @@ public class ServiceProvider {
     public void setApprovedBy(UUID approvedBy) { this.approvedBy = approvedBy; }
     public LocalDateTime getApprovedAt() { return approvedAt; }
     public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
 }

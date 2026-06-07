@@ -68,7 +68,7 @@ public class FeatureFlagService {
                 .notificationType(NotificationType.SYSTEM_ALERT.name())
                 .title("Feature flag updated")
                 .message("Flag " + key + " is now enabled=" + saved.isEnabled())
-                .notifyRoles(List.of("CEO", "GENERAL_MANAGER", "SUPER_ADMIN"))
+                .notifyRoles(List.of("CEO", "SUPER_ADMIN"))
                 .metadata("{\"flagKey\":\"" + key + "\"}")
                 .build());
         return toResponse(saved);

@@ -16,4 +16,5 @@ public class SystemSettingsResponse {
     private String companyDisplayName;
     private String defaultCurrency;
     private boolean maintenanceMode;
+    private boolean providerMaintenanceMode;
 }

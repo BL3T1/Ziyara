@@ -1,6 +1,8 @@
 package com.ziyara.backend.application.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -28,4 +30,8 @@ public class CreateRoleRequest {
     @Size(max = 100)
     @Schema(description = "Optional group name to create and bind this role to (used when groupId is omitted)")
     private String createGroupName;
+
+    @Min(0) @Max(100)
+    @Schema(description = "Maximum discount percentage this role may approve (0–100, default 0)")
+    private short maxDiscountPct;
 }

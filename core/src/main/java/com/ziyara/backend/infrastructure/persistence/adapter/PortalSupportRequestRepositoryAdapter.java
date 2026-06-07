@@ -7,6 +7,7 @@ import com.ziyara.backend.infrastructure.persistence.repository.PortalSupportReq
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,7 +38,19 @@ public class PortalSupportRequestRepositoryAdapter implements PortalSupportReque
     }
 
     @Override
+    public List<PortalSupportRequest> findAllOrderedByCreatedAtDesc() {
+        return jpaRepository.findAllByOrderByCreatedAtDesc().stream()
+                .map(mapper::toDomainEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
+    }
+
+    @Override
+    public int respondToRequest(UUID id, String staffResponse, Instant respondedAt, UUID respondedByUserId) {
+        return jpaRepository.updateResponse(id, staffResponse, respondedAt, respondedByUserId);
     }
 }

@@ -21,8 +21,8 @@ import java.math.BigDecimal;
 @Schema(description = "Provider commission rate override (e.g. 10 = 10%)")
 public class UpdateProviderCommissionRequest {
 
-    @Schema(description = "Commission percentage (0-100). Null or omit to reset to default 10%")
+    @Schema(description = "Profit margin percentage (0-100). Null or omit to reset to default 10%")
     @DecimalMin("0")
     @DecimalMax("100")
-    private BigDecimal commissionRate;
+    private BigDecimal profitMargin;
 }

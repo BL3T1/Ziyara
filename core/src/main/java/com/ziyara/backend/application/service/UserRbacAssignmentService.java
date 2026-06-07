@@ -21,11 +21,8 @@ public class UserRbacAssignmentService {
 
     @Transactional
     public void assignOrClearPrimaryRbacRole(UUID targetUserId, UUID roleIdOrNull) {
-        User user = userRepository.findById(targetUserId)
+        userRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException("User not found"));
-        if (!user.getRole().isCompanyDirectoryUser()) {
-            throw new IllegalArgumentException("RBAC sidebar assignment applies to company staff only");
-        }
         if (roleIdOrNull == null) {
             userRoleAssignmentRepository.clearAssignmentsForUser(targetUserId);
             return;

@@ -65,6 +65,11 @@ public class ServiceService implements ServiceServiceApi {
         svc.setStarRating(request.getStarRating());
         svc.setAttributes(request.getAttributes());
         svc.setAmenities(request.getAmenities());
+        if (request.getCheckInTime() != null) svc.setCheckInTime(request.getCheckInTime());
+        if (request.getCheckOutTime() != null) svc.setCheckOutTime(request.getCheckOutTime());
+        if (request.getLatitude() != null) svc.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) svc.setLongitude(request.getLongitude());
+        if (request.getPolicies() != null) svc.setPolicies(request.getPolicies());
         com.ziyara.backend.domain.entity.Service saved = serviceRepository.save(svc);
         log.info("Service created: {} for provider {}", saved.getId(), request.getProviderId());
         return toResponse(saved);
@@ -87,6 +92,11 @@ public class ServiceService implements ServiceServiceApi {
         if (request.getStarRating() != null) svc.setStarRating(request.getStarRating());
         if (request.getAttributes() != null) svc.setAttributes(request.getAttributes());
         if (request.getAmenities() != null) svc.setAmenities(request.getAmenities());
+        if (request.getCheckInTime() != null) svc.setCheckInTime(request.getCheckInTime());
+        if (request.getCheckOutTime() != null) svc.setCheckOutTime(request.getCheckOutTime());
+        if (request.getLatitude() != null) svc.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) svc.setLongitude(request.getLongitude());
+        if (request.getPolicies() != null) svc.setPolicies(request.getPolicies());
         return toResponse(serviceRepository.save(svc));
     }
 

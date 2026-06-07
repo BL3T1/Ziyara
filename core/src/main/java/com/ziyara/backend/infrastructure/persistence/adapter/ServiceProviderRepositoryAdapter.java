@@ -107,7 +107,12 @@ public class ServiceProviderRepositoryAdapter implements ServiceProviderReposito
     public void deleteById(UUID id) {
         serviceProviderJpaRepository.deleteById(id);
     }
-    
+
+    @Override
+    public void softDelete(UUID id) {
+        serviceProviderJpaRepository.softDeleteById(id, java.time.LocalDateTime.now());
+    }
+
     @Override
     public boolean existsByName(String name) {
         return serviceProviderJpaRepository.existsByCompanyName(name);

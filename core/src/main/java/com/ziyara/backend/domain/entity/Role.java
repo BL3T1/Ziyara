@@ -23,6 +23,7 @@ public class Role {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<String> navigationItemIds;
+    private short maxDiscountPct;
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -50,4 +51,6 @@ public class Role {
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
     public List<String> getNavigationItemIds() { return navigationItemIds; }
     public void setNavigationItemIds(List<String> navigationItemIds) { this.navigationItemIds = navigationItemIds; }
+    public short getMaxDiscountPct() { return maxDiscountPct; }
+    public void setMaxDiscountPct(short maxDiscountPct) { this.maxDiscountPct = maxDiscountPct; }
 }

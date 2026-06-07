@@ -53,4 +53,7 @@ public interface ServiceRepository {
     
     // Existence checks
     boolean existsById(UUID id);
+
+    List<Service> findActiveWithCoordinates(List<String> types);
+    List<Service> findByProviderIdWithCoordinates(UUID providerId);
 }

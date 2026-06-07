@@ -37,6 +37,18 @@ public class PortalDashboardResponse {
     @Schema(description = "Earnings per ISO week for the last 8 weeks (oldest first)")
     private List<WeeklyRevenueItem> weeklyRevenue;
 
+    @Schema(description = "Bookings created in the last 30 days")
+    private long bookingsLast30Days;
+
+    @Schema(description = "Bookings created 30–60 days ago (for trend comparison)")
+    private long bookingsPrev30Days;
+
+    @Schema(description = "Revenue from completed payments in the last 30 days")
+    private BigDecimal revenueLast30Days;
+
+    @Schema(description = "Revenue from completed payments 30–60 days ago")
+    private BigDecimal revenuePrev30Days;
+
     @Data
     @Builder
     @NoArgsConstructor

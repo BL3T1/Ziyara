@@ -16,6 +16,9 @@ public class PortalSupportRequestMapper {
         request.setSubject(entity.getSubject());
         request.setBody(entity.getBody());
         request.setCreatedAt(entity.getCreatedAt());
+        request.setStaffResponse(entity.getStaffResponse());
+        request.setRespondedAt(entity.getRespondedAt());
+        request.setRespondedByUserId(entity.getRespondedByUserId());
         return request;
     }
 
@@ -28,6 +31,9 @@ public class PortalSupportRequestMapper {
                 .subject(request.getSubject())
                 .body(request.getBody())
                 .createdAt(request.getCreatedAt())
+                .staffResponse(request.getStaffResponse())
+                .respondedAt(request.getRespondedAt())
+                .respondedByUserId(request.getRespondedByUserId())
                 .build();
     }
 }
