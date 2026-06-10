@@ -6,14 +6,17 @@
 #  full         – base + company dashboard on port 80
 #  legacy       – base + company dashboard on port 3000
 #
-#  portmode     – ★ RECOMMENDED FOR LOCAL DEV ★
-#                 All 3 surfaces on separate HTTP ports — no TLS, no /etc/hosts.
-#                 Works from localhost AND from any LAN IP (10.x, 192.168.x, etc.).
+#  portmode     – ★ RECOMMENDED FOR LOCAL DEV ★  — starts EVERYTHING in one command.
+#                 All 3 surfaces on separate HTTP ports + full monitoring stack + pgAdmin + NPM.
 #                 docker compose --profile portmode up -d --build
 #                 http://localhost:7050   → Company dashboard
 #                 http://localhost:7060   → Provider portal
 #                 http://localhost:7070   → Landing page
 #                 http://localhost:7005   → API (direct)
+#                 http://localhost:7083   → Prometheus
+#                 http://localhost:7085   → Grafana  (admin / admin)
+#                 http://localhost:7065   → pgAdmin
+#                 http://localhost:7081   → NPM admin UI
 #                 From LAN: replace localhost with PORTMODE_HOST in .env, then rebuild.
 #                 Fast rebuild alternative (builds JS once, packages 3 images): .\build-portmode.ps1
 #
@@ -23,14 +26,21 @@
 #                   127.0.0.1  www.local
 #                 Does NOT work with a raw IP address — use portmode instead.
 #
-#  npm          – Nginx Proxy Manager (always-on, no profile needed).
-#                 Domain-based reverse proxy with a web UI. Replaces the static nginx gateway.
+#  npm          – Nginx Proxy Manager (opt-in). Domain-based reverse proxy with a web UI.
+#                 docker compose --profile npm up -d
 #                 Ports: 7080 (HTTP), 7082 (HTTPS), 7081 (Admin UI).
 #                 Admin UI: http://localhost:7081   login: admin@example.com / changeme
 #                 npm-init auto-configures 7 proxy hosts on first boot using *.ziyara.local
 #                 placeholder domains. Replace with real domains in the NPM UI for production.
-#                 NOTE: NPM binds port 80/443. The 'full' and 'multidomain' profiles no longer
-#                 expose port 80 — they now serve as NPM upstreams instead.
+#
+#  admin        – pgAdmin database GUI (opt-in, heavy — 300 MiB).
+#                 docker compose --profile admin up -d
+#                 Access: http://localhost:7065
+#
+#  monitoring   – Full observability stack: Prometheus, Grafana, cAdvisor, node-exporter,
+#                 postgres-exporter, redis-exporter, kafka-exporter, blackbox-exporter.
+#                 docker compose --profile monitoring up -d
+#                 Grafana: http://localhost:7085   Prometheus: http://localhost:7083
 #
 #  ipmode       – single gateway nginx with TLS termination on BIND_IP (for mobile/Android).
 #                 Requires running infra/certs/generate.sh first (needs openssl + bash/WSL).
@@ -100,6 +110,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx256m"
     ports:
       # Loopback only — Kafka is an internal messaging bus; not needed outside the host.
       - "127.0.0.1:7004:9092"
@@ -112,6 +123,11 @@ services:
       timeout: 10s
       retries: 10
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 384m
 
   # =============================================================================
   # REDIS — JWT blocklist + login rate-limiting
@@ -189,6 +205,11 @@ services:
       timeout: 10s
       retries: 10
       start_period: 120s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 768m
 
   # =============================================================================
   # FRONTEND (Vite/company) - single bundle on port 80; use 'multidomain' profile for all 3 surfaces
@@ -671,6 +692,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
 
   # =============================================================================
   # GRAFANA — dashboards (profile: monitoring)
@@ -704,6 +730,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128m
 
   # =============================================================================
   # POSTGRES EXPORTER — PostgreSQL metrics for Prometheus (profile: monitoring)
@@ -797,6 +828,9 @@ services:
   # Add server: Host=postgres, Port=5432, DB=ziyarah, User=ziyarah_user, Password=${POSTGRES_PASSWORD}
   # =============================================================================
   pgadmin:
+    profiles:
+      - admin
+      - portmode
     image: dpage/pgadmin4:9
     container_name: ziyarah-pgadmin
     restart: unless-stopped
@@ -818,6 +852,11 @@ services:
         condition: service_healthy
     networks:
       - ziyarah-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
 
   # =============================================================================
   # NGINX PROXY MANAGER — domain-based reverse proxy with web UI (always-on)
@@ -830,6 +869,9 @@ services:
   # and issue Let's Encrypt certificates per proxy host.
   # =============================================================================
   nginx-proxy-manager:
+    profiles:
+      - npm
+      - portmode
     image: jc21/nginx-proxy-manager:2.15.1
     container_name: ziyarah-npm
     restart: unless-stopped
@@ -853,6 +895,9 @@ services:
   # Exits after completion; will not restart. Re-run manually if needed:
   #   docker compose run --rm npm-init
   npm-init:
+    profiles:
+      - npm
+      - portmode
     image: alpine:3.20
     container_name: ziyarah-npm-init
     restart: "no"
