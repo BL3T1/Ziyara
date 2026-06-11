@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import { usePermission } from '../../hooks/usePermission'
-import { getApiErrorMessage, portalAPI } from '../../services/api'
+import { getApiErrorMessage, portalAPI, portalCashAPI } from '../../services/api'
 import { statusLabel } from '../../i18n/enumLabels'
 import { Modal } from '../../components/Modal'
 import { FormField } from '../../components/FormField'
@@ -113,9 +113,8 @@ export function PortalBookingsPage() {
     setApproveSaving(true)
     setError(null)
     try {
-      await portalAPI.approveCashPayment(approveCashBooking.id, {
+      await portalCashAPI.recordCollection(approveCashBooking.id, {
         amount: approveCashBooking.totalAmount ?? 0,
-        currency: approveCashBooking.currency ?? 'USD',
         notes: approveNotes.trim() || undefined,
       })
       setApproveCashBooking(null)

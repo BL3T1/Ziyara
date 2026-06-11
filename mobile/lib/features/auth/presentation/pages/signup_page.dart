@@ -2,18 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/di/injection_container.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 
-class SignupPage extends StatefulWidget {
+class SignupPage extends StatelessWidget {
   const SignupPage({super.key});
 
   @override
-  State<SignupPage> createState() => _SignupPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => AuthBloc(repository: sl()),
+      child: const _SignupView(),
+    );
+  }
 }
 
-class _SignupPageState extends State<SignupPage> {
+class _SignupView extends StatefulWidget {
+  const _SignupView();
+
+  @override
+  State<_SignupView> createState() => _SignupPageState();
+}
+
+class _SignupPageState extends State<_SignupView> {
   final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();

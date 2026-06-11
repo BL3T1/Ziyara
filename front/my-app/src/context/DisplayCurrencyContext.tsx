@@ -59,14 +59,15 @@ export function DisplayCurrencyProvider({ children }: { children: ReactNode }) {
     setRefreshKey((k) => k + 1)
   }, [])
 
-  // Load rates from the public endpoint (no auth required)
+  // Load rates — requires auth, so only fetch when the user is logged in
   useEffect(() => {
+    if (!user) return
     let cancelled = false
     currencyAPI.listRates()
       .then((r) => { if (!cancelled) setRateRows(Array.isArray(r.data) ? (r.data as ExchangeRateLike[]) : []) })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [refreshKey])
+  }, [user, refreshKey])
 
   // Load admin default currency only when authenticated
   useEffect(() => {

@@ -69,6 +69,8 @@ export const ROUTE_TITLE_KEYS: Record<string, string> = {
   '/portal/earnings': 'title.earnings',
   '/portal/profile': 'title.profile',
   '/portal/support': 'title.portalSupport',
+  '/portal/cash': 'title.portalCash',
+  '/admin/cash': 'title.adminCash',
 }
 
 /** Path to header icon (sidebar item id). Header shows this icon for the current page. */

@@ -176,9 +176,11 @@ client.interceptors.response.use(
         _refreshing = false
       }
 
-      // Refresh failed — clear session and redirect
+      // Refresh failed — clear session and redirect (guard against reload loop when already on login)
       clearSession()
-      window.location.href = '/login'
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login'
+      }
       return Promise.reject(error)
     }
 
@@ -309,6 +311,24 @@ export const portalAPI = {
     client.get<{ content: DiscountDto[]; totalElements: number; totalPages: number }>('/portal/discounts', { params }),
   createDiscount: (body: CreatePortalDiscountPayload) => client.post<DiscountDto>('/portal/discounts', body),
   deactivateDiscount: (id: string) => client.delete<void>(`/portal/discounts/${id}`),
+}
+
+export const portalCashAPI = {
+  recordCollection: (bookingId: string, body: { amount: number; notes?: string; collectedAt?: string }) =>
+    client.post<unknown>(`/portal/cash/bookings/${bookingId}/record`, body),
+  listCollections: (params?: { page?: number; size?: number }) =>
+    client.get<unknown>('/portal/cash/collections', { params }),
+  getDailySheet: (params?: { date?: string }) =>
+    client.get<unknown>('/portal/cash/daily-sheet', { params }),
+}
+
+export const adminCashAPI = {
+  listPending: (params?: { page?: number; size?: number; providerId?: string }) =>
+    client.get<unknown>('/admin/cash/pending-reconciliation', { params }),
+  reconcile: (collectionId: string, body: { notes?: string }) =>
+    client.post<unknown>(`/admin/cash/collections/${collectionId}/reconcile`, body),
+  dispute: (collectionId: string, body: { reason: string }) =>
+    client.post<unknown>(`/admin/cash/collections/${collectionId}/dispute`, body),
 }
 
 /** Provider portal team (migration 023 + /portal/staff) */

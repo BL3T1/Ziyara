@@ -103,6 +103,9 @@ const ChangePasswordPage = lazy(() =>
 const MediaSubmissionsPage = lazy(() =>
   import('../../pages/management/MediaSubmissionsPage').then((m) => ({ default: m.MediaSubmissionsPage })),
 )
+const AdminCashReconciliationPage = lazy(() =>
+  import('../../pages/management/AdminCashReconciliationPage').then((m) => ({ default: m.AdminCashReconciliationPage })),
+)
 export function AppCompanyRoutes() {
   return (
     <Routes>
@@ -136,6 +139,7 @@ export function AppCompanyRoutes() {
             <Route path="/management/providers" element={<RequirePermission code="providers:read"><ProvidersPage /></RequirePermission>} />
             <Route path="/management/bookings" element={<RequirePermission code="bookings:read"><BookingsPage /></RequirePermission>} />
             <Route path="/management/payments" element={<RequirePermission code="payments:read"><PaymentsPage /></RequirePermission>} />
+            <Route path="/admin/cash" element={<RequirePermission code="payments:cash-reconcile"><AdminCashReconciliationPage /></RequirePermission>} />
             <Route path="/management/payouts" element={<RequirePermission code="payouts:read"><PayoutsPage /></RequirePermission>} />
             <Route path="/management/discounts" element={<RequirePermission code="discounts:read"><DiscountsPage /></RequirePermission>} />
             <Route path="/management/reports" element={<RequirePermission code="reports:read"><ReportsPage /></RequirePermission>} />

@@ -45,6 +45,9 @@ const PortalMediaPage = lazy(() =>
 const PortalMapPage = lazy(() =>
   import('../../pages/portal/PortalMapPage').then((m) => ({ default: m.PortalMapPage })),
 )
+const PortalCashSheetPage = lazy(() =>
+  import('../../pages/portal/PortalCashSheetPage').then((m) => ({ default: m.PortalCashSheetPage })),
+)
 
 export function AppProviderRoutes() {
   return (
@@ -68,6 +71,7 @@ export function AppProviderRoutes() {
             <Route path="/portal/support" element={<PortalSupportPage />} />
             <Route path="/portal/media" element={<PortalMediaPage />} />
             <Route path="/portal/map" element={<PortalMapPage />} />
+            <Route path="/portal/cash" element={<RequirePermission code="portal:finance"><PortalCashSheetPage /></RequirePermission>} />
           </Route>
         </Route>
       </Route>

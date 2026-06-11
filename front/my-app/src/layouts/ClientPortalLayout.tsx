@@ -14,6 +14,7 @@ const PORTAL_ITEM_ICON: Partial<Record<string, SidebarIconId>> = {
   overview: 'dashboard',
   listings: 'hotels',
   bookings: 'bookings',
+  portal_cash: 'payments',
   staff: 'users',
   earnings: 'sales',
   discounts: 'discounts',
