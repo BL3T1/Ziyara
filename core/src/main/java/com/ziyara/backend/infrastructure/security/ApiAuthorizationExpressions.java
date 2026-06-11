@@ -134,6 +134,10 @@ public final class ApiAuthorizationExpressions {
 
     public static final String PAYMENTS_REFUND = "hasAuthority('payments:write')";
 
+    public static final String PAYMENTS_CASH_RECORD = "hasAuthority('payments:cash-record')";
+
+    public static final String PAYMENTS_CASH_RECONCILE = "hasAuthority('payments:cash-reconcile')";
+
     // -------------------------------------------------------------------------
     // Payouts (Finance > Provider Payouts page)
     // -------------------------------------------------------------------------

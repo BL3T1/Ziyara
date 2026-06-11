@@ -24,7 +24,6 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class PortalPaymentService {
 
     private final BookingRepository bookingRepository;
@@ -38,6 +37,7 @@ public class PortalPaymentService {
                 .stream().map(this::toResponse).toList();
     }
 
+    @Transactional
     public PaymentResponse approveCashPayment(UUID bookingId, UUID providerId, ApproveCashPaymentRequest request) {
         Booking booking = verifyBookingOwnership(bookingId, providerId);
 
@@ -67,6 +67,7 @@ public class PortalPaymentService {
         return toResponse(saved);
     }
 
+    @Transactional
     public PaymentResponse recordPayment(UUID bookingId, UUID providerId, RecordPaymentRequest request) {
         Booking booking = verifyBookingOwnership(bookingId, providerId);
 

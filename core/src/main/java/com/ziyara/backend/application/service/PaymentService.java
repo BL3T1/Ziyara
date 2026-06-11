@@ -1,30 +1,40 @@
 package com.ziyara.backend.application.service;
 
 import com.ziyara.backend.application.dto.request.CreatePaymentRequest;
+import com.ziyara.backend.application.dto.request.RecordCashCollectionRequest;
 import com.ziyara.backend.application.dto.request.RefundRequest;
+import com.ziyara.backend.application.dto.response.CashCollectionResponse;
 import com.ziyara.backend.application.dto.response.PaymentResponse;
 import com.ziyara.backend.application.dto.response.PaymentSummaryResponse;
 import com.ziyara.backend.application.dto.response.RefundResponse;
+import com.ziyara.backend.domain.entity.CashCollection;
 import com.ziyara.backend.domain.entity.Payment;
 import com.ziyara.backend.domain.entity.Refund;
 import com.ziyara.backend.domain.enums.NotificationType;
+import com.ziyara.backend.domain.enums.PaymentMethod;
 import com.ziyara.backend.domain.enums.PaymentStatus;
 import com.ziyara.backend.domain.common.PageQuery;
 import com.ziyara.backend.domain.payment.GatewayChargeCommand;
 import com.ziyara.backend.domain.payment.GatewayChargeResult;
 import com.ziyara.backend.domain.payment.PaymentProvider;
 import com.ziyara.backend.domain.usecase.payment.CompletePaymentUseCase;
+import com.ziyara.backend.domain.usecase.payment.ConfirmCashBookingUseCase;
 import com.ziyara.backend.domain.usecase.payment.FailPaymentUseCase;
 import com.ziyara.backend.domain.usecase.payment.InitiatePaymentUseCase;
+import com.ziyara.backend.domain.usecase.payment.ReconcileCashCollectionUseCase;
+import com.ziyara.backend.domain.usecase.payment.RecordCashCollectionUseCase;
 import com.ziyara.backend.domain.usecase.refund.RequestRefundUseCase;
 import com.ziyara.backend.infrastructure.persistence.util.PageConverter;
+import com.ziyara.backend.domain.repository.CashCollectionRepository;
 import com.ziyara.backend.domain.repository.PaymentRepository;
 import com.ziyara.backend.domain.repository.RefundRepository;
 import com.ziyara.backend.infrastructure.payment.PaymentGatewayProperties;
+import com.ziyara.backend.infrastructure.payment.ReceiptNumberGenerator;
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import com.ziyara.backend.modules.payment.api.PaymentServiceApi;
 import com.ziyara.backend.modules.sys.api.AuditServiceApi;
+import com.ziyara.backend.application.exception.BusinessException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.Nullable;
@@ -49,6 +59,8 @@ public class PaymentService implements PaymentServiceApi {
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
+    private final CashCollectionRepository cashCollectionRepository;
+    private final ReceiptNumberGenerator receiptNumberGenerator;
     private final AuditServiceApi auditLogService;
     private final PaymentGatewayProperties gatewayProperties;
     private final java.util.Optional<PaymentProvider> paymentProvider;
@@ -58,13 +70,20 @@ public class PaymentService implements PaymentServiceApi {
     public PaymentResponse initiatePayment(CreatePaymentRequest request) {
         log.info("Initiating payment for booking: {}", request.getBookingId());
 
+        // Cash-first guard: when cashOnlyMode is on, force CASH and reject card requests.
+        PaymentMethod method = request.getMethod();
+        if (gatewayProperties.isCashOnlyMode() && isCardMethod(method)) {
+            throw new BusinessException(
+                    "Card payments are disabled in cash-only mode. Submit with method=CASH.");
+        }
+
         var initResult = new InitiatePaymentUseCase(paymentRepository).execute(
                 new InitiatePaymentUseCase.Input(
                         request.getBookingId(), request.getAmount(),
                         request.getCurrency() != null ? request.getCurrency() : "USD",
-                        request.getMethod(), request.getIdempotencyKey(),
+                        method, request.getIdempotencyKey(),
                         null, null, null));
-        if (!initResult.success()) throw new com.ziyara.backend.application.exception.BusinessException(initResult.error());
+        if (!initResult.success()) throw new BusinessException(initResult.error());
 
         if (initResult.wasIdempotent()) {
             log.info("Idempotent payment request, returning existing: {}", initResult.payment().getId());
@@ -78,7 +97,7 @@ public class PaymentService implements PaymentServiceApi {
             saved = paymentRepository.save(saved);
         }
 
-        if (gatewayProperties.isEnabled() && paymentProvider.isPresent() && isCardMethod(request.getMethod())
+        if (gatewayProperties.isGatewayActive() && paymentProvider.isPresent() && isCardMethod(method)
                 && request.getPaymentToken() != null && !request.getPaymentToken().isBlank()) {
             GatewayChargeCommand command = new GatewayChargeCommand(
                     saved.getId(),
@@ -263,6 +282,125 @@ public class PaymentService implements PaymentServiceApi {
                 .processedAt(r.getProcessedAt())
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())
+                .build();
+    }
+
+    /**
+     * Confirm a cash booking — creates Payment(PENDING, CASH) without any gateway call.
+     * Returns the new (or idempotent existing) payment.
+     */
+    @Transactional
+    public PaymentResponse confirmCashBooking(UUID bookingId, BigDecimal amount, String currency, String idempotencyKey) {
+        var result = new ConfirmCashBookingUseCase(paymentRepository).execute(
+                new ConfirmCashBookingUseCase.Input(bookingId, amount, currency, idempotencyKey));
+        if (!result.success()) throw new BusinessException(result.error());
+        return mapToResponse(result.payment());
+    }
+
+    /**
+     * Resolve the PENDING cash payment for a booking, then record a collection.
+     * Throws {@link ResourceNotFoundException} if no PENDING cash payment exists.
+     */
+    @Transactional
+    public CashCollectionResponse recordCashCollectionForBooking(UUID bookingId,
+                                                                 UUID providerId,
+                                                                 UUID collectedByUserId,
+                                                                 RecordCashCollectionRequest request) {
+        Payment payment = paymentRepository.findAllByBookingId(bookingId).stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+                .filter(p -> p.getMethod() == PaymentMethod.CASH
+                        || p.getMethod() == PaymentMethod.CASH_ON_SERVICE
+                        || p.getMethod() == PaymentMethod.CASH_ON_ARRIVAL)
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No PENDING cash payment for booking " + bookingId
+                        + ". Confirm the booking first."));
+        return recordCashCollection(payment.getId(), providerId, collectedByUserId, request);
+    }
+
+    /**
+     * Provider portal: record cash received against a payment.
+     * Generates a receipt number, transitions Payment to COLLECTED, creates CashCollection.
+     */
+    @Transactional
+    public CashCollectionResponse recordCashCollection(UUID paymentId,
+                                                       UUID providerId,
+                                                       UUID collectedByUserId,
+                                                       RecordCashCollectionRequest request) {
+        String receiptNumber = receiptNumberGenerator.next();
+        var result = new RecordCashCollectionUseCase(paymentRepository, cashCollectionRepository)
+                .execute(new RecordCashCollectionUseCase.Input(
+                        paymentId, providerId, collectedByUserId,
+                        request.getAmount(),
+                        request.getCurrency(),
+                        request.getCollectedAt(),
+                        receiptNumber,
+                        request.getNotes()));
+        if (!result.success()) throw new BusinessException(result.error());
+
+        auditLogService.logAction("CASH_COLLECTED", "CashCollection",
+                result.collection().getId().toString(),
+                collectedByUserId, null,
+                "paymentId=" + paymentId + "|amount=" + request.getAmount() + "|receipt=" + receiptNumber,
+                null, null);
+
+        staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                .eventId(UUID.randomUUID())
+                .notificationType(NotificationType.PAYMENT_SUCCESS.name())
+                .title("Cash collected")
+                .message("Cash collection " + receiptNumber + " recorded for payment " + paymentId)
+                .notifyRoles(List.of("FINANCE_MANAGER", "ACCOUNTANT"))
+                .metadata("{\"paymentId\":\"" + paymentId + "\",\"receipt\":\"" + receiptNumber + "\"}")
+                .build());
+
+        return mapCollectionToResponse(result.collection());
+    }
+
+    /**
+     * Admin/finance: reconcile a cash collection. Idempotent.
+     */
+    @Transactional
+    public CashCollectionResponse reconcileCashCollection(UUID collectionId, UUID adminUserId, String notes) {
+        var result = new ReconcileCashCollectionUseCase(cashCollectionRepository, paymentRepository)
+                .execute(new ReconcileCashCollectionUseCase.Input(collectionId, adminUserId, notes));
+        if (!result.success()) throw new BusinessException(result.error());
+
+        if (!result.wasIdempotent()) {
+            auditLogService.logAction("CASH_RECONCILED", "CashCollection",
+                    collectionId.toString(), adminUserId, null,
+                    "notes=" + (notes != null ? notes : ""), null, null);
+        }
+        return mapCollectionToResponse(result.collection());
+    }
+
+    @Transactional(readOnly = true)
+    public BigDecimal sumOpenCashForProvider(UUID providerId) {
+        return cashCollectionRepository.sumOpenForProvider(providerId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CashCollectionResponse> listOpenCashForProvider(UUID providerId) {
+        return cashCollectionRepository.findOpenForProvider(providerId).stream()
+                .map(this::mapCollectionToResponse)
+                .toList();
+    }
+
+    private CashCollectionResponse mapCollectionToResponse(CashCollection c) {
+        return CashCollectionResponse.builder()
+                .id(c.getId())
+                .paymentId(c.getPaymentId())
+                .providerId(c.getProviderId())
+                .collectedAt(c.getCollectedAt())
+                .collectedByUserId(c.getCollectedByUserId())
+                .amount(c.getAmount())
+                .currency(c.getCurrency())
+                .receiptNumber(c.getReceiptNumber())
+                .notes(c.getNotes())
+                .reconciledAt(c.getReconciledAt())
+                .reconciledByUserId(c.getReconciledByUserId())
+                .status(c.getStatus())
+                .createdAt(c.getCreatedAt())
+                .updatedAt(c.getUpdatedAt())
                 .build();
     }
 

@@ -26,13 +26,27 @@ public class PaymentGatewayProperties {
     private String webhookSecret = "";
     private String webhookSignatureHeader = "X-Webhook-Signature";
 
+    /**
+     * When true, the payment system bypasses all card / wallet gateways and only
+     * accepts CASH (and BANK_TRANSFER deposits when enabled). Intended for markets
+     * where international gateways are sanction-blocked. Default true.
+     */
+    private boolean cashOnlyMode = true;
+
+    /** HMAC secret for receipt QR signing — set in env. Required when cashOnlyMode=true. */
+    private String receiptSigningSecret = "";
+
     @PostConstruct
     void validate() {
-        if (enabled && !"stub".equalsIgnoreCase(provider)
+        if (enabled && !cashOnlyMode && !"stub".equalsIgnoreCase(provider)
                 && (webhookSecret == null || webhookSecret.isBlank())) {
             throw new IllegalStateException(
                     "PAYMENT_WEBHOOK_SECRET must be set when PAYMENT_GATEWAY_PROVIDER is not 'stub'. " +
                     "Generate one with: openssl rand -hex 32");
         }
+    }
+
+    public boolean isGatewayActive() {
+        return enabled && !cashOnlyMode;
     }
 }

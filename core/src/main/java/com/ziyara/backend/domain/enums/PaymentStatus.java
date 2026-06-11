@@ -11,7 +11,9 @@ public enum PaymentStatus {
     CANCELLED("Cancelled"),
     REFUNDED("Refunded"),
     COLLECTED("Collected"),
-    RECORDED("Recorded");
+    RECORDED("Recorded"),
+    RECONCILED("Reconciled"),
+    NO_SHOW_FORFEIT("No-Show Forfeit");
 
     private final String displayName;
 
@@ -24,14 +26,14 @@ public enum PaymentStatus {
     }
 
     public boolean isSuccessful() {
-        return this == COMPLETED;
+        return this == COMPLETED || this == RECONCILED;
     }
 
     public boolean canBeRefunded() {
-        return this == COMPLETED;
+        return this == COMPLETED || this == RECONCILED;
     }
 
     public boolean isPortalRecorded() {
-        return this == COLLECTED || this == RECORDED;
+        return this == COLLECTED || this == RECORDED || this == RECONCILED;
     }
 }

@@ -9,7 +9,11 @@ public enum PaymentMethod {
     DEBIT_CARD("Debit Card"),
     BANK_TRANSFER("Bank Transfer"),
     WALLET("Z-Pay Wallet"),
+    /** @deprecated use {@link #CASH}. Kept for read-back of legacy rows. */
+    @Deprecated
     CASH_ON_SERVICE("Cash on Service"),
+    /** @deprecated use {@link #CASH}. Kept for read-back of legacy rows. */
+    @Deprecated
     CASH_ON_ARRIVAL("Cash on Arrival"),
     PAYPAL("PayPal"),
     APPLE_PAY("Apple Pay"),
