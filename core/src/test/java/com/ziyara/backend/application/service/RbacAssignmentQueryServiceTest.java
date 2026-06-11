@@ -54,7 +54,7 @@ class RbacAssignmentQueryServiceTest {
     @Test
     void listCustomRoles_filtersOutInactiveRoles() {
         Role activeRole = roleWithId("active-role", false, RoleStatus.ACTIVE);
-        Role inactiveRole = roleWithId("inactive-role", false, RoleStatus.INACTIVE);
+        Role inactiveRole = roleWithId("inactive-role", false, RoleStatus.PENDING_REASSIGNMENT);
         when(roleRepository.findAllOrderByName()).thenReturn(List.of(activeRole, inactiveRole));
 
         List<RbacRoleOptionResponse> result = service.listCustomRolesForAssignment();

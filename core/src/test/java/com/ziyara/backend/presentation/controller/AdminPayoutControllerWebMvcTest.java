@@ -23,7 +23,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +33,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = AdminPayoutController.class)
@@ -114,7 +114,7 @@ class AdminPayoutControllerWebMvcTest {
 
     @Test
     void approvePayout_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/admin/payouts/{id}/approve", PAYOUT_ID))
+        mockMvc.perform(post("/admin/payouts/{id}/approve", PAYOUT_ID).with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -124,7 +124,7 @@ class AdminPayoutControllerWebMvcTest {
         when(adminPayoutService.approve(eq(PAYOUT_ID), any()))
                 .thenReturn(AdminPayoutResponse.builder().id(PAYOUT_ID).build());
 
-        mockMvc.perform(post("/admin/payouts/{id}/approve", PAYOUT_ID)
+        mockMvc.perform(post("/admin/payouts/{id}/approve", PAYOUT_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isOk());
@@ -133,7 +133,7 @@ class AdminPayoutControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "payouts:read")
     void approvePayout_withoutPayoutsWrite_returns403() throws Exception {
-        mockMvc.perform(post("/admin/payouts/{id}/approve", PAYOUT_ID)
+        mockMvc.perform(post("/admin/payouts/{id}/approve", PAYOUT_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isForbidden());
@@ -147,7 +147,7 @@ class AdminPayoutControllerWebMvcTest {
         when(adminPayoutService.markPaid(eq(PAYOUT_ID), any()))
                 .thenReturn(AdminPayoutResponse.builder().id(PAYOUT_ID).build());
 
-        mockMvc.perform(post("/admin/payouts/{id}/mark-paid", PAYOUT_ID)
+        mockMvc.perform(post("/admin/payouts/{id}/mark-paid", PAYOUT_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isOk());
@@ -156,7 +156,7 @@ class AdminPayoutControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "payouts:write")
     void markPaid_withoutPayoutsApprove_returns403() throws Exception {
-        mockMvc.perform(post("/admin/payouts/{id}/mark-paid", PAYOUT_ID)
+        mockMvc.perform(post("/admin/payouts/{id}/mark-paid", PAYOUT_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isForbidden());
@@ -170,7 +170,7 @@ class AdminPayoutControllerWebMvcTest {
         when(adminPayoutService.hold(PAYOUT_ID))
                 .thenReturn(AdminPayoutResponse.builder().id(PAYOUT_ID).build());
 
-        mockMvc.perform(post("/admin/payouts/{id}/hold", PAYOUT_ID))
+        mockMvc.perform(post("/admin/payouts/{id}/hold", PAYOUT_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
@@ -182,7 +182,7 @@ class AdminPayoutControllerWebMvcTest {
         when(adminPayoutService.cancel(PAYOUT_ID))
                 .thenReturn(AdminPayoutResponse.builder().id(PAYOUT_ID).build());
 
-        mockMvc.perform(post("/admin/payouts/{id}/cancel", PAYOUT_ID))
+        mockMvc.perform(post("/admin/payouts/{id}/cancel", PAYOUT_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
@@ -193,7 +193,7 @@ class AdminPayoutControllerWebMvcTest {
     void bulkApprove_withPayoutsApprove_returns200() throws Exception {
         when(adminPayoutService.bulkApprove(any())).thenReturn(Map.of("processed", 1));
 
-        mockMvc.perform(post("/admin/payouts/bulk/approve")
+        mockMvc.perform(post("/admin/payouts/bulk/approve").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"ids\":[\"" + PAYOUT_ID + "\"]}"))
                 .andExpect(status().isOk());
@@ -202,7 +202,7 @@ class AdminPayoutControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "payouts:write")
     void bulkApprove_withoutPayoutsApprove_returns403() throws Exception {
-        mockMvc.perform(post("/admin/payouts/bulk/approve")
+        mockMvc.perform(post("/admin/payouts/bulk/approve").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"ids\":[\"" + PAYOUT_ID + "\"]}"))
                 .andExpect(status().isForbidden());
@@ -221,10 +221,6 @@ class AdminPayoutControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

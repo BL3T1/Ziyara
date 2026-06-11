@@ -22,7 +22,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -63,10 +62,6 @@ class TaxiBookingControllerGetByIdWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
@@ -80,7 +75,7 @@ class TaxiBookingControllerGetByIdWebMvcTest {
     }
 
     @Test
-    @WithMockUser(roles = "SUPPORT_AGENT")
+    @WithMockUser(authorities = "taxi:read")
     void getById_returns200() throws Exception {
         UUID id = UUID.fromString("b1000000-0000-4000-8000-000000000001");
         UUID bookingId = UUID.fromString("b2000000-0000-4000-8000-000000000001");

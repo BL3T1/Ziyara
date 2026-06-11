@@ -126,7 +126,7 @@ class SuperAdminRecoveryServiceTest {
     void assertActiveCustomer_wrongRole_throwsResourceNotFound() {
         UUID userId = UUID.randomUUID();
         User user = new User();
-        user.setRole(UserRole.COMPANY_STAFF);
+        user.setRole(UserRole.STAFF);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> service.assertActiveCustomer(userId))

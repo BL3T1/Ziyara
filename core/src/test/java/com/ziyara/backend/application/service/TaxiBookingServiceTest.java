@@ -49,7 +49,7 @@ class TaxiBookingServiceTest {
         taxiBooking.setVehicleType(VehicleType.STANDARD);
         taxiBooking.setPickupLocation("Airport");
         taxiBooking.setDestinationLocation("Hotel");
-        taxiBooking.setStatus(TaxiStatus.PENDING);
+        taxiBooking.setStatus(TaxiStatus.SEARCHING);
         taxiBooking.setEstimatedPrice(new BigDecimal("50.00"));
     }
 

@@ -21,7 +21,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,6 +31,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = ProviderSubscriptionController.class)
@@ -99,7 +99,7 @@ class ProviderSubscriptionControllerWebMvcTest {
 
     @Test
     void upsert_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(put("/admin/subscriptions/" + PROVIDER_ID)
+        mockMvc.perform(put("/admin/subscriptions/" + PROVIDER_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"plan\":\"BASIC\"}"))
                 .andExpect(status().isUnauthorized());
@@ -108,7 +108,7 @@ class ProviderSubscriptionControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "bookings:read")
     void upsert_withoutPermission_returns403() throws Exception {
-        mockMvc.perform(put("/admin/subscriptions/" + PROVIDER_ID)
+        mockMvc.perform(put("/admin/subscriptions/" + PROVIDER_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"plan\":\"BASIC\"}"))
                 .andExpect(status().isForbidden());
@@ -120,7 +120,7 @@ class ProviderSubscriptionControllerWebMvcTest {
         when(subscriptionService.upsert(any(), any()))
                 .thenReturn(ProviderSubscriptionResponse.builder().providerId(PROVIDER_ID).build());
 
-        mockMvc.perform(put("/admin/subscriptions/" + PROVIDER_ID)
+        mockMvc.perform(put("/admin/subscriptions/" + PROVIDER_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"plan\":\"BASIC\"}"))
                 .andExpect(status().isOk());
@@ -128,10 +128,6 @@ class ProviderSubscriptionControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

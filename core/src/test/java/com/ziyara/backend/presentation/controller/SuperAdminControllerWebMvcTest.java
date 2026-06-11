@@ -22,7 +22,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -62,8 +61,8 @@ class SuperAdminControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "customers:read")
     void searchCustomers_withPermission_returns200() throws Exception {
-        when(superAdminRecoveryService.searchCustomers(any(), anyInt(), anyInt()))
-                .thenReturn(Page.empty());
+        when(superAdminRecoveryService.searchCustomers(any(), anyInt()))
+                .thenReturn(java.util.List.of());
 
         mockMvc.perform(get("/admin/super/customers/search"))
                 .andExpect(status().isOk());
@@ -87,8 +86,8 @@ class SuperAdminControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "deleted_items:read")
     void listDeleted_withPermission_returns200() throws Exception {
-        when(superAdminRecoveryService.listDeleted(any(), anyInt(), anyInt()))
-                .thenReturn(Page.empty());
+        when(superAdminRecoveryService.listRecentDeleted(anyInt(), any()))
+                .thenReturn(java.util.List.of());
 
         mockMvc.perform(get("/admin/super/deleted"))
                 .andExpect(status().isOk());
@@ -103,10 +102,6 @@ class SuperAdminControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

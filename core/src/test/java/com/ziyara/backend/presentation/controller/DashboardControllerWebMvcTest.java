@@ -25,7 +25,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -160,10 +159,6 @@ class DashboardControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

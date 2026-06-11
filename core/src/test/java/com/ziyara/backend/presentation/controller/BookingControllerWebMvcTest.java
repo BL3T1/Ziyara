@@ -22,7 +22,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,6 +31,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = BookingController.class)
@@ -65,7 +65,7 @@ class BookingControllerWebMvcTest {
 
     @Test
     void createBooking_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/bookings")
+        mockMvc.perform(post("/bookings").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"serviceId\":\"00000000-0000-0000-0000-000000000001\"}"))
                 .andExpect(status().isUnauthorized());
@@ -115,12 +115,10 @@ class BookingControllerWebMvcTest {
     @Test
     @WithMockUser(username = "a0000000-0000-0000-0000-000000000001")
     void createBooking_authenticated_returns201() throws Exception {
-        when(jwtService.extractUserId("test-token")).thenReturn(USER_ID.toString());
         BookingResponse booking = BookingResponse.builder().id(BOOKING_ID).build();
         when(bookingService.createBooking(eq(USER_ID), any())).thenReturn(booking);
 
-        mockMvc.perform(post("/bookings")
-                        .header("Authorization", AUTH_HEADER)
+        mockMvc.perform(post("/bookings").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"serviceId\":\"00000000-0000-0000-0000-000000000001\",\"checkInDate\":\"2025-12-01\",\"checkOutDate\":\"2025-12-05\",\"guests\":2}"))
                 .andExpect(status().isCreated());
@@ -130,7 +128,7 @@ class BookingControllerWebMvcTest {
 
     @Test
     void rejectBooking_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/bookings/{id}/reject", BOOKING_ID)
+        mockMvc.perform(post("/bookings/{id}/reject", BOOKING_ID).with(csrf())
                         .header("Authorization", AUTH_HEADER))
                 .andExpect(status().isUnauthorized());
     }
@@ -142,7 +140,7 @@ class BookingControllerWebMvcTest {
         BookingResponse booking = BookingResponse.builder().id(BOOKING_ID).build();
         when(bookingService.rejectBooking(eq(BOOKING_ID), eq(USER_ID), any())).thenReturn(booking);
 
-        mockMvc.perform(post("/bookings/{id}/reject", BOOKING_ID)
+        mockMvc.perform(post("/bookings/{id}/reject", BOOKING_ID).with(csrf())
                         .header("Authorization", AUTH_HEADER))
                 .andExpect(status().isOk());
     }
@@ -150,7 +148,7 @@ class BookingControllerWebMvcTest {
     @Test
     @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", authorities = "users:read")
     void rejectBooking_withoutPermission_returns403() throws Exception {
-        mockMvc.perform(post("/bookings/{id}/reject", BOOKING_ID)
+        mockMvc.perform(post("/bookings/{id}/reject", BOOKING_ID).with(csrf())
                         .header("Authorization", AUTH_HEADER))
                 .andExpect(status().isForbidden());
     }
@@ -165,17 +163,13 @@ class BookingControllerWebMvcTest {
         when(bookingService.cancelBooking(eq(BOOKING_ID), eq(USER_ID), anyBoolean(), any()))
                 .thenReturn(booking);
 
-        mockMvc.perform(post("/bookings/{id}/cancel", BOOKING_ID)
+        mockMvc.perform(post("/bookings/{id}/cancel", BOOKING_ID).with(csrf())
                         .header("Authorization", AUTH_HEADER))
                 .andExpect(status().isOk());
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

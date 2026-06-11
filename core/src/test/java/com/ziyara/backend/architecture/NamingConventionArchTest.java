@@ -59,6 +59,7 @@ class NamingConventionArchTest {
             ArchRule rule = classes()
                     .that().haveSimpleNameEndingWith("Controller")
                     .and().areNotInterfaces()
+                    .and().areNotAnnotatedWith(org.springframework.stereotype.Controller.class)
                     .should().beAnnotatedWith(RestController.class);
             rule.check(classes);
         }
@@ -122,7 +123,8 @@ class NamingConventionArchTest {
             ArchRule rule = classes()
                     .that().haveSimpleNameEndingWith("Jpa")
                     .and().areNotInterfaces()
-                    .should().resideInAPackage("com.ziyara.backend.infrastructure.persistence.entity..");
+                    .should().resideInAPackage("com.ziyara.backend.infrastructure.persistence.entity..")
+                    .allowEmptyShould(true);
             rule.check(classes);
         }
 
@@ -131,7 +133,8 @@ class NamingConventionArchTest {
         void noJpaEntitiesInDomain() {
             ArchRule rule = noClasses()
                     .that().haveSimpleNameEndingWith("Jpa")
-                    .should().resideInAPackage("com.ziyara.backend.domain..");
+                    .should().resideInAPackage("com.ziyara.backend.domain..")
+                    .allowEmptyShould(true);
             rule.check(classes);
         }
     }

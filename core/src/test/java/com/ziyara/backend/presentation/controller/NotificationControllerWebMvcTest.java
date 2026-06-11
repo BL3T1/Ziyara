@@ -22,7 +22,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +33,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = NotificationController.class)
@@ -67,10 +67,7 @@ class NotificationControllerWebMvcTest {
     @WithMockUser(authorities = "user:read")
     void getMyNotifications_authenticated_returns200() throws Exception {
         when(jwtService.extractUserId("test-token")).thenReturn(USER_ID.toString());
-        NotificationInboxResponse inbox = NotificationInboxResponse.builder()
-                .notifications(Page.empty())
-                .unreadCount(0L)
-                .build();
+        NotificationInboxResponse inbox = new NotificationInboxResponse(Page.empty(), 0L);
         when(notificationService.getUserNotificationsInbox(eq(USER_ID), anyInt(), anyInt()))
                 .thenReturn(inbox);
 
@@ -91,10 +88,7 @@ class NotificationControllerWebMvcTest {
     @WithMockUser(authorities = "user:read")
     void getMyNotificationsAlias_authenticated_returns200() throws Exception {
         when(jwtService.extractUserId("test-token")).thenReturn(USER_ID.toString());
-        NotificationInboxResponse inbox = NotificationInboxResponse.builder()
-                .notifications(Page.empty())
-                .unreadCount(0L)
-                .build();
+        NotificationInboxResponse inbox = new NotificationInboxResponse(Page.empty(), 0L);
         when(notificationService.getUserNotificationsInbox(any(), anyInt(), anyInt()))
                 .thenReturn(inbox);
 
@@ -120,7 +114,7 @@ class NotificationControllerWebMvcTest {
 
     @Test
     void markAsRead_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(patch("/notifications/{id}/read", UUID.randomUUID()))
+        mockMvc.perform(patch("/notifications/{id}/read", UUID.randomUUID()).with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -130,17 +124,13 @@ class NotificationControllerWebMvcTest {
         UUID notifId = UUID.randomUUID();
         when(jwtService.extractUserId("test-token")).thenReturn(USER_ID.toString());
 
-        mockMvc.perform(patch("/notifications/{id}/read", notifId)
+        mockMvc.perform(patch("/notifications/{id}/read", notifId).with(csrf())
                         .header("Authorization", "Bearer test-token"))
                 .andExpect(status().isOk());
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

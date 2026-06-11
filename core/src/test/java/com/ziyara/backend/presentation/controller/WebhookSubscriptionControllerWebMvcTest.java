@@ -20,7 +20,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +33,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = WebhookSubscriptionController.class)
@@ -76,7 +76,7 @@ class WebhookSubscriptionControllerWebMvcTest {
 
     @Test
     void create_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/admin/webhooks")
+        mockMvc.perform(post("/admin/webhooks").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"hook\",\"url\":\"https://example.com\",\"events\":[\"booking.created\"]}"))
                 .andExpect(status().isUnauthorized());
@@ -87,7 +87,7 @@ class WebhookSubscriptionControllerWebMvcTest {
     void create_withCompanyStaff_returns201() throws Exception {
         when(webhookService.create(any())).thenReturn(null);
 
-        mockMvc.perform(post("/admin/webhooks")
+        mockMvc.perform(post("/admin/webhooks").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"hook\",\"url\":\"https://example.com\",\"events\":[\"booking.created\"]}"))
                 .andExpect(status().isCreated());
@@ -97,7 +97,7 @@ class WebhookSubscriptionControllerWebMvcTest {
 
     @Test
     void delete_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(delete("/admin/webhooks/" + WEBHOOK_ID))
+        mockMvc.perform(delete("/admin/webhooks/" + WEBHOOK_ID).with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -106,7 +106,7 @@ class WebhookSubscriptionControllerWebMvcTest {
     void delete_withCompanyStaff_returns200() throws Exception {
         doNothing().when(webhookService).delete(any());
 
-        mockMvc.perform(delete("/admin/webhooks/" + WEBHOOK_ID))
+        mockMvc.perform(delete("/admin/webhooks/" + WEBHOOK_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
@@ -114,7 +114,7 @@ class WebhookSubscriptionControllerWebMvcTest {
 
     @Test
     void setActive_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(patch("/admin/webhooks/" + WEBHOOK_ID + "/active")
+        mockMvc.perform(patch("/admin/webhooks/" + WEBHOOK_ID + "/active").with(csrf())
                         .param("active", "true"))
                 .andExpect(status().isUnauthorized());
     }
@@ -124,7 +124,7 @@ class WebhookSubscriptionControllerWebMvcTest {
     void setActive_withCompanyStaff_returns200() throws Exception {
         doNothing().when(webhookService).setActive(any(), anyBoolean());
 
-        mockMvc.perform(patch("/admin/webhooks/" + WEBHOOK_ID + "/active")
+        mockMvc.perform(patch("/admin/webhooks/" + WEBHOOK_ID + "/active").with(csrf())
                         .param("active", "false"))
                 .andExpect(status().isOk());
     }
@@ -133,7 +133,7 @@ class WebhookSubscriptionControllerWebMvcTest {
 
     @Test
     void ping_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/admin/webhooks/" + WEBHOOK_ID + "/ping"))
+        mockMvc.perform(post("/admin/webhooks/" + WEBHOOK_ID + "/ping").with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -142,7 +142,7 @@ class WebhookSubscriptionControllerWebMvcTest {
     void ping_withCompanyStaff_returns200() throws Exception {
         doNothing().when(webhookService).ping(any());
 
-        mockMvc.perform(post("/admin/webhooks/" + WEBHOOK_ID + "/ping"))
+        mockMvc.perform(post("/admin/webhooks/" + WEBHOOK_ID + "/ping").with(csrf()))
                 .andExpect(status().isOk());
     }
 
@@ -182,10 +182,6 @@ class WebhookSubscriptionControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

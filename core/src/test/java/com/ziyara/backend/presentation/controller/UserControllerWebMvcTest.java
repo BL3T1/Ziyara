@@ -27,7 +27,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -39,6 +38,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = UserController.class)
@@ -117,7 +117,7 @@ class UserControllerWebMvcTest {
 
     @Test
     void updateMe_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(patch("/users/me")
+        mockMvc.perform(patch("/users/me").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"firstName\":\"Alice\"}"))
                 .andExpect(status().isUnauthorized());
@@ -131,7 +131,7 @@ class UserControllerWebMvcTest {
         updated.setEmail("user@example.com");
         when(userQueryHandler.findById(USER_ID)).thenReturn(Optional.of(updated));
 
-        mockMvc.perform(patch("/users/me")
+        mockMvc.perform(patch("/users/me").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"firstName\":\"Alice\"}"))
                 .andExpect(status().isOk());
@@ -165,7 +165,7 @@ class UserControllerWebMvcTest {
 
     @Test
     void createUser_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/users")
+        mockMvc.perform(post("/users").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"new@example.com\",\"password\":\"Pass123!\"}"))
                 .andExpect(status().isUnauthorized());
@@ -181,7 +181,7 @@ class UserControllerWebMvcTest {
         when(userCommandHandler.create(any())).thenReturn(newUserId);
         when(userQueryHandler.findById(newUserId)).thenReturn(Optional.of(created));
 
-        mockMvc.perform(post("/users")
+        mockMvc.perform(post("/users").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"new@example.com\",\"password\":\"Pass123!\",\"role\":\"CUSTOMER\"}"))
                 .andExpect(status().isCreated());
@@ -191,23 +191,19 @@ class UserControllerWebMvcTest {
 
     @Test
     void deleteUser_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(delete("/users/{id}", USER_ID))
+        mockMvc.perform(delete("/users/{id}", USER_ID).with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     @WithMockUser(authorities = "users:write")
     void deleteUser_withPermission_returns200() throws Exception {
-        mockMvc.perform(delete("/users/{id}", USER_ID))
+        mockMvc.perform(delete("/users/{id}", USER_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

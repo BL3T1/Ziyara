@@ -21,7 +21,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = ProviderMediaSubmissionController.class)
@@ -83,14 +83,14 @@ class ProviderMediaSubmissionControllerWebMvcTest {
 
     @Test
     void approve_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/admin/media-submissions/" + SUBMISSION_ID + "/approve"))
+        mockMvc.perform(post("/admin/media-submissions/" + SUBMISSION_ID + "/approve").with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     @WithMockUser(authorities = "bookings:read")
     void approve_withoutPermission_returns403() throws Exception {
-        mockMvc.perform(post("/admin/media-submissions/" + SUBMISSION_ID + "/approve"))
+        mockMvc.perform(post("/admin/media-submissions/" + SUBMISSION_ID + "/approve").with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
@@ -102,7 +102,7 @@ class ProviderMediaSubmissionControllerWebMvcTest {
                 .build();
         when(submissionService.approve(any(), any())).thenReturn(response);
 
-        mockMvc.perform(post("/admin/media-submissions/" + SUBMISSION_ID + "/approve"))
+        mockMvc.perform(post("/admin/media-submissions/" + SUBMISSION_ID + "/approve").with(csrf()))
                 .andExpect(status().isOk());
     }
 
@@ -110,7 +110,7 @@ class ProviderMediaSubmissionControllerWebMvcTest {
 
     @Test
     void reject_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/admin/media-submissions/" + SUBMISSION_ID + "/reject"))
+        mockMvc.perform(post("/admin/media-submissions/" + SUBMISSION_ID + "/reject").with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -122,7 +122,7 @@ class ProviderMediaSubmissionControllerWebMvcTest {
                 .build();
         when(submissionService.reject(any(), any(), isNull())).thenReturn(response);
 
-        mockMvc.perform(post("/admin/media-submissions/" + SUBMISSION_ID + "/reject")
+        mockMvc.perform(post("/admin/media-submissions/" + SUBMISSION_ID + "/reject").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isOk());
@@ -130,10 +130,6 @@ class ProviderMediaSubmissionControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

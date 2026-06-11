@@ -25,7 +25,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,7 +39,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -79,10 +80,6 @@ class PortalSupportRequestsControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
@@ -105,7 +102,7 @@ class PortalSupportRequestsControllerWebMvcTest {
     }
 
     @Test
-    @WithMockUser(username = "c1000000-0000-4000-8000-000000000001", roles = "PROVIDER_MANAGER")
+    @WithMockUser(username = "c1000000-0000-4000-8000-000000000001", authorities = "portal:access")
     void list_returns200() throws Exception {
         stubCurrentProvider();
         PortalSupportRequestResponse row = PortalSupportRequestResponse.builder()
@@ -124,7 +121,7 @@ class PortalSupportRequestsControllerWebMvcTest {
     }
 
     @Test
-    @WithMockUser(username = "c1000000-0000-4000-8000-000000000001", roles = "PROVIDER_MANAGER")
+    @WithMockUser(username = "c1000000-0000-4000-8000-000000000001", authorities = "portal:access")
     void create_returns201() throws Exception {
         stubCurrentProvider();
         PortalSupportRequestResponse created = PortalSupportRequestResponse.builder()
@@ -142,7 +139,7 @@ class PortalSupportRequestsControllerWebMvcTest {
                 .body("Question")
                 .build();
 
-        mockMvc.perform(post("/portal/support-requests")
+        mockMvc.perform(post("/portal/support-requests").with(csrf())
                         .header("Authorization", "Bearer t")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))

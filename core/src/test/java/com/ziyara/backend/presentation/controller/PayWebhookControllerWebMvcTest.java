@@ -21,7 +21,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,6 +30,7 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = PayWebhookController.class)
@@ -55,7 +55,7 @@ class PayWebhookControllerWebMvcTest {
 
     @Test
     void webhook_emptyPayload_returns400() throws Exception {
-        mockMvc.perform(post("/pay/webhooks")
+        mockMvc.perform(post("/pay/webhooks").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
@@ -68,7 +68,7 @@ class PayWebhookControllerWebMvcTest {
         when(paymentService.completePaymentByGatewayReference(eq("txn-001"), eq("stripe")))
                 .thenReturn(Optional.of(payResponse));
 
-        mockMvc.perform(post("/pay/webhooks")
+        mockMvc.perform(post("/pay/webhooks").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"gateway_reference\":\"txn-001\",\"status\":\"success\"}"))
                 .andExpect(status().isOk())
@@ -79,7 +79,7 @@ class PayWebhookControllerWebMvcTest {
     void webhook_failedStatus_failsPayment() throws Exception {
         when(gatewayProperties.getProvider()).thenReturn("stripe");
 
-        mockMvc.perform(post("/pay/webhooks")
+        mockMvc.perform(post("/pay/webhooks").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"gateway_reference\":\"txn-002\",\"status\":\"failed\",\"error_message\":\"card_declined\"}"))
                 .andExpect(status().isOk());
@@ -89,7 +89,7 @@ class PayWebhookControllerWebMvcTest {
     void webhook_unknownStatus_returns200WithWebhookReceived() throws Exception {
         when(gatewayProperties.getProvider()).thenReturn("stripe");
 
-        mockMvc.perform(post("/pay/webhooks")
+        mockMvc.perform(post("/pay/webhooks").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"gateway_reference\":\"txn-003\",\"status\":\"processing\"}"))
                 .andExpect(status().isOk())
@@ -100,7 +100,7 @@ class PayWebhookControllerWebMvcTest {
     void webhook_noGatewayRef_returns200() throws Exception {
         when(gatewayProperties.getProvider()).thenReturn("stripe");
 
-        mockMvc.perform(post("/pay/webhooks")
+        mockMvc.perform(post("/pay/webhooks").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"event_type\":\"payment.created\"}"))
                 .andExpect(status().isOk());
@@ -113,7 +113,7 @@ class PayWebhookControllerWebMvcTest {
         when(paymentService.completePaymentByGatewayReference(anyString(), anyString()))
                 .thenReturn(Optional.of(payResponse));
 
-        mockMvc.perform(post("/pay/webhooks")
+        mockMvc.perform(post("/pay/webhooks").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"id\":\"pi_001\",\"status\":\"payment_intent.succeeded\"}"))
                 .andExpect(status().isOk());
@@ -121,10 +121,6 @@ class PayWebhookControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

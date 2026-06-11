@@ -20,7 +20,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = UserDataExportController.class)
@@ -133,7 +133,7 @@ class UserDataExportControllerWebMvcTest {
 
     @Test
     void request_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/users/me/data-exports"))
+        mockMvc.perform(post("/users/me/data-exports").with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -145,16 +145,12 @@ class UserDataExportControllerWebMvcTest {
                 .build();
         when(dataExportService.requestExport(any())).thenReturn(response);
 
-        mockMvc.perform(post("/users/me/data-exports"))
+        mockMvc.perform(post("/users/me/data-exports").with(csrf()))
                 .andExpect(status().isOk());
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

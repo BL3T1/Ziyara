@@ -22,7 +22,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,6 +32,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = InternalTicketController.class)
@@ -58,7 +58,7 @@ class InternalTicketControllerWebMvcTest {
 
     @Test
     void createTicket_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/tickets")
+        mockMvc.perform(post("/tickets").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"Bug\",\"type\":\"BUG\",\"priority\":\"HIGH\"}"))
                 .andExpect(status().isUnauthorized());
@@ -67,10 +67,11 @@ class InternalTicketControllerWebMvcTest {
     @Test
     @WithMockUser(username = "00000000-0000-0000-0000-000000000001", authorities = "tickets:write")
     void createTicket_withCompanyStaff_returns201() throws Exception {
-        TicketResponse response = TicketResponse.builder().id(TICKET_ID).build();
+        TicketResponse response = new TicketResponse();
+        response.setId(TICKET_ID);
         when(ticketService.createTicket(any(), any())).thenReturn(response);
 
-        mockMvc.perform(post("/tickets")
+        mockMvc.perform(post("/tickets").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"Bug\",\"type\":\"BUG\",\"priority\":\"HIGH\",\"description\":\"Desc\"}"))
                 .andExpect(status().isCreated());
@@ -99,8 +100,9 @@ class InternalTicketControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "tickets:read")
     void getTicket_found_returns200() throws Exception {
-        TicketResponse response = TicketResponse.builder().id(TICKET_ID).build();
-        when(ticketService.getTicketById(TICKET_ID)).thenReturn(response);
+        TicketResponse response = new TicketResponse();
+        response.setId(TICKET_ID);
+        when(ticketService.getTicket(TICKET_ID.toString())).thenReturn(response);
 
         mockMvc.perform(get("/tickets/{id}", TICKET_ID))
                 .andExpect(status().isOk());
@@ -108,10 +110,6 @@ class InternalTicketControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

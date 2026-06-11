@@ -21,7 +21,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,7 +28,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = ContentPageController.class)
@@ -73,7 +74,7 @@ class ContentPageControllerWebMvcTest {
 
     @Test
     void upsertPage_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(put("/content-pages/about")
+        mockMvc.perform(put("/content-pages/about").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"titleEn\":\"About Us\"}"))
                 .andExpect(status().isUnauthorized());
@@ -85,27 +86,23 @@ class ContentPageControllerWebMvcTest {
         ContentPageResponse response = ContentPageResponse.builder().slug("about").build();
         when(contentPageService.upsert(eq("about"), any())).thenReturn(response);
 
-        mockMvc.perform(put("/content-pages/about")
+        mockMvc.perform(put("/content-pages/about").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"titleEn\":\"About Us\",\"bodyEn\":\"Body text\"}"))
+                        .content("{\"contentEn\":{\"title\":\"About Us\"},\"contentAr\":{\"title\":\"عن\"}}"))
                 .andExpect(status().isOk());
     }
 
     @Test
     @WithMockUser(authorities = "bookings:read")
     void upsertPage_withoutContentWrite_returns403() throws Exception {
-        mockMvc.perform(put("/content-pages/about")
+        mockMvc.perform(put("/content-pages/about").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"titleEn\":\"About Us\"}"))
+                        .content("{\"contentEn\":{\"title\":\"About Us\"},\"contentAr\":{\"title\":\"عن\"}}"))
                 .andExpect(status().isForbidden());
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

@@ -2,6 +2,7 @@ package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.BookingResponse;
 import com.ziyara.backend.application.dto.response.PortalDashboardResponse;
+import com.ziyara.backend.application.dto.response.ServiceProviderResponse;
 import com.ziyara.backend.application.dto.response.ServiceResponse;
 import com.ziyara.backend.application.service.HotelRoomService;
 import com.ziyara.backend.application.service.JwtTokenBlocklistService;
@@ -30,7 +31,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -41,6 +41,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = PortalController.class)
@@ -128,9 +129,9 @@ class PortalControllerWebMvcTest {
         ServiceResponse response = ServiceResponse.builder().id(SERVICE_ID).build();
         when(portalService.createService(eq(PROVIDER_ID), any())).thenReturn(response);
 
-        mockMvc.perform(post("/portal/services")
+        mockMvc.perform(post("/portal/services").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"My Service\",\"type\":\"HOTEL\"}"))
+                        .content("{\"name\":\"My Service\",\"type\":\"HOTEL\",\"basePrice\":100.00}"))
                 .andExpect(status().isCreated());
     }
 
@@ -151,9 +152,9 @@ class PortalControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "portal:access")
     void cashApprove_withoutPortalFinance_returns403() throws Exception {
-        mockMvc.perform(post("/portal/bookings/{id}/payments/cash-approve", UUID.randomUUID())
+        mockMvc.perform(post("/portal/bookings/{id}/payments/cash-approve", UUID.randomUUID()).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+                        .content("{\"amount\":100.00,\"currency\":\"USD\"}"))
                 .andExpect(status().isForbidden());
     }
 
@@ -163,9 +164,9 @@ class PortalControllerWebMvcTest {
         stubProviderLookup();
         when(portalPaymentService.approveCashPayment(any(), any(), any())).thenReturn(null);
 
-        mockMvc.perform(post("/portal/bookings/{id}/payments/cash-approve", UUID.randomUUID())
+        mockMvc.perform(post("/portal/bookings/{id}/payments/cash-approve", UUID.randomUUID()).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+                        .content("{\"amount\":100.00,\"currency\":\"USD\"}"))
                 .andExpect(status().isOk());
     }
 
@@ -183,10 +184,6 @@ class PortalControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

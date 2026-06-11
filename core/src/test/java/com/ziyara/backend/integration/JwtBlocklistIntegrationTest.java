@@ -53,7 +53,7 @@ class JwtBlocklistIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void logout_newTokenAfterLogout_stillWorks() {
-        String email = "relogin-" + short() + "@test.com";
+        String email = "relogin-" + shortId() + "@test.com";
         String password = "P@ssw0rd!Test123";
         register(email, password);
 
@@ -96,7 +96,7 @@ class JwtBlocklistIntegrationTest extends AbstractIntegrationTest {
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private String registerAndLogin() {
-        String email = "blocklist-" + short() + "@test.com";
+        String email = "blocklist-" + shortId() + "@test.com";
         String password = "P@ssw0rd!Test123";
         register(email, password);
         return login(email, password);
@@ -134,7 +134,7 @@ class JwtBlocklistIntegrationTest extends AbstractIntegrationTest {
         return end > start ? body.substring(start, end) : null;
     }
 
-    private String short() {
+    private String shortId() {
         return UUID.randomUUID().toString().substring(0, 8);
     }
 }

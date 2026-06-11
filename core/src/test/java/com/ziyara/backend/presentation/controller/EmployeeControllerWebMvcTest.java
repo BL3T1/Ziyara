@@ -22,7 +22,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -35,6 +34,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = EmployeeController.class)
@@ -106,7 +106,7 @@ class EmployeeControllerWebMvcTest {
 
     @Test
     void onboard_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/employees")
+        mockMvc.perform(post("/employees").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":\"" + EMP_ID + "\",\"name\":\"John\"}"))
                 .andExpect(status().isUnauthorized());
@@ -118,9 +118,9 @@ class EmployeeControllerWebMvcTest {
         EmployeeResponse response = EmployeeResponse.builder().id(EMP_ID).build();
         when(employeeService.createEmployee(any())).thenReturn(response);
 
-        mockMvc.perform(post("/employees")
+        mockMvc.perform(post("/employees").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"userId\":\"" + EMP_ID + "\",\"name\":\"John\"}"))
+                        .content("{\"userId\":\"" + EMP_ID + "\",\"employeeId\":\"EMP001\"}"))
                 .andExpect(status().isCreated());
     }
 
@@ -128,7 +128,7 @@ class EmployeeControllerWebMvcTest {
 
     @Test
     void update_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(patch("/employees/" + EMP_ID)
+        mockMvc.perform(patch("/employees/" + EMP_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnauthorized());
@@ -140,7 +140,7 @@ class EmployeeControllerWebMvcTest {
         EmployeeResponse response = EmployeeResponse.builder().id(EMP_ID).build();
         when(employeeService.updateEmployee(any(), any())).thenReturn(response);
 
-        mockMvc.perform(patch("/employees/" + EMP_ID)
+        mockMvc.perform(patch("/employees/" + EMP_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isOk());
@@ -150,7 +150,7 @@ class EmployeeControllerWebMvcTest {
 
     @Test
     void offboard_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(delete("/employees/" + EMP_ID))
+        mockMvc.perform(delete("/employees/" + EMP_ID).with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -160,16 +160,12 @@ class EmployeeControllerWebMvcTest {
         // resolveActorId tolerates non-UUID username; catches IllegalArgumentException
         doNothing().when(employeeService).offboardEmployee(any(), any(), isNull());
 
-        mockMvc.perform(delete("/employees/" + EMP_ID))
+        mockMvc.perform(delete("/employees/" + EMP_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

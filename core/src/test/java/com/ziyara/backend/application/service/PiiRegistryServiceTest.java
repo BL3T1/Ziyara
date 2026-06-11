@@ -44,7 +44,7 @@ class PiiRegistryServiceTest {
         assertThat(result.get(0).getTableName()).isEqualTo("sys_users");
         assertThat(result.get(0).getColumnName()).isEqualTo("email");
         assertThat(result.get(0).getPiiCategory()).isEqualTo("CONTACT");
-        assertThat(result.get(0).isEncryptionRequired()).isTrue();
+        assertThat(result.get(0).getEncryptionRequired()).isTrue();
         assertThat(result.get(0).getGdprArticle()).isEqualTo("Art. 6(1)(a)");
     }
 

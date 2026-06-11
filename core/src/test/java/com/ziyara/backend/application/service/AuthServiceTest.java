@@ -96,7 +96,7 @@ class AuthServiceTest {
         when(userRepository.findByEmail(any())).thenReturn(Optional.empty());
         assertThatThrownBy(() -> authService.authenticate(req(EMAIL, PASSWORD, null), "127.0.0.1"))
                 .isInstanceOf(AuthService.AuthenticationException.class)
-                .hasMessageContaining("Invalid email or password");
+                .hasMessageContaining("Invalid credentials");
     }
 
     @Test
@@ -128,7 +128,7 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.authenticate(req(EMAIL, PASSWORD, null), "127.0.0.1"))
                 .isInstanceOf(AuthService.AuthenticationException.class)
-                .hasMessageContaining("Invalid email or password");
+                .hasMessageContaining("Invalid credentials");
 
         verify(userRepository).save(user);
     }

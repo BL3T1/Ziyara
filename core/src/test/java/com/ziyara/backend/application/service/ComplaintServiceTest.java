@@ -136,7 +136,7 @@ class ComplaintServiceTest {
         Complaint c = new Complaint();
         c.setId(id);
         c.setTicketNumber("CMP-001");
-        c.setStatus(ComplaintStatus.OPEN);
+        c.setStatus(ComplaintStatus.SUBMITTED);
         return c;
     }
 }

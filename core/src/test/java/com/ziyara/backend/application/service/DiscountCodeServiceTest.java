@@ -8,7 +8,6 @@ import com.ziyara.backend.application.exception.BusinessException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import com.ziyara.backend.domain.entity.DiscountCode;
 import com.ziyara.backend.domain.enums.DiscountStatus;
-import com.ziyara.backend.domain.enums.DiscountType;
 import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.domain.repository.DiscountCodeRepository;
 import com.ziyara.backend.domain.repository.ServiceRepository;
@@ -51,7 +50,7 @@ class DiscountCodeServiceTest {
         activeDiscount = new DiscountCode();
         activeDiscount.setId(DISCOUNT_ID);
         activeDiscount.setCode("SAVE10");
-        activeDiscount.setType(DiscountType.PERCENTAGE);
+        activeDiscount.setType("PERCENTAGE");
         activeDiscount.setValue(new BigDecimal("10.00"));
         activeDiscount.setStatus(DiscountStatus.ACTIVE);
         activeDiscount.setStartDate(LocalDateTime.now().minusDays(1));
@@ -211,7 +210,7 @@ class DiscountCodeServiceTest {
     private CreateDiscountRequest buildCreateRequest(String code) {
         CreateDiscountRequest req = new CreateDiscountRequest();
         req.setCode(code);
-        req.setType(DiscountType.PERCENTAGE);
+        req.setType("PERCENTAGE");
         req.setValue(new BigDecimal("10.00"));
         req.setStartDate(LocalDateTime.now().minusDays(1));
         req.setEndDate(LocalDateTime.now().plusDays(30));

@@ -35,7 +35,7 @@ class ModuleBoundariesArchTest {
                 .that().resideInAPackage("..application..")
                 .or().resideInAPackage("..presentation..")
                 .or().resideInAPackage("..infrastructure..")
-                .should().accessClassesThat().resideInAPackage("..modules..service..")
+                .should().accessClassesThat().resideInAPackage("..modules..*.service..")
                 .because("Cross-module calls must use module API (..modules.*.api) only");
         rule.check(basePackage);
     }

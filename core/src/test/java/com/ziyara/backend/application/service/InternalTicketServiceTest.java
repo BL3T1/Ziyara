@@ -46,7 +46,7 @@ class InternalTicketServiceTest {
         TicketRequest request = new TicketRequest();
         request.setSubject("Bug in login");
 
-        InternalTicket saved = ticket(UUID.randomUUID(), TicketStatus.OPEN);
+        InternalTicket saved = ticket(UUID.randomUUID(), TicketStatus.SUBMITTED);
         saved.setType(TicketType.GENERAL_INQUIRY);
         saved.setPriority(TicketPriority.MEDIUM);
         when(ticketRepository.save(any())).thenReturn(saved);
@@ -64,11 +64,11 @@ class InternalTicketServiceTest {
         UUID reporterId = UUID.randomUUID();
         TicketRequest request = new TicketRequest();
         request.setSubject("Production outage");
-        request.setType(TicketType.BUG);
+        request.setType(TicketType.BUG_REPORT);
         request.setPriority(TicketPriority.CRITICAL);
 
-        InternalTicket saved = ticket(UUID.randomUUID(), TicketStatus.OPEN);
-        saved.setType(TicketType.BUG);
+        InternalTicket saved = ticket(UUID.randomUUID(), TicketStatus.SUBMITTED);
+        saved.setType(TicketType.BUG_REPORT);
         saved.setPriority(TicketPriority.CRITICAL);
         when(ticketRepository.save(any())).thenReturn(saved);
 
@@ -76,7 +76,7 @@ class InternalTicketServiceTest {
 
         ArgumentCaptor<InternalTicket> captor = ArgumentCaptor.forClass(InternalTicket.class);
         verify(ticketRepository).save(captor.capture());
-        assertThat(captor.getValue().getType()).isEqualTo(TicketType.BUG);
+        assertThat(captor.getValue().getType()).isEqualTo(TicketType.BUG_REPORT);
         assertThat(captor.getValue().getPriority()).isEqualTo(TicketPriority.CRITICAL);
     }
 
@@ -84,7 +84,7 @@ class InternalTicketServiceTest {
 
     @Test
     void listTickets_noFilters_returnsAll() {
-        InternalTicket t = ticket(UUID.randomUUID(), TicketStatus.OPEN);
+        InternalTicket t = ticket(UUID.randomUUID(), TicketStatus.SUBMITTED);
         when(ticketRepository.findAll()).thenReturn(List.of(t));
 
         List<TicketResponse> result = service.listTickets(null, null, null, null, null, null);
@@ -105,7 +105,7 @@ class InternalTicketServiceTest {
 
     @Test
     void listTickets_searchFilter_delegatesToSearch() {
-        InternalTicket t = ticket(UUID.randomUUID(), TicketStatus.OPEN);
+        InternalTicket t = ticket(UUID.randomUUID(), TicketStatus.SUBMITTED);
         when(ticketRepository.search("login bug")).thenReturn(List.of(t));
 
         List<TicketResponse> result = service.listTickets(null, null, null, null, null, "login bug");
@@ -129,7 +129,7 @@ class InternalTicketServiceTest {
     @Test
     void getTicket_validUuid_loadsById() {
         UUID id = UUID.randomUUID();
-        InternalTicket t = ticket(id, TicketStatus.OPEN);
+        InternalTicket t = ticket(id, TicketStatus.SUBMITTED);
         t.setSubject("Lookup by UUID");
         when(ticketRepository.findById(id)).thenReturn(Optional.of(t));
 
@@ -140,7 +140,7 @@ class InternalTicketServiceTest {
 
     @Test
     void getTicket_ticketNumber_loadsFromTicketNumber() {
-        InternalTicket t = ticket(UUID.randomUUID(), TicketStatus.OPEN);
+        InternalTicket t = ticket(UUID.randomUUID(), TicketStatus.SUBMITTED);
         t.setTicketNumber("TKT-001");
         when(ticketRepository.findByTicketNumber("TKT-001")).thenReturn(Optional.of(t));
 
@@ -182,7 +182,7 @@ class InternalTicketServiceTest {
     @Test
     void updateTicket_partialUpdate_onlyModifiesNonNullFields() {
         UUID id = UUID.randomUUID();
-        InternalTicket existing = ticket(id, TicketStatus.OPEN);
+        InternalTicket existing = ticket(id, TicketStatus.SUBMITTED);
         existing.setSubject("Old subject");
         existing.setPriority(TicketPriority.LOW);
         when(ticketRepository.findById(id)).thenReturn(Optional.of(existing));

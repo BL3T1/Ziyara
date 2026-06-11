@@ -5,6 +5,7 @@ import com.ziyara.backend.application.dto.response.ServiceProviderResponse;
 import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.enums.ProviderStatus;
+import com.ziyara.backend.domain.repository.ProviderSubscriptionRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
@@ -48,6 +49,9 @@ class ServiceProviderServiceTest {
 
     @Mock
     private StaffNotificationCommandPublisher staffNotificationCommandPublisher;
+
+    @Mock
+    private ProviderSubscriptionRepository providerSubscriptionRepository;
 
     @InjectMocks
     private ServiceProviderService providerService;

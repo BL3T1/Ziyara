@@ -23,7 +23,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +33,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = DiscountController.class)
@@ -99,7 +99,7 @@ class DiscountControllerWebMvcTest {
 
     @Test
     void createDiscount_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/discounts")
+        mockMvc.perform(post("/discounts").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"code\":\"SAVE20\",\"type\":\"PERCENTAGE\",\"value\":20}"))
                 .andExpect(status().isUnauthorized());
@@ -111,9 +111,9 @@ class DiscountControllerWebMvcTest {
         DiscountResponse response = DiscountResponse.builder().id(DISCOUNT_ID).code("SAVE20").build();
         when(discountService.create(any())).thenReturn(response);
 
-        mockMvc.perform(post("/discounts")
+        mockMvc.perform(post("/discounts").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"code\":\"SAVE20\",\"type\":\"PERCENTAGE\",\"value\":20,\"sponsor\":\"COMPANY\"}"))
+                        .content("{\"code\":\"SAVE20\",\"type\":\"PERCENTAGE\",\"value\":20,\"sponsor\":\"COMPANY\",\"endDate\":\"2027-12-31T23:59:59\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.code").value("SAVE20"));
     }
@@ -121,9 +121,9 @@ class DiscountControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "bookings:read")
     void createDiscount_withoutDiscountsWrite_returns403() throws Exception {
-        mockMvc.perform(post("/discounts")
+        mockMvc.perform(post("/discounts").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"code\":\"SAVE20\",\"type\":\"PERCENTAGE\",\"value\":20}"))
+                        .content("{\"code\":\"SAVE20\",\"type\":\"PERCENTAGE\",\"value\":20,\"endDate\":\"2027-12-31T23:59:59\"}"))
                 .andExpect(status().isForbidden());
     }
 
@@ -135,14 +135,14 @@ class DiscountControllerWebMvcTest {
         DiscountResponse response = DiscountResponse.builder().id(DISCOUNT_ID).code("SAVE10").build();
         when(discountService.approve(DISCOUNT_ID)).thenReturn(response);
 
-        mockMvc.perform(post("/discounts/{id}/approve", DISCOUNT_ID))
+        mockMvc.perform(post("/discounts/{id}/approve", DISCOUNT_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
     @Test
     @WithMockUser(authorities = "discounts:write")
     void approve_withoutApprovePermission_returns403() throws Exception {
-        mockMvc.perform(post("/discounts/{id}/approve", DISCOUNT_ID))
+        mockMvc.perform(post("/discounts/{id}/approve", DISCOUNT_ID).with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
@@ -151,16 +151,12 @@ class DiscountControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "discounts:read")
     void deleteDiscount_withCompanyStaff_returns200() throws Exception {
-        mockMvc.perform(delete("/discounts/{id}", DISCOUNT_ID))
+        mockMvc.perform(delete("/discounts/{id}", DISCOUNT_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

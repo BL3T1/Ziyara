@@ -24,7 +24,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +33,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = ServiceProviderController.class)
@@ -91,7 +91,7 @@ class ServiceProviderControllerWebMvcTest {
 
     @Test
     void createProvider_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/providers")
+        mockMvc.perform(post("/providers").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"New Provider\",\"type\":\"RESTAURANT\"}"))
                 .andExpect(status().isUnauthorized());
@@ -103,9 +103,9 @@ class ServiceProviderControllerWebMvcTest {
         ServiceProviderResponse response = ServiceProviderResponse.builder().id(PROVIDER_ID).build();
         when(providerService.createProvider(any(), any())).thenReturn(response);
 
-        mockMvc.perform(post("/providers")
+        mockMvc.perform(post("/providers").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"New Provider\",\"type\":\"RESTAURANT\"}"))
+                        .content("{\"name\":\"New Provider\",\"type\":\"RESTAURANT\",\"phone\":\"+971500000001\",\"address\":\"123 Main St\",\"globalRate\":0.10}"))
                 .andExpect(status().isCreated());
     }
 
@@ -117,14 +117,14 @@ class ServiceProviderControllerWebMvcTest {
         ServiceProviderResponse response = ServiceProviderResponse.builder().id(PROVIDER_ID).build();
         when(providerService.approveProvider(eq(PROVIDER_ID), any())).thenReturn(response);
 
-        mockMvc.perform(post("/providers/{id}/approve", PROVIDER_ID))
+        mockMvc.perform(post("/providers/{id}/approve", PROVIDER_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
     @Test
     @WithMockUser(authorities = "providers:read")
     void approveProvider_withoutPermission_returns403() throws Exception {
-        mockMvc.perform(post("/providers/{id}/approve", PROVIDER_ID))
+        mockMvc.perform(post("/providers/{id}/approve", PROVIDER_ID).with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
@@ -136,7 +136,7 @@ class ServiceProviderControllerWebMvcTest {
         ServiceProviderResponse response = ServiceProviderResponse.builder().id(PROVIDER_ID).build();
         when(providerService.updateProvider(eq(PROVIDER_ID), any())).thenReturn(response);
 
-        mockMvc.perform(patch("/providers/{id}", PROVIDER_ID)
+        mockMvc.perform(patch("/providers/{id}", PROVIDER_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Updated Name\"}"))
                 .andExpect(status().isOk());
@@ -144,10 +144,6 @@ class ServiceProviderControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

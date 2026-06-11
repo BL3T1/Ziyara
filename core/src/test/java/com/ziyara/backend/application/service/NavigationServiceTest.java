@@ -51,7 +51,7 @@ class NavigationServiceTest {
         UUID userId = UUID.randomUUID();
         User user = new User();
         user.setId(userId);
-        user.setRole(UserRole.COMPANY_STAFF);
+        user.setRole(UserRole.STAFF);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userRoleAssignmentRepository.findNewestRoleIdForUser(userId)).thenReturn(Optional.empty());
@@ -59,7 +59,7 @@ class NavigationServiceTest {
         UserNavigationResponse result = service.resolveNavigationForUser(userId);
 
         assertThat(result.getSource()).isEqualTo("default_user_role");
-        assertThat(result.getUserRole()).isEqualTo("COMPANY_STAFF");
+        assertThat(result.getUserRole()).isEqualTo("STAFF");
         assertThat(result.getVisibleItemIds()).isNotNull();
     }
 
@@ -69,7 +69,7 @@ class NavigationServiceTest {
         UUID roleId = UUID.randomUUID();
         User user = new User();
         user.setId(userId);
-        user.setRole(UserRole.COMPANY_STAFF);
+        user.setRole(UserRole.STAFF);
 
         Role rbacRole = new Role();
         rbacRole.setId(roleId);
@@ -91,7 +91,7 @@ class NavigationServiceTest {
         UUID roleId = UUID.randomUUID();
         User user = new User();
         user.setId(userId);
-        user.setRole(UserRole.COMPANY_STAFF);
+        user.setRole(UserRole.STAFF);
 
         Role rbacRole = new Role();
         rbacRole.setId(roleId);
@@ -114,7 +114,7 @@ class NavigationServiceTest {
         UUID roleId = UUID.randomUUID();
         User user = new User();
         user.setId(userId);
-        user.setRole(UserRole.COMPANY_STAFF);
+        user.setRole(UserRole.STAFF);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userRoleAssignmentRepository.findNewestRoleIdForUser(userId)).thenReturn(Optional.of(roleId));

@@ -23,6 +23,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -31,6 +35,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class RoleManagementServiceGroupCodeTest {
 
     @Mock RoleRepository roleRepository;
@@ -43,6 +48,13 @@ class RoleManagementServiceGroupCodeTest {
     @Mock GroupMembersQueryHandler groupMembersQueryHandler;
 
     @InjectMocks GroupManagementService groupManagementService;
+
+    @BeforeEach
+    void setUp() {
+        Group defaultSaved = new Group();
+        defaultSaved.setId(UUID.randomUUID());
+        when(groupRepository.save(any(Group.class))).thenReturn(defaultSaved);
+    }
 
     @Test
     void createGroup_rejectsReservedPlatformZCode() {
@@ -112,11 +124,11 @@ class RoleManagementServiceGroupCodeTest {
 
     @Test
     void updateGroup_platformSlice_rejectsCodeChange() {
-        UUID z1 = UUID.fromString("b0000000-0000-0000-0000-000000000001");
+        UUID z1 = UUID.fromString("b0000000-0000-0000-0000-000000000010");
         Group g = new Group();
         g.setId(z1);
         g.setName("Leadership");
-        g.setCode("Z1");
+        g.setCode("C1");
         when(groupRepository.findById(z1)).thenReturn(Optional.of(g));
 
         UpdateGroupRequest req = UpdateGroupRequest.builder().code("Z9").build();
@@ -127,7 +139,7 @@ class RoleManagementServiceGroupCodeTest {
 
     @Test
     void deleteGroup_platformSlice_rejected() {
-        UUID z1 = UUID.fromString("b0000000-0000-0000-0000-000000000001");
+        UUID z1 = UUID.fromString("b0000000-0000-0000-0000-000000000010");
         Group g = new Group();
         g.setId(z1);
         when(groupRepository.findById(z1)).thenReturn(Optional.of(g));

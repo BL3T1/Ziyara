@@ -22,7 +22,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = AdminPermissionsController.class)
@@ -84,7 +84,7 @@ class AdminPermissionsControllerWebMvcTest {
 
     @Test
     void upsertPermission_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/admin/permissions/matrix")
+        mockMvc.perform(post("/admin/permissions/matrix").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"roleId\":\"" + ROLE_ID + "\",\"module\":\"booking\",\"action\":\"read\",\"granted\":true}"))
                 .andExpect(status().isUnauthorized());
@@ -93,7 +93,7 @@ class AdminPermissionsControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "roles:read")
     void upsertPermission_withoutRolesWrite_returns403() throws Exception {
-        mockMvc.perform(post("/admin/permissions/matrix")
+        mockMvc.perform(post("/admin/permissions/matrix").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"roleId\":\"" + ROLE_ID + "\",\"module\":\"booking\",\"action\":\"read\",\"granted\":true}")
                         .header("Authorization", "Bearer fake-token"))
@@ -105,7 +105,7 @@ class AdminPermissionsControllerWebMvcTest {
     void upsertPermission_withRolesWrite_returns200() throws Exception {
         when(jwtService.extractUserId(any())).thenReturn(ROLE_ID.toString());
 
-        mockMvc.perform(post("/admin/permissions/matrix")
+        mockMvc.perform(post("/admin/permissions/matrix").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"roleId\":\"" + ROLE_ID + "\",\"module\":\"booking\",\"action\":\"read\",\"granted\":true}")
                         .header("Authorization", "Bearer fake-token"))
@@ -116,7 +116,7 @@ class AdminPermissionsControllerWebMvcTest {
 
     @Test
     void updateRolePermissions_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(put("/admin/permissions/roles/" + ROLE_ID)
+        mockMvc.perform(put("/admin/permissions/roles/" + ROLE_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("[]"))
                 .andExpect(status().isUnauthorized());
@@ -125,7 +125,7 @@ class AdminPermissionsControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "roles:read")
     void updateRolePermissions_withoutRolesWrite_returns403() throws Exception {
-        mockMvc.perform(put("/admin/permissions/roles/" + ROLE_ID)
+        mockMvc.perform(put("/admin/permissions/roles/" + ROLE_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("[]")
                         .header("Authorization", "Bearer fake-token"))
@@ -137,7 +137,7 @@ class AdminPermissionsControllerWebMvcTest {
     void updateRolePermissions_withRolesWrite_returns200() throws Exception {
         when(jwtService.extractUserId(any())).thenReturn(ROLE_ID.toString());
 
-        mockMvc.perform(put("/admin/permissions/roles/" + ROLE_ID)
+        mockMvc.perform(put("/admin/permissions/roles/" + ROLE_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("[]")
                         .header("Authorization", "Bearer fake-token"))
@@ -152,10 +152,6 @@ class AdminPermissionsControllerWebMvcTest {
             return mock(DSLContext.class, Answers.RETURNS_DEEP_STUBS);
         }
 
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

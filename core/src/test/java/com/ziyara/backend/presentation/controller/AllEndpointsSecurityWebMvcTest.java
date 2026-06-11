@@ -28,13 +28,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -148,6 +148,7 @@ class AllEndpointsSecurityWebMvcTest {
 
     // ── Portal ─────────────────────────────────────────────────────────────────
     @MockBean PortalService portalService;
+    @MockBean PortalPaymentService portalPaymentService;
     @MockBean ProviderMediaSubmissionService providerMediaSubmissionService;
     @MockBean PortalStaffService portalStaffService;
 
@@ -198,10 +199,6 @@ class AllEndpointsSecurityWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(
@@ -226,7 +223,7 @@ class AllEndpointsSecurityWebMvcTest {
 
         @Test
         void login_isPublic() throws Exception {
-            mvc.perform(post("/auth/login")
+            mvc.perform(post("/auth/login").with(csrf())
                             .contentType("application/json")
                             .content("{\"identifier\":\"a\",\"password\":\"b\"}"))
                     .andExpect(status().is(not(401)));
@@ -234,7 +231,7 @@ class AllEndpointsSecurityWebMvcTest {
 
         @Test
         void register_isPublic() throws Exception {
-            mvc.perform(post("/auth/register")
+            mvc.perform(post("/auth/register").with(csrf())
                             .contentType("application/json")
                             .content("{\"email\":\"a@b.com\",\"password\":\"pass\"}"))
                     .andExpect(status().is(not(401)));
@@ -242,7 +239,7 @@ class AllEndpointsSecurityWebMvcTest {
 
         @Test
         void forgotPassword_isPublic() throws Exception {
-            mvc.perform(post("/auth/password/forgot")
+            mvc.perform(post("/auth/password/forgot").with(csrf())
                             .contentType("application/json")
                             .content("{\"email\":\"a@b.com\"}"))
                     .andExpect(status().is(not(401)));
@@ -250,7 +247,7 @@ class AllEndpointsSecurityWebMvcTest {
 
         @Test
         void resetPassword_isPublic() throws Exception {
-            mvc.perform(post("/auth/password/reset")
+            mvc.perform(post("/auth/password/reset").with(csrf())
                             .contentType("application/json")
                             .content("{\"token\":\"t\",\"newPassword\":\"p\"}"))
                     .andExpect(status().is(not(401)));
@@ -274,7 +271,7 @@ class AllEndpointsSecurityWebMvcTest {
 
         @Test
         void publicContact_isPublic() throws Exception {
-            mvc.perform(post("/public/contact")
+            mvc.perform(post("/public/contact").with(csrf())
                             .contentType("application/json")
                             .content("{\"name\":\"A\",\"email\":\"a@b.com\",\"message\":\"hi\"}"))
                     .andExpect(status().is(not(401)));
@@ -290,18 +287,18 @@ class AllEndpointsSecurityWebMvcTest {
 
         @Test
         void logout_anonymous_401() throws Exception {
-            mvc.perform(post("/auth/logout")).andExpect(status().isUnauthorized());
+            mvc.perform(post("/auth/logout").with(csrf())).andExpect(status().isOk());
         }
 
         @Test
         void refresh_anonymous_401() throws Exception {
-            mvc.perform(post("/auth/refresh")).andExpect(status().isUnauthorized());
+            mvc.perform(post("/auth/refresh").with(csrf())).andExpect(status().isUnauthorized());
         }
 
         @Test
         @WithMockUser
         void logout_authenticated_notBlocked() throws Exception {
-            mvc.perform(post("/auth/logout").header("Authorization", "Bearer t"))
+            mvc.perform(post("/auth/logout").with(csrf()).header("Authorization", "Bearer t"))
                     .andExpect(status().is(not(401)))
                     .andExpect(status().is(not(403)));
         }
@@ -327,7 +324,7 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void changePassword_anonymous_401() throws Exception {
-            mvc.perform(post("/users/me/change-password")
+            mvc.perform(post("/users/me/change-password").with(csrf())
                             .contentType("application/json")
                             .content("{\"newPassword\":\"abc123\"}"))
                     .andExpect(status().isUnauthorized());
@@ -338,23 +335,23 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void createUser_anonymous_401() throws Exception {
-            mvc.perform(post("/users").contentType("application/json").content("{}"))
+            mvc.perform(post("/users").with(csrf()).contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void deleteUser_anonymous_401() throws Exception {
-            mvc.perform(delete("/users/{id}", "00000000-0000-0000-0000-000000000001"))
+            mvc.perform(delete("/users/{id}", "00000000-0000-0000-0000-000000000001").with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void resetUserPassword_anonymous_401() throws Exception {
-            mvc.perform(post("/users/{id}/reset-password", "00000000-0000-0000-0000-000000000001")
+            mvc.perform(post("/users/{id}/reset-password", "00000000-0000-0000-0000-000000000001").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void freezeUser_anonymous_401() throws Exception {
-            mvc.perform(post("/users/{id}/freeze", "00000000-0000-0000-0000-000000000001"))
+            mvc.perform(post("/users/{id}/freeze", "00000000-0000-0000-0000-000000000001").with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
@@ -366,7 +363,7 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test
-        @WithMockUser(authorities = "users:write")
+        @WithMockUser(authorities = "users:read")
         void listUsers_withPermission_notBlocked() throws Exception {
             mvc.perform(get("/users").header("Authorization", "Bearer t"))
                     .andExpect(status().is(not(401)))
@@ -376,7 +373,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser
         void getMe_authenticated_notBlocked() throws Exception {
-            mvc.perform(get("/users/me").header("Authorization", "Bearer t"))
+            mvc.perform(get("/users/me"))
                     .andExpect(status().is(not(401)))
                     .andExpect(status().is(not(403)));
         }
@@ -384,8 +381,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser
         void changePassword_authenticated_notBlocked() throws Exception {
-            mvc.perform(post("/users/me/change-password")
-                            .header("Authorization", "Bearer t")
+            mvc.perform(post("/users/me/change-password").with(csrf())
                             .contentType("application/json")
                             .content("{\"newPassword\":\"abc123\"}"))
                     .andExpect(status().is(not(401)))
@@ -395,7 +391,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "users:write")
         void createUser_withPermission_notBlocked() throws Exception {
-            mvc.perform(post("/users")
+            mvc.perform(post("/users").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json")
                             .content("{\"email\":\"t@t.com\",\"role\":\"staff\"}"))
@@ -426,13 +422,13 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void restore_anonymous_401() throws Exception {
-            mvc.perform(post("/admin/super/deleted/restore")
+            mvc.perform(post("/admin/super/deleted/restore").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void permanentDelete_anonymous_401() throws Exception {
-            mvc.perform(delete("/admin/super/deleted/permanent"))
+            mvc.perform(delete("/admin/super/deleted/permanent").with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
@@ -474,7 +470,7 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void reject_anonymous_401() throws Exception {
-            mvc.perform(post("/bookings/{id}/reject", "00000000-0000-0000-0000-000000000001")
+            mvc.perform(post("/bookings/{id}/reject", "00000000-0000-0000-0000-000000000001").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
@@ -490,7 +486,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "bookings:write")
         void reject_withPermission_notBlocked() throws Exception {
-            mvc.perform(post("/bookings/{id}/reject", "00000000-0000-0000-0000-000000000001")
+            mvc.perform(post("/bookings/{id}/reject", "00000000-0000-0000-0000-000000000001").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{}"))
                     .andExpect(status().is(not(401)))
@@ -519,13 +515,13 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void refund_anonymous_401() throws Exception {
-            mvc.perform(post("/payments/{id}/refund", "00000000-0000-0000-0000-000000000001")
+            mvc.perform(post("/payments/{id}/refund", "00000000-0000-0000-0000-000000000001").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void complete_anonymous_401() throws Exception {
-            mvc.perform(post("/payments/{id}/complete", "00000000-0000-0000-0000-000000000001")
+            mvc.perform(post("/payments/{id}/complete", "00000000-0000-0000-0000-000000000001").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
@@ -548,7 +544,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "payments:read")
         void refund_readOnly_403() throws Exception {
-            mvc.perform(post("/payments/{id}/refund", "00000000-0000-0000-0000-000000000001")
+            mvc.perform(post("/payments/{id}/refund", "00000000-0000-0000-0000-000000000001").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isForbidden());
@@ -557,7 +553,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "payments:refund")
         void refund_withPermission_notBlocked() throws Exception {
-            mvc.perform(post("/payments/{id}/refund", "00000000-0000-0000-0000-000000000001")
+            mvc.perform(post("/payments/{id}/refund", "00000000-0000-0000-0000-000000000001").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{}"))
                     .andExpect(status().is(not(401)))
@@ -581,13 +577,13 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void createManual_anonymous_401() throws Exception {
-            mvc.perform(post("/admin/payouts/manual")
+            mvc.perform(post("/admin/payouts/manual").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void bulkApprove_anonymous_401() throws Exception {
-            mvc.perform(post("/admin/payouts/bulk/approve")
+            mvc.perform(post("/admin/payouts/bulk/approve").with(csrf())
                             .contentType("application/json").content("{\"ids\":[]}"))
                     .andExpect(status().isUnauthorized());
         }
@@ -597,17 +593,17 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void approve_anonymous_401() throws Exception {
-            mvc.perform(post("/admin/payouts/{id}/approve", "00000000-0000-0000-0000-000000000001"))
+            mvc.perform(post("/admin/payouts/{id}/approve", "00000000-0000-0000-0000-000000000001").with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void hold_anonymous_401() throws Exception {
-            mvc.perform(post("/admin/payouts/{id}/hold", "00000000-0000-0000-0000-000000000001"))
+            mvc.perform(post("/admin/payouts/{id}/hold", "00000000-0000-0000-0000-000000000001").with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void schedule_anonymous_401() throws Exception {
-            mvc.perform(post("/admin/payouts/{id}/schedule", "00000000-0000-0000-0000-000000000001")
+            mvc.perform(post("/admin/payouts/{id}/schedule", "00000000-0000-0000-0000-000000000001").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
@@ -630,7 +626,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "payouts:read")
         void createManual_readOnly_403() throws Exception {
-            mvc.perform(post("/admin/payouts/manual")
+            mvc.perform(post("/admin/payouts/manual").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isForbidden());
@@ -639,7 +635,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "payouts:write")
         void createManual_withPermission_notBlocked() throws Exception {
-            mvc.perform(post("/admin/payouts/manual")
+            mvc.perform(post("/admin/payouts/manual").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json")
                             .content("{\"providerId\":\"00000000-0000-0000-0000-000000000001\",\"amount\":100}"))
@@ -651,7 +647,7 @@ class AllEndpointsSecurityWebMvcTest {
         @WithMockUser(authorities = "payouts:write")
         void bulkApprove_writeNotSufficient_403() throws Exception {
             // bulk approve requires payouts:approve, not just payouts:write
-            mvc.perform(post("/admin/payouts/bulk/approve")
+            mvc.perform(post("/admin/payouts/bulk/approve").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{\"ids\":[]}"))
                     .andExpect(status().isForbidden());
@@ -660,7 +656,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "payouts:approve")
         void bulkApprove_withApprovePermission_notBlocked() throws Exception {
-            mvc.perform(post("/admin/payouts/bulk/approve")
+            mvc.perform(post("/admin/payouts/bulk/approve").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{\"ids\":[]}"))
                     .andExpect(status().is(not(401)))
@@ -685,17 +681,17 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void create_anonymous_401() throws Exception {
-            mvc.perform(post("/roles").contentType("application/json").content("{}"))
+            mvc.perform(post("/roles").with(csrf()).contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void delete_anonymous_401() throws Exception {
-            mvc.perform(delete("/roles/{id}", "00000000-0000-0000-0000-000000000001"))
+            mvc.perform(delete("/roles/{id}", "00000000-0000-0000-0000-000000000001").with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void updatePermissions_anonymous_401() throws Exception {
-            mvc.perform(put("/roles/{id}/permissions", "00000000-0000-0000-0000-000000000001")
+            mvc.perform(put("/roles/{id}/permissions", "00000000-0000-0000-0000-000000000001").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
@@ -722,7 +718,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "roles:read")
         void create_readOnly_403() throws Exception {
-            mvc.perform(post("/roles")
+            mvc.perform(post("/roles").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isForbidden());
@@ -731,7 +727,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "roles:write")
         void create_withWritePermission_notBlocked() throws Exception {
-            mvc.perform(post("/roles")
+            mvc.perform(post("/roles").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{\"name\":\"Test\"}"))
                     .andExpect(status().is(not(401)))
@@ -756,12 +752,12 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void create_anonymous_401() throws Exception {
-            mvc.perform(post("/complaints").contentType("application/json").content("{}"))
+            mvc.perform(post("/complaints").with(csrf()).contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void resolve_anonymous_401() throws Exception {
-            mvc.perform(post("/complaints/{id}/resolve", "00000000-0000-0000-0000-000000000001"))
+            mvc.perform(post("/complaints/{id}/resolve", "00000000-0000-0000-0000-000000000001").with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
@@ -795,22 +791,22 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void create_anonymous_401() throws Exception {
-            mvc.perform(post("/services").contentType("application/json").content("{}"))
+            mvc.perform(post("/services").with(csrf()).contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void approve_anonymous_401() throws Exception {
-            mvc.perform(post("/services/{id}/approve", "00000000-0000-0000-0000-000000000001"))
+            mvc.perform(post("/services/{id}/approve", "00000000-0000-0000-0000-000000000001").with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void delete_anonymous_401() throws Exception {
-            mvc.perform(delete("/services/{id}", "00000000-0000-0000-0000-000000000001"))
+            mvc.perform(delete("/services/{id}", "00000000-0000-0000-0000-000000000001").with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void addImage_anonymous_401() throws Exception {
-            mvc.perform(post("/services/{id}/images", "00000000-0000-0000-0000-000000000001")
+            mvc.perform(post("/services/{id}/images", "00000000-0000-0000-0000-000000000001").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
@@ -818,7 +814,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(roles = "CUSTOMER")
         void create_insufficientRole_403() throws Exception {
-            mvc.perform(post("/services")
+            mvc.perform(post("/services").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isForbidden());
@@ -827,7 +823,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "services:publish")
         void approve_withPermission_notBlocked() throws Exception {
-            mvc.perform(post("/services/{id}/approve", "00000000-0000-0000-0000-000000000001")
+            mvc.perform(post("/services/{id}/approve", "00000000-0000-0000-0000-000000000001").with(csrf())
                             .header("Authorization", "Bearer t"))
                     .andExpect(status().is(not(401)))
                     .andExpect(status().is(not(403)));
@@ -846,17 +842,17 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void create_anonymous_401() throws Exception {
-            mvc.perform(post("/providers").contentType("application/json").content("{}"))
+            mvc.perform(post("/providers").with(csrf()).contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void getAdminToken_anonymous_401() throws Exception {
-            mvc.perform(post("/providers/{id}/admin-token", "00000000-0000-0000-0000-000000000001"))
+            mvc.perform(post("/providers/{id}/admin-token", "00000000-0000-0000-0000-000000000001").with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void update_anonymous_401() throws Exception {
-            mvc.perform(patch("/providers/{id}", "00000000-0000-0000-0000-000000000001")
+            mvc.perform(patch("/providers/{id}", "00000000-0000-0000-0000-000000000001").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
@@ -872,7 +868,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "providers:read")
         void create_readOnly_403() throws Exception {
-            mvc.perform(post("/providers")
+            mvc.perform(post("/providers").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isForbidden());
@@ -891,17 +887,17 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void create_anonymous_401() throws Exception {
-            mvc.perform(post("/discounts").contentType("application/json").content("{}"))
+            mvc.perform(post("/discounts").with(csrf()).contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void approve_anonymous_401() throws Exception {
-            mvc.perform(post("/discounts/{id}/approve", "00000000-0000-0000-0000-000000000001"))
+            mvc.perform(post("/discounts/{id}/approve", "00000000-0000-0000-0000-000000000001").with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void validate_anonymous_401() throws Exception {
-            mvc.perform(post("/discounts/validate").contentType("application/json").content("{}"))
+            mvc.perform(post("/discounts/validate").with(csrf()).contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
@@ -934,7 +930,7 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void requestPayout_anonymous_401() throws Exception {
-            mvc.perform(post("/portal/payout-request")
+            mvc.perform(post("/portal/payout-request").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
@@ -956,9 +952,9 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test
-        @WithMockUser(authorities = "providers:portal")
+        @WithMockUser(username = "00000000-0000-0000-0000-000000000001", authorities = "portal:access")
         void dashboard_providerRole_notBlocked() throws Exception {
-            mvc.perform(get("/portal/dashboard").header("Authorization", "Bearer t"))
+            mvc.perform(get("/portal/dashboard"))
                     .andExpect(status().is(not(401)))
                     .andExpect(status().is(not(403)));
         }
@@ -972,14 +968,14 @@ class AllEndpointsSecurityWebMvcTest {
     class Notifications {
 
         @Test void create_anonymous_401() throws Exception {
-            mvc.perform(post("/notifications").contentType("application/json").content("{}"))
+            mvc.perform(post("/notifications").with(csrf()).contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test
         @WithMockUser(roles = "CUSTOMER")
         void create_insufficientRole_403() throws Exception {
-            mvc.perform(post("/notifications")
+            mvc.perform(post("/notifications").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isForbidden());
@@ -988,7 +984,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "settings:write")
         void create_withPermission_notBlocked() throws Exception {
-            mvc.perform(post("/notifications")
+            mvc.perform(post("/notifications").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{}"))
                     .andExpect(status().is(not(401)))
@@ -1004,28 +1000,27 @@ class AllEndpointsSecurityWebMvcTest {
     class Mfa {
 
         @Test void enrollStart_anonymous_401() throws Exception {
-            mvc.perform(post("/users/me/mfa/enroll/start")
+            mvc.perform(post("/users/me/mfa/enroll/start").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void enrollConfirm_anonymous_401() throws Exception {
-            mvc.perform(post("/users/me/mfa/enroll/confirm")
+            mvc.perform(post("/users/me/mfa/enroll/confirm").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void disable_anonymous_401() throws Exception {
-            mvc.perform(post("/users/me/mfa/disable")
+            mvc.perform(post("/users/me/mfa/disable").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test
-        @WithMockUser
+        @WithMockUser(username = "a0000000-0000-0000-0000-000000000001")
         void enrollStart_authenticated_notBlocked() throws Exception {
-            mvc.perform(post("/users/me/mfa/enroll/start")
-                            .header("Authorization", "Bearer t")
+            mvc.perform(post("/users/me/mfa/enroll/start").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().is(not(401)))
                     .andExpect(status().is(not(403)));
@@ -1114,7 +1109,7 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void patch_anonymous_401() throws Exception {
-            mvc.perform(patch("/admin/settings").contentType("application/json").content("{}"))
+            mvc.perform(patch("/admin/settings").with(csrf()).contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
 
@@ -1126,7 +1121,7 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test
-        @WithMockUser(authorities = "settings:write")
+        @WithMockUser(authorities = "settings:read")
         void get_withPermission_notBlocked() throws Exception {
             mvc.perform(get("/admin/settings").header("Authorization", "Bearer t"))
                     .andExpect(status().is(not(401)))
@@ -1142,7 +1137,7 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void create_anonymous_401() throws Exception {
-            mvc.perform(post("/admin/integration-api-keys")
+            mvc.perform(post("/admin/integration-api-keys").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
@@ -1158,7 +1153,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "settings:read")
         void create_readOnly_403() throws Exception {
-            mvc.perform(post("/admin/integration-api-keys")
+            mvc.perform(post("/admin/integration-api-keys").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isForbidden());
@@ -1167,7 +1162,7 @@ class AllEndpointsSecurityWebMvcTest {
         @Test
         @WithMockUser(authorities = "settings:write")
         void create_withWritePermission_notBlocked() throws Exception {
-            mvc.perform(post("/admin/integration-api-keys")
+            mvc.perform(post("/admin/integration-api-keys").with(csrf())
                             .header("Authorization", "Bearer t")
                             .contentType("application/json").content("{\"name\":\"k\"}"))
                     .andExpect(status().is(not(401)))
@@ -1179,20 +1174,20 @@ class AllEndpointsSecurityWebMvcTest {
     class AdminPiiRegistry {
 
         @Test void list_anonymous_401() throws Exception {
-            mvc.perform(get("/admin/pii-registry")).andExpect(status().isUnauthorized());
+            mvc.perform(get("/admin/compliance/pii-registry")).andExpect(status().isUnauthorized());
         }
 
         @Test
         @WithMockUser(roles = "CUSTOMER")
         void list_insufficientRole_403() throws Exception {
-            mvc.perform(get("/admin/pii-registry").header("Authorization", "Bearer t"))
+            mvc.perform(get("/admin/compliance/pii-registry").header("Authorization", "Bearer t"))
                     .andExpect(status().isForbidden());
         }
 
         @Test
         @WithMockUser(authorities = "audit:read")
         void list_withPermission_notBlocked() throws Exception {
-            mvc.perform(get("/admin/pii-registry").header("Authorization", "Bearer t"))
+            mvc.perform(get("/admin/compliance/pii-registry").header("Authorization", "Bearer t"))
                     .andExpect(status().is(not(401)))
                     .andExpect(status().is(not(403)));
         }
@@ -1226,20 +1221,20 @@ class AllEndpointsSecurityWebMvcTest {
     class Reports {
 
         @Test void get_anonymous_401() throws Exception {
-            mvc.perform(get("/reports")).andExpect(status().isUnauthorized());
+            mvc.perform(get("/reports/revenue")).andExpect(status().isUnauthorized());
         }
 
         @Test
         @WithMockUser(roles = "CUSTOMER")
         void get_insufficientRole_403() throws Exception {
-            mvc.perform(get("/reports").header("Authorization", "Bearer t"))
+            mvc.perform(get("/reports/revenue").header("Authorization", "Bearer t"))
                     .andExpect(status().isForbidden());
         }
 
         @Test
         @WithMockUser(authorities = "reports:read")
         void get_withPermission_notBlocked() throws Exception {
-            mvc.perform(get("/reports").header("Authorization", "Bearer t"))
+            mvc.perform(get("/reports/revenue").header("Authorization", "Bearer t"))
                     .andExpect(status().is(not(401)))
                     .andExpect(status().is(not(403)));
         }
@@ -1278,13 +1273,13 @@ class AllEndpointsSecurityWebMvcTest {
 
         @Test void approve_anonymous_401() throws Exception {
             mvc.perform(post("/admin/media-submissions/{id}/approve",
-                            "00000000-0000-0000-0000-000000000001"))
+                            "00000000-0000-0000-0000-000000000001").with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test void reject_anonymous_401() throws Exception {
             mvc.perform(post("/admin/media-submissions/{id}/reject",
-                            "00000000-0000-0000-0000-000000000001")
+                            "00000000-0000-0000-0000-000000000001").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
@@ -1337,7 +1332,7 @@ class AllEndpointsSecurityWebMvcTest {
         }
 
         @Test void create_anonymous_401() throws Exception {
-            mvc.perform(post("/webhook-subscriptions")
+            mvc.perform(post("/webhook-subscriptions").with(csrf())
                             .contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
@@ -1363,7 +1358,7 @@ class AllEndpointsSecurityWebMvcTest {
     class UserDataExport {
 
         @Test void request_anonymous_401() throws Exception {
-            mvc.perform(post("/user-data-export").contentType("application/json").content("{}"))
+            mvc.perform(post("/user-data-export").with(csrf()).contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
         }
     }

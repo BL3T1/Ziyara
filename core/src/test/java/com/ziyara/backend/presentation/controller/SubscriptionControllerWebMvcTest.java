@@ -22,7 +22,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,6 +32,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = SubscriptionController.class)
@@ -104,7 +104,7 @@ class SubscriptionControllerWebMvcTest {
 
     @Test
     void activate_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post(BASE + "/activate")
+        mockMvc.perform(post(BASE + "/activate").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"planCode\":\"BASIC\"}"))
                 .andExpect(status().isUnauthorized());
@@ -113,7 +113,7 @@ class SubscriptionControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "billing:read")
     void activate_withoutDiscountApprove_returns403() throws Exception {
-        mockMvc.perform(post(BASE + "/activate")
+        mockMvc.perform(post(BASE + "/activate").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"planCode\":\"BASIC\"}"))
                 .andExpect(status().isForbidden());
@@ -125,7 +125,7 @@ class SubscriptionControllerWebMvcTest {
         when(subscriptionService.activateSubscription(any(), any()))
                 .thenReturn(CustomerSubscriptionResponse.builder().providerId(PROVIDER_ID).build());
 
-        mockMvc.perform(post(BASE + "/activate")
+        mockMvc.perform(post(BASE + "/activate").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"planCode\":\"BASIC\"}"))
                 .andExpect(status().isOk());
@@ -135,7 +135,7 @@ class SubscriptionControllerWebMvcTest {
 
     @Test
     void addSeatExpansion_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post(BASE + "/add-ons")
+        mockMvc.perform(post(BASE + "/add-ons").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"addOnCode\":\"SEATS_5\",\"displayName\":\"5 Extra Seats\",\"extraSeats\":5,\"price\":99.00}"))
                 .andExpect(status().isUnauthorized());
@@ -147,7 +147,7 @@ class SubscriptionControllerWebMvcTest {
         when(subscriptionService.addSeatExpansion(any(), any()))
                 .thenReturn(CustomerSubscriptionResponse.builder().providerId(PROVIDER_ID).build());
 
-        mockMvc.perform(post(BASE + "/add-ons")
+        mockMvc.perform(post(BASE + "/add-ons").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"addOnCode\":\"SEATS_5\",\"displayName\":\"5 Extra Seats\",\"extraSeats\":5,\"price\":99.00}"))
                 .andExpect(status().isOk());
@@ -157,7 +157,7 @@ class SubscriptionControllerWebMvcTest {
 
     @Test
     void cancelAddOn_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(delete(BASE + "/add-ons/" + ADD_ON_ID))
+        mockMvc.perform(delete(BASE + "/add-ons/" + ADD_ON_ID).with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -167,16 +167,12 @@ class SubscriptionControllerWebMvcTest {
         when(subscriptionService.cancelAddOn(any(), any()))
                 .thenReturn(CustomerSubscriptionResponse.builder().providerId(PROVIDER_ID).build());
 
-        mockMvc.perform(delete(BASE + "/add-ons/" + ADD_ON_ID))
+        mockMvc.perform(delete(BASE + "/add-ons/" + ADD_ON_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

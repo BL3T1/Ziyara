@@ -83,6 +83,10 @@ class UserConsentServiceTest {
         saved.setVersion(3);
         when(consentRepository.save(any())).thenReturn(saved);
 
+        User user = new User();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenReturn(user);
+
         service.recordGrant(userId, "MARKETING_EMAIL", null, false, null, null);
 
         ArgumentCaptor<UserConsent> captor = ArgumentCaptor.forClass(UserConsent.class);
@@ -143,6 +147,10 @@ class UserConsentServiceTest {
         active.setWithdrawnAt(null);
         when(consentRepository.findByUserIdOrderedDesc(userId)).thenReturn(List.of(active));
         when(consentRepository.save(any())).thenReturn(active);
+        User user = new User();
+        user.setMarketingOptIn(true);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenReturn(user);
 
         service.withdraw(userId, "MARKETING_EMAIL", "user request");
 

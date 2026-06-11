@@ -23,7 +23,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +33,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = ReviewController.class)
@@ -79,7 +79,7 @@ class ReviewControllerWebMvcTest {
 
     @Test
     void createReview_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/reviews")
+        mockMvc.perform(post("/reviews").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"bookingId\":\"00000000-0000-0000-0000-000000000001\",\"rating\":5,\"comment\":\"Great!\"}"))
                 .andExpect(status().isUnauthorized());
@@ -88,7 +88,6 @@ class ReviewControllerWebMvcTest {
     @Test
     @WithMockUser(username = "a0000000-0000-0000-0000-000000000001")
     void createReview_authenticated_returns201() throws Exception {
-        when(jwtService.extractUserId("test-token")).thenReturn(USER_ID.toString());
         ReviewResponse response = ReviewResponse.builder()
                 .id(REVIEW_ID)
                 .userId(USER_ID)
@@ -98,8 +97,7 @@ class ReviewControllerWebMvcTest {
                 .build();
         when(reviewService.createReview(eq(USER_ID), any())).thenReturn(response);
 
-        mockMvc.perform(post("/reviews")
-                        .header("Authorization", AUTH_HEADER)
+        mockMvc.perform(post("/reviews").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"bookingId\":\"00000000-0000-0000-0000-000000000001\",\"rating\":5,\"comment\":\"Great!\"}"))
                 .andExpect(status().isCreated())
@@ -128,7 +126,7 @@ class ReviewControllerWebMvcTest {
 
     @Test
     void moderate_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/reviews/{id}/moderate", REVIEW_ID)
+        mockMvc.perform(post("/reviews/{id}/moderate", REVIEW_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"APPROVED\"}"))
                 .andExpect(status().isUnauthorized());
@@ -140,7 +138,7 @@ class ReviewControllerWebMvcTest {
         ReviewResponse response = ReviewResponse.builder().id(REVIEW_ID).status(ReviewStatus.APPROVED).build();
         when(reviewService.moderateReview(eq(REVIEW_ID), any())).thenReturn(response);
 
-        mockMvc.perform(post("/reviews/{id}/moderate", REVIEW_ID)
+        mockMvc.perform(post("/reviews/{id}/moderate", REVIEW_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"APPROVED\"}"))
                 .andExpect(status().isOk());
@@ -149,7 +147,7 @@ class ReviewControllerWebMvcTest {
     @Test
     @WithMockUser(authorities = "bookings:read")
     void moderate_withoutModeratePermission_returns403() throws Exception {
-        mockMvc.perform(post("/reviews/{id}/moderate", REVIEW_ID)
+        mockMvc.perform(post("/reviews/{id}/moderate", REVIEW_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"APPROVED\"}"))
                 .andExpect(status().isForbidden());
@@ -159,23 +157,19 @@ class ReviewControllerWebMvcTest {
 
     @Test
     void deleteReview_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(delete("/reviews/{id}", REVIEW_ID))
+        mockMvc.perform(delete("/reviews/{id}", REVIEW_ID).with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     @WithMockUser(username = "a0000000-0000-0000-0000-000000000001")
     void deleteReview_authenticated_returns200() throws Exception {
-        mockMvc.perform(delete("/reviews/{id}", REVIEW_ID))
+        mockMvc.perform(delete("/reviews/{id}", REVIEW_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

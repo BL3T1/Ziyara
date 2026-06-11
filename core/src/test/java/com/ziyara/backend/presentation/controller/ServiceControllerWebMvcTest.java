@@ -26,7 +26,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -37,6 +36,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = ServiceController.class)
@@ -94,7 +94,7 @@ class ServiceControllerWebMvcTest {
 
     @Test
     void createService_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/services")
+        mockMvc.perform(post("/services").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Service\",\"type\":\"HOTEL\",\"providerId\":\"00000000-0000-0000-0000-000000000001\"}"))
                 .andExpect(status().isUnauthorized());
@@ -106,9 +106,9 @@ class ServiceControllerWebMvcTest {
         ServiceResponse created = ServiceResponse.builder().id(SERVICE_ID).build();
         when(serviceService.create(any())).thenReturn(created);
 
-        mockMvc.perform(post("/services")
+        mockMvc.perform(post("/services").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Hotel Service\",\"type\":\"HOTEL\",\"providerId\":\"00000000-0000-0000-0000-000000000001\",\"city\":\"Dubai\",\"country\":\"UAE\"}"))
+                        .content("{\"name\":\"Hotel Service\",\"type\":\"HOTEL\",\"providerId\":\"00000000-0000-0000-0000-000000000001\",\"city\":\"Dubai\",\"country\":\"UAE\",\"basePrice\":100.00}"))
                 .andExpect(status().isCreated());
     }
 
@@ -116,7 +116,7 @@ class ServiceControllerWebMvcTest {
 
     @Test
     void approveService_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/services/{id}/approve", SERVICE_ID))
+        mockMvc.perform(post("/services/{id}/approve", SERVICE_ID).with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -126,14 +126,14 @@ class ServiceControllerWebMvcTest {
         ServiceResponse approved = ServiceResponse.builder().id(SERVICE_ID).build();
         when(serviceService.approve(SERVICE_ID)).thenReturn(approved);
 
-        mockMvc.perform(post("/services/{id}/approve", SERVICE_ID))
+        mockMvc.perform(post("/services/{id}/approve", SERVICE_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
     @Test
     @WithMockUser(authorities = "bookings:read")
     void approveService_withoutPublishPermission_returns403() throws Exception {
-        mockMvc.perform(post("/services/{id}/approve", SERVICE_ID))
+        mockMvc.perform(post("/services/{id}/approve", SERVICE_ID).with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
@@ -141,14 +141,14 @@ class ServiceControllerWebMvcTest {
 
     @Test
     void deleteService_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(delete("/services/{id}", SERVICE_ID))
+        mockMvc.perform(delete("/services/{id}", SERVICE_ID).with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     @WithMockUser(authorities = "bookings:read")
     void deleteService_withCompanyStaff_returns200() throws Exception {
-        mockMvc.perform(delete("/services/{id}", SERVICE_ID))
+        mockMvc.perform(delete("/services/{id}", SERVICE_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
@@ -160,7 +160,7 @@ class ServiceControllerWebMvcTest {
         ServiceResponse updated = ServiceResponse.builder().id(SERVICE_ID).build();
         when(serviceService.update(eq(SERVICE_ID), any())).thenReturn(updated);
 
-        mockMvc.perform(patch("/services/{id}", SERVICE_ID)
+        mockMvc.perform(patch("/services/{id}", SERVICE_ID).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Updated Service\"}"))
                 .andExpect(status().isOk());
@@ -168,10 +168,6 @@ class ServiceControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

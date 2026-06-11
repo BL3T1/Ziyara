@@ -23,7 +23,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = AuthController.class)
@@ -60,16 +60,16 @@ class AuthControllerWebMvcTest {
 
     @Test
     void register_validBody_returns201() throws Exception {
-        mockMvc.perform(post("/auth/register")
+        mockMvc.perform(post("/auth/register").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"user@example.com\",\"password\":\"Password123!\",\"role\":\"CUSTOMER\"}"))
+                        .content("{\"email\":\"user@example.com\",\"password\":\"Password123!\",\"firstName\":\"John\",\"lastName\":\"Doe\",\"role\":\"CUSTOMER\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true));
     }
 
     @Test
     void register_emptyBody_returns400() throws Exception {
-        mockMvc.perform(post("/auth/register")
+        mockMvc.perform(post("/auth/register").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
@@ -88,7 +88,7 @@ class AuthControllerWebMvcTest {
         when(loginRateLimitService.allow(anyString(), anyString())).thenReturn(true);
         when(authService.authenticate(any(), anyString())).thenReturn(authResponse);
 
-        mockMvc.perform(post("/auth/login")
+        mockMvc.perform(post("/auth/login").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"user@example.com\",\"password\":\"Password123!\"}"))
                 .andExpect(status().isOk())
@@ -100,7 +100,7 @@ class AuthControllerWebMvcTest {
     void login_rateLimited_returns429() throws Exception {
         when(loginRateLimitService.allow(anyString(), anyString())).thenReturn(false);
 
-        mockMvc.perform(post("/auth/login")
+        mockMvc.perform(post("/auth/login").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"user@example.com\",\"password\":\"Password123!\"}"))
                 .andExpect(status().isTooManyRequests());
@@ -112,9 +112,9 @@ class AuthControllerWebMvcTest {
         when(authService.authenticate(any(), anyString()))
                 .thenThrow(new AuthService.AuthenticationException("Invalid email or password"));
 
-        mockMvc.perform(post("/auth/login")
+        mockMvc.perform(post("/auth/login").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"bad@example.com\",\"password\":\"wrong\"}"))
+                        .content("{\"email\":\"bad@example.com\",\"password\":\"wrongp\"}"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -122,7 +122,7 @@ class AuthControllerWebMvcTest {
 
     @Test
     void logout_returns200() throws Exception {
-        mockMvc.perform(post("/auth/logout")
+        mockMvc.perform(post("/auth/logout").with(csrf())
                         .header("Authorization", "Bearer test-token"))
                 .andExpect(status().isOk());
     }
@@ -131,7 +131,7 @@ class AuthControllerWebMvcTest {
 
     @Test
     void refresh_noToken_returns401() throws Exception {
-        mockMvc.perform(post("/auth/refresh"))
+        mockMvc.perform(post("/auth/refresh").with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -143,7 +143,7 @@ class AuthControllerWebMvcTest {
                 .build();
         when(authService.refreshToken("valid-refresh")).thenReturn(authResponse);
 
-        mockMvc.perform(post("/auth/refresh")
+        mockMvc.perform(post("/auth/refresh").with(csrf())
                         .header("Refresh-Token", "valid-refresh"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accessToken").value("new-access"));
@@ -153,7 +153,7 @@ class AuthControllerWebMvcTest {
 
     @Test
     void forgotPassword_returns200() throws Exception {
-        mockMvc.perform(post("/auth/password/forgot")
+        mockMvc.perform(post("/auth/password/forgot").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"user@example.com\"}"))
                 .andExpect(status().isOk());
@@ -161,10 +161,6 @@ class AuthControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

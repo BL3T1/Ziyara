@@ -20,7 +20,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = DepartmentController.class)
@@ -95,7 +95,7 @@ class DepartmentControllerWebMvcTest {
 
     @Test
     void create_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(post("/departments").param("name", "HR"))
+        mockMvc.perform(post("/departments").with(csrf()).param("name", "HR"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -108,7 +108,7 @@ class DepartmentControllerWebMvcTest {
                 .build();
         when(departmentService.createDepartment(any(), any(), any())).thenReturn(response);
 
-        mockMvc.perform(post("/departments").param("name", "HR"))
+        mockMvc.perform(post("/departments").with(csrf()).param("name", "HR"))
                 .andExpect(status().isOk());
     }
 
@@ -116,7 +116,7 @@ class DepartmentControllerWebMvcTest {
 
     @Test
     void update_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(patch("/departments/" + DEPT_ID).param("name", "Updated"))
+        mockMvc.perform(patch("/departments/" + DEPT_ID).with(csrf()).param("name", "Updated"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -129,7 +129,7 @@ class DepartmentControllerWebMvcTest {
                 .build();
         when(departmentService.updateDepartment(any(), any(), any(), any())).thenReturn(response);
 
-        mockMvc.perform(patch("/departments/" + DEPT_ID).param("name", "Updated"))
+        mockMvc.perform(patch("/departments/" + DEPT_ID).with(csrf()).param("name", "Updated"))
                 .andExpect(status().isOk());
     }
 
@@ -137,7 +137,7 @@ class DepartmentControllerWebMvcTest {
 
     @Test
     void delete_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(delete("/departments/" + DEPT_ID))
+        mockMvc.perform(delete("/departments/" + DEPT_ID).with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -146,16 +146,12 @@ class DepartmentControllerWebMvcTest {
     void delete_withCompanyStaff_returns200() throws Exception {
         doNothing().when(departmentService).deleteDepartment(any());
 
-        mockMvc.perform(delete("/departments/" + DEPT_ID))
+        mockMvc.perform(delete("/departments/" + DEPT_ID).with(csrf()))
                 .andExpect(status().isOk());
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService,

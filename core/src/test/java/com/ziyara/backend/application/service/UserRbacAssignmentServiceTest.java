@@ -110,7 +110,7 @@ class UserRbacAssignmentServiceTest {
         UUID userId = UUID.randomUUID();
         when(roleRepository.findByCode(any())).thenReturn(Optional.empty());
 
-        service.autoAssignPrimaryRoleByUserRole(userId, UserRole.COMPANY_STAFF);
+        service.autoAssignPrimaryRoleByUserRole(userId, UserRole.STAFF);
 
         verifyNoInteractions(userRoleAssignmentRepository);
     }
