@@ -1,3 +1,12 @@
+# Minimal local dev stack: Postgres + Redis + MailHog + backend.
+# No Kafka, no frontend. Run from the core/ directory.
+# Requires core/.env with at least: JWT_SECRET=<any-value>  POSTGRES_PASSWORD=<any-value>
+#
+# Usage:
+#   docker compose up -d          # start infrastructure
+#   ./gradlew bootRun             # run backend outside Docker (recommended for fast iteration)
+#   docker compose up -d --build  # or run the backend inside Docker
+
 services:
   db:
     image: postgres:16-alpine
@@ -6,7 +15,7 @@ services:
       POSTGRES_USER: ziyarah
       POSTGRES_PASSWORD: ziyarah
     ports:
-      - "5432:5432"
+      - "7001:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -14,6 +23,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
   redis:
     image: redis:7-alpine
@@ -24,6 +38,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
   mail:
     image: mailhog/mailhog
@@ -45,12 +64,38 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_MAIL_HOST: mail
       SPRING_MAIL_PORT: 1025
+      # ── Dev overrides: relax production-safe defaults from application.yml ──────
+      # No Kafka in this stack — disable to prevent connection failure on startup
+      ZIYARA_NOTIFICATIONS_KAFKA_ENABLED: "false"
+      # RLS and data-retention are on by default in prod; skip in local dev
+      ZIYARA_RLS_ENABLED: "false"
+      ZIYARA_DATA_RETENTION_ENABLED: "false"
+      # Enable Swagger UI and API docs for local development
+      SPRINGDOC_SWAGGER_UI_ENABLED: "true"
+      SPRINGDOC_API_DOCS_ENABLED: "true"
+      # Allow localhost CORS origins
+      ZIYARA_CORS_ALLOW_LOCAL_DEFAULTS: "true"
+      # No password-strength enforcement in dev (seeded accounts use simple passwords)
+      ZIYARA_PASSWORD_MIN_ZXCVBN_SCORE: "0"
+      # Show error messages and binding errors in dev responses
+      SERVER_ERROR_INCLUDE_MESSAGE: always
+      SERVER_ERROR_INCLUDE_BINDING_ERRORS: always
+      # HTTP-safe cookies for local dev (no HTTPS)
+      JWT_COOKIE_SECURE: "false"
+      JWT_COOKIE_SAME_SITE: Lax
+      JWT_ALSO_RETURN_TOKEN_IN_BODY: "true"
+      # No HSTS in dev
+      ZIYARA_SECURITY_HSTS_ENABLED: "false"
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   pgdata:
-

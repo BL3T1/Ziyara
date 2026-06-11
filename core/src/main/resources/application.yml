@@ -2,28 +2,20 @@ spring:
   application:
     name: ziyarah-backend
 
+  # ── Datasource ──────────────────────────────────────────────────────────────
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/ziyarah}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/ziyarah}
     username: ${SPRING_DATASOURCE_USERNAME:ziyarah_user}
     password: ${POSTGRES_PASSWORD:ziyarah_password}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAX_POOL_SIZE:10}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MIN_IDLE:2}
       idle-timeout: 300000
-      connection-timeout: 20000
-      max-lifetime: 1200000
+      connection-timeout: 60000
+      max-lifetime: 1800000
 
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true   # For existing DBs without flyway_schema_history: mark V0 as applied, then run V1+
-    baseline-version: 0
-    validate-on-migrate: true
-    repair-on-migrate: true
-    out-of-order: false
-    mixed: false                # Require all migrations to be either versioned or repeatable, not both
-
+  # ── JPA ─────────────────────────────────────────────────────────────────────
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
@@ -40,17 +32,35 @@ spring:
         default_batch_fetch_size: 16
     open-in-view: false
 
+  # ── Flyway ───────────────────────────────────────────────────────────────────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
+    repair-on-migrate: true
+    out-of-order: false
+    mixed: false
+
+  # ── Kafka ────────────────────────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+
+  # ── Jackson ──────────────────────────────────────────────────────────────────
   jackson:
-    # write-dates-as-timestamps removed: not present in Jackson 3 (Spring Boot 4)
     deserialization:
       fail-on-unknown-properties: false
     default-property-inclusion: non_null
     time-zone: UTC
 
+  # ── File uploads ─────────────────────────────────────────────────────────────
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+
+  # ── Mail ─────────────────────────────────────────────────────────────────────
   mail:
     host: ${SPRING_MAIL_HOST:localhost}
     port: ${SPRING_MAIL_PORT:1025}
@@ -63,40 +73,52 @@ spring:
           starttls:
             enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:false}
 
+# ── Server ──────────────────────────────────────────────────────────────────────
 server:
   port: 8080
   servlet:
     context-path: /api/v1
+  # Trust X-Forwarded-* headers from the edge nginx so OpenAPI/Swagger URLs stay on
+  # the public origin. Safe behind a reverse proxy; disable if exposed directly.
+  forward-headers-strategy: framework
   error:
-    include-message: always
-    include-binding-errors: always
+    # Never leak internal messages or stack traces to API consumers
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
 
-# JWT Configuration — JWT_SECRET must be set in the environment (no default fallback)
+# ── JWT ──────────────────────────────────────────────────────────────────────────
 jwt:
   secret: ${JWT_SECRET}
-  expiration: ${JWT_EXPIRATION:86400000}
-  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+  # Access token: 30-minute lifetime — short window limits damage from token theft
+  expiration: ${JWT_EXPIRATION:1800000}
+  # Refresh token: 8 hours — forces daily re-authentication
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:28800000}
   header: Authorization
   prefix: "Bearer "
   cookie:
     enabled: ${JWT_COOKIE_ENABLED:true}
     access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:ziyara_access}
     refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:ziyara_refresh}
-    same-site: ${JWT_COOKIE_SAME_SITE:Lax}
-    secure: ${JWT_COOKIE_SECURE:false}
-    also-return-token-in-body: ${JWT_ALSO_RETURN_TOKEN_IN_BODY:true}
+    # Strict: cookie not sent on any cross-site navigation (CSRF protection)
+    same-site: ${JWT_COOKIE_SAME_SITE:Strict}
+    # Secure: cookie only sent over HTTPS
+    secure: ${JWT_COOKIE_SECURE:true}
+    # Token omitted from response body — browser reads only the HttpOnly cookie
+    also-return-token-in-body: ${JWT_ALSO_RETURN_TOKEN_IN_BODY:false}
 
-# Logging Configuration — SQL/parameter tracing moved to application-dev.yml to avoid PII leakage
+# ── Logging ──────────────────────────────────────────────────────────────────────
 logging:
   level:
-    root: INFO
+    root: WARN
     com.ziyara.backend: INFO
     org.springframework.security: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
-# Actuator Configuration
+# ── Actuator ─────────────────────────────────────────────────────────────────────
 management:
   endpoints:
     web:
@@ -107,114 +129,133 @@ management:
       show-details: when_authorized
   tracing:
     sampling:
-      probability: ${MANAGEMENT_TRACING_SAMPLING_PROBABILITY:0.1}
-    # Optional export (add deps + env in prod): OTLP example —
-    # otlp:
-    #   tracing:
-    #     endpoint: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
+      probability: ${MANAGEMENT_TRACING_SAMPLING_PROBABILITY:0.05}
   health:
     mail:
-      # Avoid backend healthcheck failures when SMTP is not provisioned (common in local/docker).
+      # Avoid healthcheck failures when SMTP is not provisioned
       enabled: ${MANAGEMENT_HEALTH_MAIL_ENABLED:false}
+  otlp:
+    tracing:
+      endpoint: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:}
 
-# Application-specific Configuration
+# ── OpenAPI / Swagger ─────────────────────────────────────────────────────────────
+# Disabled in production — never expose schema publicly.
+# Override: SPRINGDOC_SWAGGER_UI_ENABLED=true / SPRINGDOC_API_DOCS_ENABLED=true for local dev.
+springdoc:
+  api-docs:
+    path: /api-docs
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:false}
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:false}
+
+# ── Application ───────────────────────────────────────────────────────────────────
 app:
   payment:
     gateway:
-      enabled: ${PAYMENT_GATEWAY_ENABLED:true}
+      # Cash-first mode: bypass all gateways, accept only CASH (+ optional BANK_TRANSFER).
+      # Required for markets where international gateways are sanction-blocked.
+      enabled: ${PAYMENT_GATEWAY_ENABLED:false}
       provider: ${PAYMENT_GATEWAY_PROVIDER:stub}
       api-key: ${PAYMENT_GATEWAY_API_KEY:}
       api-base-url: ${PAYMENT_GATEWAY_BASE_URL:https://api.stripe.com}
       webhook-secret: ${PAYMENT_WEBHOOK_SECRET:}
-      # Header used for webhook signature (e.g. Stripe-Signature, X-Webhook-Signature)
       webhook-signature-header: ${PAYMENT_WEBHOOK_SIGNATURE_HEADER:X-Webhook-Signature}
+      cash-only-mode: ${PAYMENT_CASH_ONLY_MODE:true}
+      # HMAC secret for receipt QR signing. Generate with: openssl rand -hex 32
+      receipt-signing-secret: ${PAYMENT_RECEIPT_SIGNING_SECRET:}
+
   demo:
-    # Super admin account (super_admin@ziyarah.com / Demo123!) is ensured on every startup.
-    # Set to false in production (e.g. application-prod.yml) to disable.
+    # Super-admin bootstrap account — kept enabled so a fresh production DB gets an admin account.
+    # Disable once your first login is established: APP_DEMO_SUPER_ADMIN_ENABLED=false
     super-admin:
-      enabled: true
+      enabled: ${APP_DEMO_SUPER_ADMIN_ENABLED:true}
+
   booking:
     payment-timeout-minutes: 15
     commission-rate: 10.0
     cancellation:
       before-start-refund: 100
       during-service-refund: 95
-  
+
   security:
     max-login-attempts: 5
     lockout-duration-minutes: 30
     session-timeout-minutes: 30
     remember-me-days: 7
-  
+
   discount:
     sales-rep-max: 20
     finance-max: 50
 
   rbac-catalog-validation:
-    # Validates sys_groups Z1–Z7 and system sys_roles.group_id on startup. Disable in slice tests (application-test.yml).
     enabled: ${APP_RBAC_CATALOG_VALIDATION_ENABLED:true}
 
   media:
-    # local (default) or s3 — selects MediaStorageService implementation
     storage-backend: ${APP_MEDIA_STORAGE_BACKEND:local}
-    # Local uploads (POST .../images/upload); served at {context-path}/media/**
-    storage-root: ${APP_MEDIA_STORAGE_ROOT:./data/media}
-    # Optional full public base for stored URLs (e.g. https://cdn.example.com or https://your-bucket.s3.region.amazonaws.com)
+    storage-root: ${APP_MEDIA_STORAGE_ROOT:/data/media}
     public-base-url: ${APP_MEDIA_PUBLIC_BASE_URL:}
-    # S3 configuration (used when storage-backend=s3)
     s3-bucket: ${APP_MEDIA_S3_BUCKET:}
     s3-region: ${APP_MEDIA_S3_REGION:us-east-1}
 
   notifications:
     email:
-      # Keep disabled by default to avoid SMTP dependency in local/dev.
       enabled: ${APP_NOTIFICATIONS_EMAIL_ENABLED:false}
       from: ${APP_NOTIFICATIONS_EMAIL_FROM:no-reply@ziyara.local}
-      # Used in password-reset emails (link to traveler site).
       public-landing-base-url: ${APP_PUBLIC_LANDING_BASE_URL:http://www.local}
-      # Comma-separated list for submit-for-approval notifications.
       provider-approver-recipients: ${APP_PROVIDER_APPROVER_RECIPIENTS:}
 
+# ── Ziyara feature flags ──────────────────────────────────────────────────────────
 ziyara:
   cors:
-    # Comma-separated origins (env ZIYARA_CORS_ALLOWED_ORIGINS). When empty, localhost defaults apply if allow-local-defaults is true.
     allowed-origins: "${ZIYARA_CORS_ALLOWED_ORIGINS:}"
-    allow-local-defaults: true
+    # false = no localhost shortcuts in production
+    allow-local-defaults: ${ZIYARA_CORS_ALLOW_LOCAL_DEFAULTS:false}
     allow-credentials: true
     allow-all-origins: ${ZIYARA_CORS_ALLOW_ALL:false}
+
   password-policy:
     min-length: ${ZIYARA_PASSWORD_MIN_LENGTH:8}
     require-uppercase: ${ZIYARA_PASSWORD_REQUIRE_UPPER:true}
     require-lowercase: ${ZIYARA_PASSWORD_REQUIRE_LOWER:true}
     require-digit: ${ZIYARA_PASSWORD_REQUIRE_DIGIT:true}
     require-special: ${ZIYARA_PASSWORD_REQUIRE_SPECIAL:true}
-    # 0 = off. 3–4 recommended in production (set ZIYARA_PASSWORD_MIN_ZXCVBN_SCORE).
-    min-zxcvbn-score: ${ZIYARA_PASSWORD_MIN_ZXCVBN_SCORE:0}
+    # 3 = strong password required in production
+    min-zxcvbn-score: ${ZIYARA_PASSWORD_MIN_ZXCVBN_SCORE:3}
+
   security:
     headers:
-      hsts-enabled: ${ZIYARA_SECURITY_HSTS_ENABLED:false}
-    # Comma-separated UserRole names that must have TOTP enrolled before they can log in.
-    # Leave empty in dev to avoid locking seeded accounts that haven't enrolled yet.
-    # Production example: SUPER_ADMIN,CEO,FINANCE_MANAGER,GENERAL_MANAGER
+      # HSTS: instructs browsers to remember HTTPS-only for 1 year
+      hsts-enabled: ${ZIYARA_SECURITY_HSTS_ENABLED:true}
+      # Redirect plain HTTP → HTTPS at the app layer.
+      # Keep false when HTTPS is terminated upstream (nginx) — the proxy enforces it.
+      https-enforce: ${ZIYARA_HTTPS_ENFORCE:false}
     mfa-required-roles: ${ZIYARA_SECURITY_MFA_REQUIRED_ROLES:}
+
   rls:
-    # When true, wraps the primary DataSource and sets app.* session GUCs per connection (see Flyway V13 policies).
-    enabled: ${ZIYARA_RLS_ENABLED:false}
+    # Row-level security: mandatory for multi-tenant data isolation in production
+    enabled: ${ZIYARA_RLS_ENABLED:true}
+
   pii:
-    # Optional AES-256 key (32 raw bytes) as Base64. When empty, MFA secrets are stored without app-layer encryption (dev only).
+    # REQUIRED in production — PiiEncryptionStartupGuard will fail startup if unset.
+    # Generate: openssl rand -base64 32
     encryption-key-base64: ${ZIYARA_PII_ENCRYPTION_KEY_BASE64:}
+
   data-retention:
-    enabled: ${ZIYARA_DATA_RETENTION_ENABLED:false}
+    enabled: ${ZIYARA_DATA_RETENTION_ENABLED:true}
     cron: ${ZIYARA_DATA_RETENTION_CRON:0 0 4 * * SUN}
+
   rate-limit:
     login:
       enabled: ${ZIYARA_RATE_LIMIT_LOGIN_ENABLED:true}
       max-per-minute-per-ip: ${ZIYARA_RATE_LIMIT_LOGIN_MAX_PER_MINUTE:40}
-      # When true and Redis is configured (spring.data.redis.host), login throttling uses Redis instead of sys_rate_limit_counters.
-      redis-enabled: ${ZIYARA_RATE_LIMIT_LOGIN_REDIS_ENABLED:false}
+      # Redis is always-on in production; disable only in local dev without Redis
+      redis-enabled: ${ZIYARA_RATE_LIMIT_LOGIN_REDIS_ENABLED:true}
+
   reporting:
     materialized-view-refresh-enabled: ${ZIYARA_REPORTING_MV_REFRESH_ENABLED:false}
     materialized-view-cron: ${ZIYARA_REPORTING_MV_CRON:0 20 2 * * *}
+
   fx:
     refresh:
       enabled: ${ZIYARA_FX_REFRESH_ENABLED:false}
@@ -222,17 +263,11 @@ ziyara:
       api-key: ${ZIYARA_FX_REFRESH_API_KEY:}
       base-currency: ${ZIYARA_FX_REFRESH_BASE_CURRENCY:USD}
       target-currencies: ${ZIYARA_FX_REFRESH_TARGET_CURRENCIES:EUR,SAR,GBP,AED}
+
   notifications:
     kafka:
-      enabled: ${ZIYARA_NOTIFICATIONS_KAFKA_ENABLED:false}
+      # Kafka is always-on in production
+      enabled: ${ZIYARA_NOTIFICATIONS_KAFKA_ENABLED:true}
       topic-staff: ziyara.notifications.staff
       topic-dlq: ziyara.notifications.staff.dlq
       consumer-group: ziyarah-backend-staff-notifications
-
-# SpringDoc OpenAPI Configuration
-springdoc:
-  api-docs:
-    path: /api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-    enabled: true
