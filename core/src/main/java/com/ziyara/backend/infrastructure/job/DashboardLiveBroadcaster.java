@@ -1,6 +1,7 @@
 package com.ziyara.backend.infrastructure.job;
 
 import com.ziyara.backend.application.dto.response.DashboardLiveResponse;
+import com.ziyara.backend.infrastructure.websocket.DashboardSubscriptionTracker;
 import com.ziyara.backend.modules.sys.api.DashboardServiceApi;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,11 +11,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 
-/**
- * Broadcasts live dashboard data every 30 seconds to connected WebSocket clients.
- * Clients subscribe to /topic/dashboard/live to receive KPI+activity+serviceHealth updates
- * without polling REST endpoints.
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -25,9 +21,13 @@ public class DashboardLiveBroadcaster {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final DashboardServiceApi dashboardBootstrapService;
+    private final DashboardSubscriptionTracker subscriptionTracker;
 
     @Scheduled(fixedDelay = 30_000, initialDelay = 30_000)
     public void broadcast() {
+        if (!subscriptionTracker.hasSubscribers()) {
+            return;
+        }
         try {
             LocalDate end = LocalDate.now();
             LocalDate start = end.minusDays(30);
