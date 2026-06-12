@@ -20,6 +20,7 @@ public interface NotificationRepository {
     PagedResult<Notification> findByUserIdOrderByCreatedAtDesc(UUID userId, PageQuery pageQuery);
 
     long countByUserIdAndReadAtIsNull(UUID userId);
+    int markAllReadByUserId(UUID userId);
     List<Notification> findByUserIdAndStatus(UUID userId, NotificationStatus status);
     List<Notification> findByStatus(NotificationStatus status);
     long countByUserIdAndStatus(UUID userId, NotificationStatus status);

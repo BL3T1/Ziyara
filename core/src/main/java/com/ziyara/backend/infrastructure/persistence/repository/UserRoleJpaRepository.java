@@ -6,12 +6,16 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
 @Repository
 public interface UserRoleJpaRepository extends JpaRepository<UserRoleJpaEntity, UUID> {
     long countByRoleId(UUID roleId);
+
+    @Query("SELECT ur.roleId, COUNT(ur) FROM UserRoleJpaEntity ur WHERE ur.roleId IN :roleIds GROUP BY ur.roleId")
+    List<Object[]> countByRoleIdIn(@Param("roleIds") Collection<UUID> roleIds);
 
     long countByGroupId(UUID groupId);
 

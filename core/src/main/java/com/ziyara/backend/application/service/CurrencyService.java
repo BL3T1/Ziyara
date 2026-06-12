@@ -9,6 +9,8 @@ import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,10 +37,21 @@ public class CurrencyService {
 
         log.debug("Converting {} from {} to {}", amount, from, to);
 
-        ExchangeRate rate = exchangeRateRepository.findByFromCurrencyAndToCurrency(from, to)
+        ExchangeRate rate = getCachedRate(from, to)
                 .orElseThrow(() -> new RuntimeException("Exchange rate not found for " + from + " to " + to));
 
         return amount.multiply(rate.getRate());
+    }
+
+    @Cacheable(value = "exchangeRates", key = "#from.toUpperCase() + '_' + #to.toUpperCase()")
+    @Transactional(readOnly = true)
+    public java.util.Optional<ExchangeRate> getCachedRate(String from, String to) {
+        return exchangeRateRepository.findByFromCurrencyAndToCurrency(from, to);
+    }
+
+    @CacheEvict(value = "exchangeRates", allEntries = true)
+    public void evictRateCache() {
+        log.debug("Exchange rate cache evicted");
     }
 
     /**
@@ -71,6 +84,7 @@ public class CurrencyService {
     }
 
     /** Phase 3: Create exchange rate. */
+    @CacheEvict(value = "exchangeRates", allEntries = true)
     @Transactional
     public ExchangeRateResponse createRate(CreateExchangeRateRequest request) {
         ExchangeRate rate = new ExchangeRate();
@@ -82,6 +96,7 @@ public class CurrencyService {
     }
 
     /** Phase 3: Update exchange rate. */
+    @CacheEvict(value = "exchangeRates", allEntries = true)
     @Transactional
     public ExchangeRateResponse updateRate(java.util.UUID id, UpdateExchangeRateRequest request) {
         ExchangeRate rate = exchangeRateRepository.findById(id)
@@ -98,6 +113,7 @@ public class CurrencyService {
                 .orElseThrow(() -> new ResourceNotFoundException("Exchange rate not found"));
     }
 
+    @CacheEvict(value = "exchangeRates", allEntries = true)
     @Transactional
     public void deleteRate(java.util.UUID id) {
         if (exchangeRateRepository.findById(id).isEmpty()) {

@@ -130,12 +130,7 @@ public class HotelRoomService {
     }
 
     private void clearPrimaryImage(UUID roomId) {
-        for (HotelRoomImage image : roomImageRepository.findByRoomId(roomId)) {
-            if (Boolean.TRUE.equals(image.getPrimary())) {
-                image.setPrimary(false);
-                roomImageRepository.save(image);
-            }
-        }
+        roomImageRepository.clearPrimaryByRoomId(roomId);
     }
 
     private void recalculateServiceRoomTotals(UUID serviceId) {

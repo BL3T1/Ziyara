@@ -63,13 +63,6 @@ public class BookingRepositoryAdapter implements BookingRepository {
     }
     
     @Override
-    public List<Booking> findAll() {
-        return bookingJpaRepository.findAll().stream()
-                .map(bookingMapper::toDomainEntity)
-                .collect(Collectors.toList());
-    }
-    
-    @Override
     public List<Booking> findByCustomerId(UUID customerId) {
         return bookingJpaRepository.findByCustomerId(customerId).stream()
                 .map(bookingMapper::toDomainEntity)

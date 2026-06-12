@@ -52,13 +52,6 @@ public class NotificationService implements NotificationServiceApi {
     }
 
     @Transactional(readOnly = true)
-    public List<NotificationResponse> getUserNotifications(UUID userId) {
-        return notificationRepository.findByUserId(userId).stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
     public NotificationInboxResponse getUserNotificationsInbox(UUID userId, int page, int size) {
         PageQuery query = PageQuery.of(Math.max(0, page), Math.min(100, Math.max(1, size)), "createdAt", false);
         Page<NotificationResponse> mapped = PageConverter.toSpringPage(
@@ -81,15 +74,9 @@ public class NotificationService implements NotificationServiceApi {
         }
     }
 
-    /** Phase 3: Mark all notifications as read for the given user. */
     @Transactional
     public void markAllAsRead(UUID userId) {
-        notificationRepository.findByUserId(userId).forEach(notification -> {
-            if (!notification.isRead()) {
-                notification.markAsRead();
-                notificationRepository.save(notification);
-            }
-        });
+        notificationRepository.markAllReadByUserId(userId);
     }
 
     @Transactional(readOnly = true)

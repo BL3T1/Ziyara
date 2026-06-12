@@ -31,7 +31,6 @@ public interface PaymentRepository {
     /** Payments whose booking belongs to this customer user id. */
     PagedResult<Payment> findByCustomerUserId(UUID customerUserId, PageQuery pageQuery);
 
-    List<Payment> findAll();
     void deleteById(UUID id);
 
     BigDecimal sumCompletedAmountBetween(LocalDateTime from, LocalDateTime to);

@@ -26,7 +26,6 @@ public interface BookingRepository {
     void delete(Booking booking);
     
     // Query Operations
-    List<Booking> findAll();
     List<Booking> findByCustomerId(UUID customerId);
     List<Booking> findByServiceId(UUID serviceId);
     List<Booking> findByServiceIdIn(java.util.List<UUID> serviceIds);

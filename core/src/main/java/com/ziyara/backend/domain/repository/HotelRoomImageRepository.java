@@ -17,4 +17,6 @@ public interface HotelRoomImageRepository {
     List<HotelRoomImage> findByRoomId(UUID roomId);
 
     void deleteById(UUID id);
+
+    int clearPrimaryByRoomId(UUID roomId);
 }

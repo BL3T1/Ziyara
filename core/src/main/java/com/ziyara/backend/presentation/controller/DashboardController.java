@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Dashboard KPIs and activity feed (DASHBOARD_DESIGN_REPORT).
@@ -82,20 +83,22 @@ public class DashboardController {
 
     @GetMapping("/bootstrap")
     @Operation(summary = "Dashboard bootstrap", description = "Returns KPIs, activity, service health, commission, and payouts in one response (parallel assembly on server)")
-    public ResponseEntity<ApiResponse<DashboardBootstrapResponse>> getBootstrap(
+    public CompletableFuture<ResponseEntity<ApiResponse<DashboardBootstrapResponse>>> getBootstrap(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
             @RequestParam(defaultValue = "15") int activityLimit) {
-        return ResponseEntity.ok(ApiResponse.success(dashboardBootstrapService.load(start, end, activityLimit)));
+        return dashboardBootstrapService.loadAsync(start, end, activityLimit)
+                .thenApply(result -> ResponseEntity.ok(ApiResponse.success(result)));
     }
 
     @GetMapping("/live")
     @Operation(summary = "Dashboard live refresh", description = "KPIs, activity, and service health only (for polling without recomputing commission/payouts)")
-    public ResponseEntity<ApiResponse<DashboardLiveResponse>> getLive(
+    public CompletableFuture<ResponseEntity<ApiResponse<DashboardLiveResponse>>> getLive(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
             @RequestParam(defaultValue = "15") int activityLimit) {
-        return ResponseEntity.ok(ApiResponse.success(dashboardBootstrapService.loadLive(start, end, activityLimit)));
+        return dashboardBootstrapService.loadLiveAsync(start, end, activityLimit)
+                .thenApply(result -> ResponseEntity.ok(ApiResponse.success(result)));
     }
 
     @GetMapping("/activity")

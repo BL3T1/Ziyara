@@ -11,6 +11,8 @@ import com.ziyara.backend.application.dto.response.SystemSettingsResponse;
 import com.ziyara.backend.domain.entity.SystemSetting;
 import com.ziyara.backend.domain.repository.SystemSettingRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ public class SystemSettingsService {
     private final SystemSettingRepository repository;
     private final ObjectMapper objectMapper;
 
+    @Cacheable("systemSettings")
     @Transactional(readOnly = true)
     public SystemSettingsResponse getSettings() {
         return SystemSettingsResponse.builder()
@@ -43,6 +46,7 @@ public class SystemSettingsService {
     }
 
     @Audited(action = "SETTINGS_UPDATE", entityType = "SystemSettings")
+    @CacheEvict(value = "systemSettings", allEntries = true)
     @Transactional
     public SystemSettingsResponse update(UpdateSystemSettingsRequest request, UUID updatedBy) {
         Instant now = Instant.now();

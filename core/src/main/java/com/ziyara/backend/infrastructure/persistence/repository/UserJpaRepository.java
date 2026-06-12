@@ -50,9 +50,6 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, UUID> {
     
     long countByRole(UserRole role);
     
-    @Query("SELECT u FROM UserJpaEntity u WHERE u.deletedAt IS NULL")
-    List<UserJpaEntity> findAllActive();
-
     @Query("select distinct u.id from UserJpaEntity u where u.role in :roles and u.status = :status")
     List<UUID> findDistinctIdsByRoleInAndStatus(@Param("roles") Collection<UserRole> roles,
                                                 @Param("status") UserStatus status);

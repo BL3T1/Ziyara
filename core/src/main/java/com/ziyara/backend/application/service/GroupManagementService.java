@@ -28,6 +28,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -198,18 +199,27 @@ public class GroupManagementService {
         Map<UUID, List<Role>> rolesByGroup = roles.stream()
                 .filter(r -> r.getGroupId() != null)
                 .collect(Collectors.groupingBy(Role::getGroupId));
+
+        // Roles whose code matches a UserRole enum value store users in sys_users.role, not sys_user_roles.
+        Set<UUID> nonSystemRoleIds = roles.stream()
+                .filter(r -> !isSystemUserRole(r.getCode()))
+                .map(Role::getId)
+                .collect(Collectors.toSet());
+        Map<UUID, Long> userCountByRole = userRoleAssignmentRepository.countByRoleIdIn(nonSystemRoleIds);
+
         List<GroupSummaryResponse> rows = groups.stream()
                 .sorted(Comparator.comparingInt(GroupManagementService::groupSortOrder))
                 .map(g -> {
                     List<Role> inGroup = rolesByGroup.getOrDefault(g.getId(), List.of());
-                    int roleCount = inGroup.size();
-                    long userCount = inGroup.stream().mapToLong(this::countUsersForRole).sum();
+                    long userCount = inGroup.stream()
+                            .mapToLong(r -> resolveUserCount(r, userCountByRole))
+                            .sum();
                     return GroupSummaryResponse.builder()
                             .id(g.getId())
                             .name(RequestLocaleHolder.localized(g.getName(), g.getNameAr()))
                             .code(g.getCode())
                             .description(RequestLocaleHolder.localized(g.getDescription(), g.getDescriptionAr()))
-                            .roleCount(roleCount)
+                            .roleCount(inGroup.size())
                             .userCount(userCount)
                             .build();
                 })
@@ -217,7 +227,9 @@ public class GroupManagementService {
 
         List<Role> ungrouped = roles.stream().filter(r -> r.getGroupId() == null).collect(Collectors.toList());
         if (!ungrouped.isEmpty()) {
-            long userCount = ungrouped.stream().mapToLong(this::countUsersForRole).sum();
+            long userCount = ungrouped.stream()
+                    .mapToLong(r -> resolveUserCount(r, userCountByRole))
+                    .sum();
             rows.add(GroupSummaryResponse.builder()
                     .id(UNGROUPED_SUMMARY_ID)
                     .name("Ungrouped roles")
@@ -236,25 +248,7 @@ public class GroupManagementService {
     }
 
     public String allocateNextCustomGroupCode() {
-        int max = 0;
-        for (Group group : groupRepository.findAll()) {
-            String c = group.getCode();
-            if (c == null || c.length() < 2) {
-                continue;
-            }
-            char first = Character.toUpperCase(c.charAt(0));
-            if (first != 'C') {
-                continue;
-            }
-            try {
-                int n = Integer.parseInt(c.substring(1));
-                if (n > max) {
-                    max = n;
-                }
-            } catch (NumberFormatException ignored) {
-                // skip non-numeric suffix
-            }
-        }
+        int max = groupRepository.findMaxCustomGroupCodeSuffix().orElse(0);
         for (int n = max + 1; n < max + 10_000; n++) {
             String candidate = "C" + n;
             if (!groupRepository.existsByCode(candidate)) {
@@ -264,16 +258,24 @@ public class GroupManagementService {
         throw new IllegalStateException("Could not allocate a unique C{n} group code");
     }
 
-    private long countUsersForRole(Role r) {
-        String code = r.getCode();
-        if (code == null || code.isBlank()) {
-            return userRoleAssignmentRepository.countByRoleId(r.getId());
+    private long resolveUserCount(Role r, Map<UUID, Long> bulkCounts) {
+        if (isSystemUserRole(r.getCode())) {
+            try {
+                return userRepository.countByRole(UserRole.valueOf(r.getCode().trim()));
+            } catch (IllegalArgumentException e) {
+                return 0L;
+            }
         }
+        return bulkCounts.getOrDefault(r.getId(), 0L);
+    }
+
+    private static boolean isSystemUserRole(String code) {
+        if (code == null || code.isBlank()) return false;
         try {
-            UserRole ur = UserRole.valueOf(code.trim());
-            return userRepository.countByRole(ur);
+            UserRole.valueOf(code.trim());
+            return true;
         } catch (IllegalArgumentException e) {
-            return userRoleAssignmentRepository.countByRoleId(r.getId());
+            return false;
         }
     }
 

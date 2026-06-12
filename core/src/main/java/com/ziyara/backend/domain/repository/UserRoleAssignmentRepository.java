@@ -1,6 +1,8 @@
 package com.ziyara.backend.domain.repository;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -8,6 +10,8 @@ import java.util.UUID;
  */
 public interface UserRoleAssignmentRepository {
     long countByRoleId(UUID roleId);
+
+    Map<UUID, Long> countByRoleIdIn(Set<UUID> roleIds);
 
     long countByGroupId(UUID groupId);
 

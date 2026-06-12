@@ -38,6 +38,10 @@ public class DashboardBootstrapService implements DashboardServiceApi {
     }
 
     public DashboardBootstrapResponse load(LocalDate start, LocalDate end, int activityLimit) {
+        return loadAsync(start, end, activityLimit).join();
+    }
+
+    public CompletableFuture<DashboardBootstrapResponse> loadAsync(LocalDate start, LocalDate end, int activityLimit) {
         int lim = Math.min(Math.max(activityLimit, 1), 50);
 
         CompletableFuture<DashboardKpiResponse> kpisF = CompletableFuture.supplyAsync(
@@ -51,21 +55,21 @@ public class DashboardBootstrapService implements DashboardServiceApi {
         CompletableFuture<PayoutSummaryResponse> payoutsF = CompletableFuture.supplyAsync(
                 () -> dashboardQueryHandler.getPayouts(start, end), dashboardExecutor);
 
-        CompletableFuture.allOf(kpisF, activityF, healthF, commissionF, payoutsF).join();
-
-        return DashboardBootstrapResponse.builder()
-                .kpis(kpisF.join())
-                .activity(activityF.join())
-                .serviceHealth(healthF.join())
-                .commissionAnalysis(commissionF.join())
-                .payouts(payoutsF.join())
-                .build();
+        return CompletableFuture.allOf(kpisF, activityF, healthF, commissionF, payoutsF)
+                .thenApply(v -> DashboardBootstrapResponse.builder()
+                        .kpis(kpisF.join())
+                        .activity(activityF.join())
+                        .serviceHealth(healthF.join())
+                        .commissionAnalysis(commissionF.join())
+                        .payouts(payoutsF.join())
+                        .build());
     }
 
-    /**
-     * KPIs, activity, and service health only — for periodic refresh without recomputing commission/payouts.
-     */
     public DashboardLiveResponse loadLive(LocalDate start, LocalDate end, int activityLimit) {
+        return loadLiveAsync(start, end, activityLimit).join();
+    }
+
+    public CompletableFuture<DashboardLiveResponse> loadLiveAsync(LocalDate start, LocalDate end, int activityLimit) {
         int lim = Math.min(Math.max(activityLimit, 1), 50);
 
         CompletableFuture<DashboardKpiResponse> kpisF = CompletableFuture.supplyAsync(
@@ -75,12 +79,11 @@ public class DashboardBootstrapService implements DashboardServiceApi {
         CompletableFuture<ServiceHealthResponse> healthF = CompletableFuture.supplyAsync(
                 dashboardQueryHandler::getServiceHealth, dashboardExecutor);
 
-        CompletableFuture.allOf(kpisF, activityF, healthF).join();
-
-        return DashboardLiveResponse.builder()
-                .kpis(kpisF.join())
-                .activity(activityF.join())
-                .serviceHealth(healthF.join())
-                .build();
+        return CompletableFuture.allOf(kpisF, activityF, healthF)
+                .thenApply(v -> DashboardLiveResponse.builder()
+                        .kpis(kpisF.join())
+                        .activity(activityF.join())
+                        .serviceHealth(healthF.join())
+                        .build());
     }
 }

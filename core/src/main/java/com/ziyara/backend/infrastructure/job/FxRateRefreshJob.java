@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.cache.CacheManager;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -40,6 +41,7 @@ public class FxRateRefreshJob {
     private String targetCurrencies;
 
     private final ExchangeRateRepository exchangeRateRepository;
+    private final CacheManager cacheManager;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Scheduled(cron = "${ziyara.fx.refresh.cron:0 0 6 * * *}", zone = "UTC")
@@ -80,6 +82,8 @@ public class FxRateRefreshJob {
                 updated++;
             }
             log.info("[FxRefresh] Done — updated {} currency pairs for {}", updated, today);
+            var cache = cacheManager.getCache("exchangeRates");
+            if (cache != null) cache.clear();
 
         } catch (Exception ex) {
             log.error("[FxRefresh] Failed to refresh FX rates: {}", ex.getMessage(), ex);

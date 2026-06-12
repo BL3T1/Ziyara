@@ -12,8 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -25,6 +28,13 @@ public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRe
     @Override
     public long countByRoleId(UUID roleId) {
         return jpaRepository.countByRoleId(roleId);
+    }
+
+    @Override
+    public Map<UUID, Long> countByRoleIdIn(Set<UUID> roleIds) {
+        if (roleIds == null || roleIds.isEmpty()) return Map.of();
+        return jpaRepository.countByRoleIdIn(roleIds).stream()
+                .collect(Collectors.toMap(row -> (UUID) row[0], row -> (Long) row[1]));
     }
 
     @Override
@@ -56,7 +66,10 @@ public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRe
 
     @Override
     @Transactional
-    @CacheEvict(value = "userPermissions", key = "#userId")
+    @org.springframework.cache.annotation.Caching(evict = {
+            @CacheEvict(value = "userPermissions", key = "#userId"),
+            @CacheEvict(value = "userDetails", key = "#userId.toString()")
+    })
     public void setPrimaryRoleForUser(UUID userId, UUID roleId) {
         jpaRepository.deleteByUserId(userId);
         UserRoleJpaEntity row = UserRoleJpaEntity.builder()

@@ -96,13 +96,6 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
     }
 
     @Override
-    public List<Payment> findAll() {
-        return paymentJpaRepository.findAll().stream()
-                .map(paymentMapper::toDomainEntity)
-                .collect(Collectors.toList());
-    }
-    
-    @Override
     public void deleteById(UUID id) {
         paymentJpaRepository.deleteById(id);
     }

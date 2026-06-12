@@ -155,21 +155,11 @@ public class ServiceImageService {
     }
 
     private void clearPrimaryForService(UUID serviceId) {
-        for (ServiceImage img : serviceImageRepository.findByServiceId(serviceId)) {
-            if (img.isPrimary()) {
-                img.setPrimary(false);
-                serviceImageRepository.save(img);
-            }
-        }
+        serviceImageRepository.clearPrimaryByServiceId(serviceId);
     }
 
     private void clearPrimaryForServiceExcept(UUID serviceId, UUID keepImageId) {
-        for (ServiceImage img : serviceImageRepository.findByServiceId(serviceId)) {
-            if (img.isPrimary() && !keepImageId.equals(img.getId())) {
-                img.setPrimary(false);
-                serviceImageRepository.save(img);
-            }
-        }
+        serviceImageRepository.clearPrimaryByServiceIdExcept(serviceId, keepImageId);
     }
 
     private static String normalizeContextKey(String key) {

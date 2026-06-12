@@ -40,13 +40,19 @@ public class CacheConfig {
         if (factory != null) {
             return RedisCacheManager.builder(factory)
                     .cacheDefaults(jsonCache(Duration.ofMinutes(10)))
-                    .withCacheConfiguration("staffRoleCatalog",  jsonCache(Duration.ofHours(1)))
+                    .withCacheConfiguration("staffRoleCatalog",   jsonCache(Duration.ofHours(1)))
                     .withCacheConfiguration("permissionCatalogue", jsonCache(Duration.ofHours(1)))
-                    .withCacheConfiguration("userPermissions", jsonCache(Duration.ofMinutes(30)))
-                    .withCacheConfiguration("providerStaffRole", jsonCache(Duration.ofMinutes(30)))
+                    .withCacheConfiguration("userPermissions",     jsonCache(Duration.ofMinutes(30)))
+                    .withCacheConfiguration("providerStaffRole",   jsonCache(Duration.ofMinutes(30)))
+                    .withCacheConfiguration("rolesCatalogue",      jsonCache(Duration.ofMinutes(30)))
+                    .withCacheConfiguration("systemSettings",      jsonCache(Duration.ofMinutes(5)))
+                    .withCacheConfiguration("exchangeRates",       jsonCache(Duration.ofHours(12)))
+                    .withCacheConfiguration("userDetails",         jsonCache(Duration.ofMinutes(2)))
                     .transactionAware()
                     .build();
         }
-        return new ConcurrentMapCacheManager("staffRoleCatalog", "permissionCatalogue", "userPermissions", "providerStaffRole");
+        return new ConcurrentMapCacheManager(
+                "staffRoleCatalog", "permissionCatalogue", "userPermissions", "providerStaffRole",
+                "rolesCatalogue", "systemSettings", "exchangeRates", "userDetails");
     }
 }

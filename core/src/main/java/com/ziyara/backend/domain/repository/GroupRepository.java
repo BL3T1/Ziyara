@@ -18,4 +18,6 @@ public interface GroupRepository {
     boolean existsByCodeAndIdNot(String code, UUID excludeId);
 
     void deleteById(UUID id);
+
+    Optional<Integer> findMaxCustomGroupCodeSuffix();
 }

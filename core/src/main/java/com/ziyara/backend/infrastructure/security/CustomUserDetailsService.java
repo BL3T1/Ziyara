@@ -4,6 +4,8 @@ import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.domain.repository.UserRoleAssignmentRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -29,7 +31,11 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
     private final UserRoleAssignmentRepository userRoleAssignmentRepository;
 
+    @CacheEvict(value = "userDetails", key = "#userId")
+    public void evictUserDetails(String userId) {}
+
     @Override
+    @Cacheable(value = "userDetails", key = "#userId")
     public UserDetails loadUserByUsername(String userId) throws UsernameNotFoundException {
         UUID id = UUID.fromString(userId);
         User user = userRepository.findById(id)

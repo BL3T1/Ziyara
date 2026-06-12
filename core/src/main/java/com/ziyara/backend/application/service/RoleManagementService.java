@@ -26,6 +26,7 @@ import com.ziyara.backend.application.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,14 +58,18 @@ public class RoleManagementService implements RoleServiceApi {
 
     // ── Role queries ─────────────────────────────────────────────────────────────
 
+    @Cacheable(value = "staffRoleCatalog",
+               key = "T(com.ziyara.backend.application.locale.RequestLocaleHolder).getLocale().getLanguage()")
     @Transactional(readOnly = true)
     public List<RoleResponse> listRoles() {
         List<Role> roles = roleRepository.findAllOrderByName();
         Map<UUID, String> groupNames = groupRepository.findAll().stream()
                 .collect(Collectors.toMap(Group::getId, g -> RequestLocaleHolder.localized(g.getName(), g.getNameAr()), (a, b) -> a));
         Map<UUID, Permission> permById = permissionMap();
+        Set<UUID> roleIds = roles.stream().map(Role::getId).collect(Collectors.toSet());
+        Map<UUID, Set<UUID>> permIdsByRole = rolePermissionRepository.findPermissionIdsByRoleIds(roleIds);
         return roles.stream()
-                .map(r -> toRoleResponse(r, groupNames, permById))
+                .map(r -> toRoleResponse(r, groupNames, permById, permIdsByRole))
                 .collect(Collectors.toList());
     }
 
@@ -335,7 +340,14 @@ public class RoleManagementService implements RoleServiceApi {
     }
 
     private RoleResponse toRoleResponse(Role r, Map<UUID, String> groupNames, Map<UUID, Permission> permById) {
-        List<UUID> permIds = rolePermissionRepository.findPermissionIdsByRoleId(r.getId());
+        return toRoleResponse(r, groupNames, permById, null);
+    }
+
+    private RoleResponse toRoleResponse(Role r, Map<UUID, String> groupNames, Map<UUID, Permission> permById,
+                                        Map<UUID, Set<UUID>> preloadedPermIds) {
+        List<UUID> permIds = preloadedPermIds != null
+                ? List.copyOf(preloadedPermIds.getOrDefault(r.getId(), Set.of()))
+                : rolePermissionRepository.findPermissionIdsByRoleId(r.getId());
         List<PermissionSummaryResponse> perms = permIds.stream()
                 .map(permById::get)
                 .filter(Objects::nonNull)

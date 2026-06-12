@@ -65,4 +65,14 @@ public class ServiceImageRepositoryAdapter implements ServiceImageRepository {
     public void deleteById(UUID id) {
         serviceImageJpaRepository.deleteById(id);
     }
+
+    @Override
+    public int clearPrimaryByServiceId(UUID serviceId) {
+        return serviceImageJpaRepository.clearPrimaryByServiceId(serviceId);
+    }
+
+    @Override
+    public int clearPrimaryByServiceIdExcept(UUID serviceId, UUID excludeId) {
+        return serviceImageJpaRepository.clearPrimaryByServiceIdExcept(serviceId, excludeId);
+    }
 }

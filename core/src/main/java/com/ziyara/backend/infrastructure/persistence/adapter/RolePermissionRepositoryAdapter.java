@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -22,6 +24,16 @@ public class RolePermissionRepositoryAdapter implements RolePermissionRepository
         return jpaRepository.findByRoleId(roleId).stream()
                 .map(RolePermissionJpaEntity::getPermissionId)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, Set<UUID>> findPermissionIdsByRoleIds(Set<UUID> roleIds) {
+        if (roleIds == null || roleIds.isEmpty()) return Map.of();
+        return jpaRepository.findByRoleIdIn(roleIds).stream()
+                .collect(Collectors.groupingBy(
+                        RolePermissionJpaEntity::getRoleId,
+                        Collectors.mapping(RolePermissionJpaEntity::getPermissionId, Collectors.toSet())));
     }
 
     @Override

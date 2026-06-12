@@ -49,4 +49,9 @@ public class HotelRoomImageRepositoryAdapter implements HotelRoomImageRepository
     public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
     }
+
+    @Override
+    public int clearPrimaryByRoomId(UUID roomId) {
+        return jpaRepository.clearPrimaryByRoomId(roomId);
+    }
 }
