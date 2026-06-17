@@ -3,13 +3,13 @@ package com.ziyara.backend.presentation.controller;
 import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.request.AddPortalStaffRequest;
 import com.ziyara.backend.application.dto.request.CreatePortalStaffUserRequest;
-import com.ziyara.backend.application.dto.request.ResetPortalStaffPasswordRequest;
 import com.ziyara.backend.application.dto.request.UpdatePortalStaffRequest;
-import com.ziyara.backend.application.dto.response.PortalAssignableRoleResponse;
+import com.ziyara.backend.application.dto.response.LinkableUserResponse;
 import com.ziyara.backend.application.dto.response.PortalStaffMemberResponse;
 import com.ziyara.backend.application.service.PortalStaffService;
 import com.ziyara.backend.application.service.ServiceProviderService;
-import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
+import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,7 +26,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/portal/staff")
 @RequiredArgsConstructor
-@PreAuthorize(PROVIDER_PORTAL)
+@PreAuthorize(ApiAuthorizationExpressions.PROVIDER_PORTAL)
 @Tag(name = "Provider Portal Staff", description = "Team members linked to the current provider")
 @SecurityRequirement(name = "bearerAuth")
 public class PortalStaffController {
@@ -49,10 +49,10 @@ public class PortalStaffController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Staff member added", created));
     }
 
-    @GetMapping("/roles")
-    @Operation(summary = "List assignable roles", description = "Custom roles an admin has flagged as assignable to this provider's staff")
-    public ResponseEntity<ApiResponse<List<PortalAssignableRoleResponse>>> listAssignableRoles() {
-        return ResponseEntity.ok(ApiResponse.success(portalStaffService.listAssignableRoles()));
+    @GetMapping("/linkable")
+    @Operation(summary = "Linkable users", description = "Active STAFF users not yet linked to any provider — candidates for Add Staff")
+    public ResponseEntity<ApiResponse<List<LinkableUserResponse>>> listLinkable() {
+        return ResponseEntity.ok(ApiResponse.success(portalStaffService.listLinkableUsers()));
     }
 
     @PostMapping("/users")
@@ -68,7 +68,7 @@ public class PortalStaffController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Staff user created", created));
     }
 
-    @PatchMapping("/{userId}")
+    @PutMapping("/{userId}")
     @Operation(summary = "Update staff", description = "Update title for a linked staff member")
     public ResponseEntity<ApiResponse<PortalStaffMemberResponse>> update(
             @PathVariable UUID userId,
@@ -83,17 +83,6 @@ public class PortalStaffController {
         UUID providerId = requireCurrentProviderId();
         portalStaffService.removeStaff(providerId, userId);
         return ResponseEntity.ok(ApiResponse.success("Staff member removed", null));
-    }
-
-    @PostMapping("/{userId}/reset-password")
-    @PreAuthorize(PORTAL_MANAGER)
-    @Operation(summary = "Reset a staff member's password (portal manager only)")
-    public ResponseEntity<Void> resetStaffPassword(
-            @PathVariable UUID userId,
-            @Valid @RequestBody ResetPortalStaffPasswordRequest request) {
-        UUID providerId = requireCurrentProviderId();
-        portalStaffService.resetStaffPassword(providerId, userId, request.getNewPassword());
-        return ResponseEntity.noContent().build();
     }
 
     private UUID requireCurrentProviderId() {
