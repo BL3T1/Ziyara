@@ -74,6 +74,7 @@ public class CacheConfig {
                     .withCacheConfiguration("rolesCatalogue",         jsonCache(Duration.ofMinutes(30)))
                     .withCacheConfiguration("systemSettings",         jsonCache(Duration.ofMinutes(5)))
                     .withCacheConfiguration("exchangeRates",          jsonCache(Duration.ofHours(12)))
+                    .withCacheConfiguration("exchangeRatesList",      jsonCache(Duration.ofMinutes(5)))
                     // Dashboard aggregation caches — prevents repeated full-table scans
                     // under concurrent admin load. TTLs chosen so the dashboard UI feels
                     // live while keeping DB query rates bounded.
@@ -93,7 +94,7 @@ public class CacheConfig {
         }
         return new ConcurrentMapCacheManager(
                 "staffRoleCatalog", "permissionCatalogue", "userPermissions", "providerStaffRole",
-                "rolesCatalogue", "systemSettings", "exchangeRates",
+                "rolesCatalogue", "systemSettings", "exchangeRates", "exchangeRatesList",
                 "dashboardKpis", "dashboardActivity", "dashboardServiceHealth",
                 "dashboardCommission", "dashboardPayouts",
                 "dashboardBootstrap", "dashboardLive", "serviceDetail");
