@@ -1,5 +1,7 @@
 package com.ziyara.backend.infrastructure.aop;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.ziyara.backend.application.annotation.RateLimit;
 import com.ziyara.backend.application.exception.RateLimitedException;
 import io.github.bucket4j.Bandwidth;
@@ -10,12 +12,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Duration;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Rate-limiting AOP using Bucket4j token-bucket algorithm.
@@ -25,9 +27,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @Aspect
 @Component
 @Slf4j
+@ConditionalOnProperty(name = "app.rate-limit.enabled", havingValue = "true", matchIfMissing = false)
 public class Bucket4jRateLimitAspect {
 
-    private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
+    // Bounded by IP+endpoint with a 2-minute access expiry — entries for inactive IPs are
+    // evicted automatically, preventing unbounded heap growth under rotating-IP traffic.
+    private final Cache<String, Bucket> buckets = Caffeine.newBuilder()
+            .maximumSize(50_000)
+            .expireAfterAccess(Duration.ofMinutes(2))
+            .build();
 
     @Around("@annotation(rateLimit)")
     public Object checkRateLimit(ProceedingJoinPoint pjp, RateLimit rateLimit) throws Throwable {
@@ -37,7 +45,7 @@ public class Bucket4jRateLimitAspect {
                 : rateLimit.key();
         String bucketKey = ip + ":" + endpointKey;
 
-        Bucket bucket = buckets.computeIfAbsent(bucketKey, k -> buildBucket(rateLimit.maxPerMinute()));
+        Bucket bucket = buckets.get(bucketKey, k -> buildBucket(rateLimit.maxPerMinute()));
 
         if (!bucket.tryConsume(1)) {
             log.warn("Rate limit exceeded: ip={} endpoint={}", ip, endpointKey);
