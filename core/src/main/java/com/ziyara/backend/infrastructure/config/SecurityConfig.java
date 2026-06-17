@@ -80,7 +80,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/media/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/services", "/services/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/content-pages", "/content-pages/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/currency/rates", "/currency/rates/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/currency/rates", "/currency/rates/**", "/currency/convert").permitAll()
                 .requestMatchers(HttpMethod.POST, "/public/**").permitAll()
                 .requestMatchers("/auth/**", "/actuator/health", "/actuator/health/**", "/actuator/info",
                         "/actuator/prometheus",

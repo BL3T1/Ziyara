@@ -19,8 +19,10 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.HashMap;
@@ -116,6 +118,26 @@ public class GlobalExceptionHandler {
         log.warn("Bad request: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(withCorrelation(ApiResponse.errorCoded(ex.getMessage(), "BAD_REQUEST")));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingParam(MissingServletRequestParameterException ex) {
+        log.warn("Missing request parameter: {}", ex.getParameterName());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(withCorrelation(ApiResponse.errorCoded(
+                        "Required parameter '" + ex.getParameterName() + "' is missing",
+                        "MISSING_PARAMETER")));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String name = ex.getName();
+        String value = ex.getValue() != null ? ex.getValue().toString() : "null";
+        log.warn("Type mismatch: parameter '{}' value '{}'", name, value);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(withCorrelation(ApiResponse.errorCoded(
+                        "Invalid value '" + value + "' for parameter '" + name + "'",
+                        "INVALID_PARAMETER")));
     }
 
     @ExceptionHandler(AuthService.AuthenticationException.class)

@@ -6,6 +6,7 @@ import com.ziyara.backend.domain.enums.ServiceStatus;
 import com.ziyara.backend.domain.enums.ServiceType;
 import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
+import org.springframework.cache.annotation.Cacheable;
 import org.jooq.DSLContext;
 import org.jooq.Field;
 import org.jooq.Record;
@@ -52,6 +53,7 @@ public class ServiceQueryHandler {
 
     private final DSLContext dsl;
 
+    @Cacheable(value = "serviceDetail", key = "#id")
     public Optional<ServiceResponse> findById(UUID id) {
         var record = dsl.select(F_ID, F_PROVIDER_ID, F_TYPE, F_NAME, F_DESCRIPTION, F_CITY, F_COUNTRY, F_ADDRESS,
                         F_BASE_PRICE, F_CURRENCY, F_STATUS, F_STAR_RATING, F_TOTAL_ROOMS, F_AVAILABLE_ROOMS, F_MAX_GUESTS,
@@ -62,6 +64,8 @@ public class ServiceQueryHandler {
         return Optional.ofNullable(record).map(this::toResponse);
     }
 
+    @Cacheable(value = "servicesList", cacheManager = "servicesCacheManager",
+               key = "#page + ':' + #size + ':' + #providerId + ':' + #type + ':' + #status + ':' + #city + ':' + #country")
     public org.springframework.data.domain.Page<ServiceResponse> findPage(int page, int size,
                                                                             UUID providerId,
                                                                             ServiceType type,
@@ -95,6 +99,8 @@ public class ServiceQueryHandler {
         );
     }
 
+    @Cacheable(value = "servicesSearch", cacheManager = "servicesCacheManager",
+               key = "#page + ':' + #size + ':' + #q + ':' + #type + ':' + #city + ':' + #minPrice + ':' + #maxPrice")
     public org.springframework.data.domain.Page<ServiceResponse> search(int page, int size,
                                                                          String q,
                                                                          ServiceType type,
