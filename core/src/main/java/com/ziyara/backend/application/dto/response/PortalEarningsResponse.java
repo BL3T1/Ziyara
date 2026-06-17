@@ -45,6 +45,9 @@ public class PortalEarningsResponse {
     @Schema(description = "Provider net = grossRevenue − platformFee")
     private BigDecimal providerNet;
 
+    @Schema(description = "Net provider earnings minus pending payout requests — the amount available to request as payout")
+    private BigDecimal availableForPayout;
+
     @Schema(description = "Total booking count across all services")
     private int bookingCount;
 

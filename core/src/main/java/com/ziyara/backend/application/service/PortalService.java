@@ -459,6 +459,12 @@ public class PortalService {
         BigDecimal netTotal = grossTotal.subtract(feeTotal);
         int bookingCount = rows.stream().mapToInt(PortalEarningsResponse.ServiceEarningRow::getBookingCount).sum();
 
+        BigDecimal pendingPayouts = jdbcTemplate.queryForObject(
+            "SELECT COALESCE(SUM(amount), 0) FROM portal_payout_requests WHERE provider_id = ? AND status = 'PENDING'",
+            BigDecimal.class, providerId);
+        if (pendingPayouts == null) pendingPayouts = BigDecimal.ZERO;
+        BigDecimal availableForPayout = netTotal.subtract(pendingPayouts).max(BigDecimal.ZERO);
+
         return PortalEarningsResponse.builder()
                 .start(start)
                 .end(end)
@@ -468,6 +474,7 @@ public class PortalService {
                 .platformCommissionPct(commissionPct)
                 .platformFee(feeTotal)
                 .providerNet(netTotal)
+                .availableForPayout(availableForPayout)
                 .bookingCount(bookingCount)
                 .perServiceBreakdown(rows)
                 .build();
