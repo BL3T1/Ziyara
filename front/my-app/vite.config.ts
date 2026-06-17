@@ -6,6 +6,22 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react':  ['react', 'react-dom', 'react-router-dom'],
+          'vendor-query':  ['@tanstack/react-query'],
+          'vendor-charts': ['recharts'],
+          'vendor-map':    ['leaflet', 'react-leaflet'],
+          'vendor-stomp':  ['@stomp/stompjs', 'sockjs-client'],
+          'vendor-pdf':    ['jspdf'],
+          'vendor-gsap':   ['gsap'],
+          'vendor-ui':     ['lucide-react', 'zod', 'axios'],
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {
