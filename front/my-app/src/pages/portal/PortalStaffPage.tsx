@@ -141,10 +141,10 @@ export function PortalStaffPage() {
     setCreatingUser(true)
     setError(null)
     try {
-      const body: { email: string; password: string; role: string; phone?: string; title?: string } = {
+      const body: { email: string; password: string; roleId: string; phone?: string; title?: string } = {
         email: newEmail.trim(),
         password: newPassword,
-        role: newRole,
+        roleId: newRole,
       }
       const p = newPhone.trim()
       if (p) body.phone = p

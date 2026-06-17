@@ -4,13 +4,19 @@
  * Unwraps ApiResponse.data on success; 401 redirects to /login.
  */
 
-import axios, { type AxiosInstance } from 'axios'
+import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
+
+// Extend InternalAxiosRequestConfig to carry our retry flag
+interface RetryableConfig extends InternalAxiosRequestConfig {
+  _retried?: boolean
+}
 import type {
   ApiEnvelope,
   BookingDto,
   ContentPageDto,
   CreateMenuItemPayload,
   CreateMenuSectionPayload,
+  CreateHotelRoomPayload,
   CreatePortalServicePayload,
   CreateServiceImagePayload,
   PageDto,
@@ -23,6 +29,7 @@ import type {
   RestaurantMenuSectionDto,
   ServiceDto,
   ServiceImageDto,
+  HotelRoomDto,
   ServiceProviderDto,
   UpdatePortalServicePayload,
   UpdateProviderMePayload,
@@ -35,8 +42,20 @@ import type {
   UpsertContentPagePayload,
   UpdateMenuItemPayload,
   UpdateMenuSectionPayload,
+  UpdateHotelRoomPayload,
   UpdateServiceImagePayload,
   CreateServiceProviderPayload,
+  UpdateServiceProviderPayload,
+  CreatePortalDiscountPayload,
+  DiscountBalanceDto,
+  DiscountDto,
+  CreateWebhookSubscriptionPayload,
+  WebhookDeliveryDto,
+  WebhookSubscriptionDto,
+  AddPaymentPayload,
+  PaymentDto,
+  ProviderMapPinDto,
+  DeliveryLocationDto,
   LinkableUserDto,
 } from '../types/api'
 
@@ -54,6 +73,9 @@ export function getApiErrorMessage(err: unknown, fallback = 'Request failed'): s
   if (status === 403) return 'Access denied'
   if (status === 429) return 'Too many requests. Please wait a moment and try again.'
   if (status === 404) return 'Not found'
+  if (status === 502 || status === 503)
+    return 'The API server is unreachable (bad gateway). Check that the backend is running and that the API URL / proxy matches your setup.'
+  if (status === 504) return 'The API server took too long to respond. Try again, or check backend and database health.'
   if (status === 500) return 'Server error. Please try again later.'
   if (typeof ax.message === 'string' && ax.message) return ax.message
   return fallback
@@ -64,21 +86,43 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1'
 const client: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 })
 
-// Attach token and Accept-Language to every request
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.$?*|{}()[\]\\/+^]/g, '\\$&') + '=([^;]*)'))
+  return m ? decodeURIComponent(m[1]) : null
+}
+
+// Attach token, CSRF (Spring CookieCsrfTokenRepository), and Accept-Language to every request
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   const lang = localStorage.getItem('ziyara-lang')
   if (lang === 'ar' || lang === 'en') config.headers['Accept-Language'] = lang
+  const method = (config.method ?? 'get').toUpperCase()
+  if (!['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+    const xsrf = readCookie('XSRF-TOKEN')
+    if (xsrf) config.headers['X-XSRF-TOKEN'] = xsrf
+  }
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type']
   }
   return config
 })
 
-// Unwrap { success, data } and redirect on 401
+// Flag to prevent infinite refresh loops
+let _refreshing = false
+let _refreshQueue: Array<(token: string | null) => void> = []
+
+function clearSession() {
+  sessionStorage.removeItem('token')
+  sessionStorage.removeItem('user')
+  sessionStorage.removeItem('ziyara_cookie_session')
+}
+
+// Unwrap { success, data }, attempt silent refresh on 401, let MFA errors propagate
 client.interceptors.response.use(
   (response) => {
     const body = response.data as ApiEnvelope<unknown>
@@ -87,12 +131,65 @@ client.interceptors.response.use(
     }
     return response
   },
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      window.location.href = '/login'
+  async (error) => {
+    const status = error.response?.status as number | undefined
+    const errorCode = (error.response?.data as Record<string, unknown> | undefined)?.code as string | undefined
+    const requestUrl = (error.config?.url ?? '') as string
+
+    // MFA challenge — let the login page handle this, do NOT redirect
+    if (status === 401 && errorCode === 'MFA_CODE_REQUIRED') {
+      return Promise.reject(error)
     }
+
+    // Never attempt refresh for auth endpoints themselves
+    const isAuthEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/refresh')
+    const retryableConfig = error.config as RetryableConfig | undefined
+    if (status === 401 && !isAuthEndpoint && !retryableConfig?._retried) {
+      if (_refreshing) {
+        // Queue the retry until refresh completes
+        return new Promise((resolve, reject) => {
+          _refreshQueue.push((newToken) => {
+            if (!newToken) return reject(error)
+            error.config.headers.Authorization = `Bearer ${newToken}`
+            resolve(client(error.config))
+          })
+        })
+      }
+
+      _refreshing = true
+      if (retryableConfig) retryableConfig._retried = true
+
+      try {
+        const res = await client.post<unknown>('/auth/refresh', null)
+        const data = res.data as { accessToken?: string } | null
+        const newToken = data?.accessToken ?? null
+        if (newToken) {
+          sessionStorage.setItem('token', newToken)
+          _refreshQueue.forEach((cb) => cb(newToken))
+          _refreshQueue = []
+          error.config.headers.Authorization = `Bearer ${newToken}`
+          return client(error.config)
+        }
+      } catch {
+        _refreshQueue.forEach((cb) => cb(null))
+        _refreshQueue = []
+      } finally {
+        _refreshing = false
+      }
+
+      // Refresh failed — clear session and redirect (guard against reload loop when already on login)
+      clearSession()
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login'
+      }
+      return Promise.reject(error)
+    }
+
+    if (status === 401 && isAuthEndpoint) {
+      // Wrong credentials during login — propagate so the form can show the error
+      return Promise.reject(error)
+    }
+
     // Reject the full error so callers can read response.status and response.data
     return Promise.reject(error)
   }
@@ -100,13 +197,24 @@ client.interceptors.response.use(
 
 // --- Auth ---
 export const authAPI = {
-  login: (body: { email: string; password: string; rememberMe?: boolean }) =>
+  login: (body: { email: string; password: string; rememberMe?: boolean; mfaCode?: string }) =>
     client.post<unknown>('/auth/login', body),
+  register: (body: { email: string; password: string; phone?: string; role: 'CUSTOMER' }) =>
+    client.post<unknown>('/auth/register', body),
+  forgotPassword: (body: { email: string }) => client.post<unknown>('/auth/password/forgot', body),
+  resetPasswordWithToken: (body: { token: string; newPassword: string }) =>
+    client.post<unknown>('/auth/password/reset', body),
   logout: () => client.post('/auth/logout'),
-  refresh: (refreshToken: string) =>
-    client.post<unknown>('/auth/refresh', null, {
-      headers: { 'Refresh-Token': refreshToken },
-    }),
+  refresh: (refreshToken?: string) =>
+    client.post<unknown>(
+      '/auth/refresh',
+      null,
+      refreshToken
+        ? {
+            headers: { 'Refresh-Token': refreshToken },
+          }
+        : undefined,
+    ),
 }
 
 // --- Services (bookable) ---
@@ -136,26 +244,38 @@ export const servicesAPI = {
       params: { page: 0, size: 50, ...params },
     }),
   get: (id: string) => client.get<unknown>(`/services/${id}`),
+  checkAvailability: (id: string, date: string, nights = 1) =>
+    client.get<{ available: boolean; message?: string }>(`/services/${id}/availability`, { params: { date, nights } }),
   getImages: (id: string) => client.get<ServiceImageDto[]>(`/services/${id}/images`),
   getMenu: (id: string) => client.get<RestaurantMenuDto>(`/services/${id}/menu`),
   addImage: (id: string, body: CreateServiceImagePayload) =>
     client.post<ServiceImageDto>(`/services/${id}/images`, body),
   updateImage: (id: string, imageId: string, body: UpdateServiceImagePayload) =>
-    client.put<ServiceImageDto>(`/services/${id}/images/${imageId}`, body),
+    client.patch<ServiceImageDto>(`/services/${id}/images/${imageId}`, body),
   deleteImage: (id: string, imageId: string) =>
     client.delete<void>(`/services/${id}/images/${imageId}`),
   uploadImage: (id: string, form: FormData) =>
     client.post<ServiceImageDto>(`/services/${id}/images/upload`, form),
+  listRooms: (id: string) => client.get<HotelRoomDto[]>(`/services/${id}/rooms`),
+  createRoom: (id: string, body: CreateHotelRoomPayload) =>
+    client.post<HotelRoomDto>(`/services/${id}/rooms`, body),
+  updateRoom: (id: string, roomId: string, body: UpdateHotelRoomPayload) =>
+    client.patch<HotelRoomDto>(`/services/${id}/rooms/${roomId}`, body),
+  deleteRoom: (id: string, roomId: string) => client.delete<void>(`/services/${id}/rooms/${roomId}`),
+  uploadRoomImage: (id: string, roomId: string, form: FormData) =>
+    client.post(`/services/${id}/rooms/${roomId}/images/upload`, form),
   createMenuSection: (id: string, body: CreateMenuSectionPayload) =>
     client.post<RestaurantMenuSectionDto>(`/services/${id}/menu/sections`, body),
   updateMenuSection: (id: string, sectionId: string, body: UpdateMenuSectionPayload) =>
-    client.put<RestaurantMenuSectionDto>(`/services/${id}/menu/sections/${sectionId}`, body),
+    client.patch<RestaurantMenuSectionDto>(`/services/${id}/menu/sections/${sectionId}`, body),
   deleteMenuSection: (id: string, sectionId: string) =>
     client.delete<void>(`/services/${id}/menu/sections/${sectionId}`),
   createMenuItem: (id: string, sectionId: string, body: CreateMenuItemPayload) =>
     client.post<RestaurantMenuItemDto>(`/services/${id}/menu/sections/${sectionId}/items`, body),
   updateMenuItem: (id: string, itemId: string, body: UpdateMenuItemPayload) =>
-    client.put<RestaurantMenuItemDto>(`/services/${id}/menu/items/${itemId}`, body),
+    client.patch<RestaurantMenuItemDto>(`/services/${id}/menu/items/${itemId}`, body),
+  uploadMenuItemImage: (id: string, itemId: string, form: FormData) =>
+    client.post<RestaurantMenuItemDto>(`/services/${id}/menu/items/${itemId}/image/upload`, form),
   deleteMenuItem: (id: string, itemId: string) =>
     client.delete<void>(`/services/${id}/menu/items/${itemId}`),
 }
@@ -170,25 +290,64 @@ export const portalAPI = {
   createService: (body: CreatePortalServicePayload) =>
     client.post<ServiceDto>('/portal/services', body),
   updateService: (id: string, body: UpdatePortalServicePayload) =>
-    client.put<ServiceDto>(`/portal/services/${id}`, body),
+    client.patch<ServiceDto>(`/portal/services/${id}`, body),
   deleteService: (id: string) => client.delete<void>(`/portal/services/${id}`),
   listBookings: () => client.get<BookingDto[]>('/portal/bookings'),
+  listBookingPayments: (bookingId: string) =>
+    client.get<PaymentDto[]>(`/portal/bookings/${bookingId}/payments`),
+  approveCashPayment: (bookingId: string, body: { amount: number; currency: string; notes?: string }) =>
+    client.post<PaymentDto>(`/portal/bookings/${bookingId}/payments/cash-approve`, body),
+  addPayment: (bookingId: string, body: AddPaymentPayload) =>
+    client.post<PaymentDto>(`/portal/bookings/${bookingId}/payments`, body),
   getEarnings: (params?: { start?: string; end?: string }) =>
     client.get<PortalEarningsDto>('/portal/earnings', { params }),
+  requestPayout: (body: { amount: number; notes?: string }) =>
+    client.post<unknown>('/portal/payout-request', body),
+  listPayouts: (params?: { page?: number; size?: number }) =>
+    client.get<{ content: unknown[]; totalElements: number; totalPages: number }>('/portal/payout-requests', { params }),
+  exportEarnings: (params?: { start?: string; end?: string }) =>
+    client.get('/portal/earnings/export', { params, responseType: 'blob' }),
+  getDiscountBalance: () => client.get<DiscountBalanceDto>('/portal/discount-balance'),
+  listDiscounts: (params?: { page?: number; size?: number }) =>
+    client.get<{ content: DiscountDto[]; totalElements: number; totalPages: number }>('/portal/discounts', { params }),
+  createDiscount: (body: CreatePortalDiscountPayload) => client.post<DiscountDto>('/portal/discounts', body),
+  deactivateDiscount: (id: string) => client.delete<void>(`/portal/discounts/${id}`),
+}
+
+export const portalCashAPI = {
+  recordCollection: (bookingId: string, body: { amount: number; notes?: string; collectedAt?: string }) =>
+    client.post<unknown>(`/portal/cash/bookings/${bookingId}/record`, body),
+  listCollections: (params?: { page?: number; size?: number }) =>
+    client.get<unknown>('/portal/cash/collections', { params }),
+  getDailySheet: (params?: { date?: string }) =>
+    client.get<unknown>('/portal/cash/daily-sheet', { params }),
+}
+
+export const adminCashAPI = {
+  listPending: (params?: { page?: number; size?: number; providerId?: string }) =>
+    client.get<unknown>('/admin/cash/pending-reconciliation', { params }),
+  reconcile: (collectionId: string, body: { notes?: string }) =>
+    client.post<unknown>(`/admin/cash/collections/${collectionId}/reconcile`, body),
+  dispute: (collectionId: string, body: { reason: string }) =>
+    client.post<unknown>(`/admin/cash/collections/${collectionId}/dispute`, body),
 }
 
 /** Provider portal team (migration 023 + /portal/staff) */
 export const portalStaffAPI = {
   list: () => client.get<PortalStaffMemberDto[]>('/portal/staff'),
-  listLinkable: () =>
-    client.get<LinkableUserDto[]>('/portal/staff/linkable'),
   add: (body: { userId: string; title?: string }) =>
     client.post<PortalStaffMemberDto>('/portal/staff', body),
-  createUser: (body: { email: string; password: string; role: string; phone?: string; title?: string }) =>
+  createUser: (body: { email: string; password: string; roleId: string; phone?: string; title?: string }) =>
     client.post<PortalStaffMemberDto>('/portal/staff/users', body),
+  listAssignableRoles: () =>
+    client.get<{ id: string; code: string; name: string }[]>('/portal/staff/roles'),
   update: (userId: string, body: { title?: string }) =>
-    client.put<PortalStaffMemberDto>(`/portal/staff/${userId}`, body),
+    client.patch<PortalStaffMemberDto>(`/portal/staff/${userId}`, body),
   remove: (userId: string) => client.delete<void>(`/portal/staff/${userId}`),
+  resetPassword: (userId: string, body: { newPassword: string }) =>
+    client.post<void>(`/portal/staff/${userId}/reset-password`, body),
+  listLinkable: () =>
+    client.get<LinkableUserDto[]>('/portal/staff/linkable'),
 }
 
 /** Phase 5: provider portal support requests (migration 025) */
@@ -198,6 +357,23 @@ export const portalSupportAPI = {
     client.post<PortalSupportRequestDto>('/portal/support-requests', body),
 }
 
+/** Map: provider location pins and live delivery tracking */
+export const mapAPI = {
+  getPins: (params?: { types?: string }) =>
+    client.get<ProviderMapPinDto[]>('/map/providers', { params }),
+  getDeliveryLocation: (bookingId: string) =>
+    client.get<DeliveryLocationDto>(`/map/delivery/${bookingId}`),
+  getPortalPins: () =>
+    client.get<ProviderMapPinDto[]>('/portal/map/pins'),
+}
+
+/** Staff-only: view and respond to provider portal support messages */
+export const staffSupportRequestsAPI = {
+  listAll: () => client.get<PortalSupportRequestDto[]>('/portal/support-requests/all'),
+  respond: (id: string, response: string) =>
+    client.post<PortalSupportRequestDto>(`/portal/support-requests/${id}/respond`, { response }),
+}
+
 /** Provider portal: same media/menu operations scoped to own listings */
 export const portalServicesAPI = {
   getImages: (id: string) => client.get<ServiceImageDto[]>(`/portal/services/${id}/images`),
@@ -205,21 +381,31 @@ export const portalServicesAPI = {
   addImage: (id: string, body: CreateServiceImagePayload) =>
     client.post<ServiceImageDto>(`/portal/services/${id}/images`, body),
   updateImage: (id: string, imageId: string, body: UpdateServiceImagePayload) =>
-    client.put<ServiceImageDto>(`/portal/services/${id}/images/${imageId}`, body),
+    client.patch<ServiceImageDto>(`/portal/services/${id}/images/${imageId}`, body),
   deleteImage: (id: string, imageId: string) =>
     client.delete<void>(`/portal/services/${id}/images/${imageId}`),
   uploadImage: (id: string, form: FormData) =>
     client.post<ServiceImageDto>(`/portal/services/${id}/images/upload`, form),
+  listRooms: (id: string) => client.get<HotelRoomDto[]>(`/portal/services/${id}/rooms`),
+  createRoom: (id: string, body: CreateHotelRoomPayload) =>
+    client.post<HotelRoomDto>(`/portal/services/${id}/rooms`, body),
+  updateRoom: (id: string, roomId: string, body: UpdateHotelRoomPayload) =>
+    client.patch<HotelRoomDto>(`/portal/services/${id}/rooms/${roomId}`, body),
+  deleteRoom: (id: string, roomId: string) => client.delete<void>(`/portal/services/${id}/rooms/${roomId}`),
+  uploadRoomImage: (id: string, roomId: string, form: FormData) =>
+    client.post(`/portal/services/${id}/rooms/${roomId}/images/upload`, form),
   createMenuSection: (id: string, body: CreateMenuSectionPayload) =>
     client.post<RestaurantMenuSectionDto>(`/portal/services/${id}/menu/sections`, body),
   updateMenuSection: (id: string, sectionId: string, body: UpdateMenuSectionPayload) =>
-    client.put<RestaurantMenuSectionDto>(`/portal/services/${id}/menu/sections/${sectionId}`, body),
+    client.patch<RestaurantMenuSectionDto>(`/portal/services/${id}/menu/sections/${sectionId}`, body),
   deleteMenuSection: (id: string, sectionId: string) =>
     client.delete<void>(`/portal/services/${id}/menu/sections/${sectionId}`),
   createMenuItem: (id: string, sectionId: string, body: CreateMenuItemPayload) =>
     client.post<RestaurantMenuItemDto>(`/portal/services/${id}/menu/sections/${sectionId}/items`, body),
   updateMenuItem: (id: string, itemId: string, body: UpdateMenuItemPayload) =>
-    client.put<RestaurantMenuItemDto>(`/portal/services/${id}/menu/items/${itemId}`, body),
+    client.patch<RestaurantMenuItemDto>(`/portal/services/${id}/menu/items/${itemId}`, body),
+  uploadMenuItemImage: (id: string, itemId: string, form: FormData) =>
+    client.post<RestaurantMenuItemDto>(`/portal/services/${id}/menu/items/${itemId}/image/upload`, form),
   deleteMenuItem: (id: string, itemId: string) =>
     client.delete<void>(`/portal/services/${id}/menu/items/${itemId}`),
 }
@@ -266,23 +452,24 @@ export const usersAPI = {
   getUserRbacRole: (userId: string) => client.get<unknown>(`/users/${userId}/rbac-role`),
   getUserRbacRoleByEmail: (email: string) =>
     client.get<unknown>(`/users/by-email/${encodeURIComponent(email.trim())}/rbac-role`),
-  updateMe: (body: { email?: string; phone?: string; status?: string }) =>
-    client.put<unknown>('/users/me', body),
-  changePassword: (body: { currentPassword: string; newPassword: string }) =>
+  updateMe: (body: { email?: string; phone?: string; status?: string; firstName?: string; lastName?: string }) =>
+    client.patch<unknown>('/users/me', body),
+  getMyPermissions: () => client.get<string[]>('/users/me/permissions'),
+  changePassword: (body: { currentPassword?: string; newPassword: string }) =>
     client.post<unknown>('/users/me/change-password', body),
   getLoginHistory: (id: string) => client.get<unknown>(`/users/${id}/login-history`),
   create: (body: Record<string, unknown>) => client.post<unknown>('/users', body),
   update: (id: string, body: Record<string, unknown>) =>
-    client.put<unknown>(`/users/${id}`, body),
+    client.patch<unknown>(`/users/${id}`, body),
   delete: (id: string) => client.delete<unknown>(`/users/${id}`),
   freeze: (id: string) => client.post<unknown>(`/users/${id}/freeze`),
   unfreeze: (id: string) => client.post<unknown>(`/users/${id}/unfreeze`),
   resetPassword: (id: string, body: { newPassword: string }) =>
     client.post<unknown>(`/users/${id}/reset-password`, body),
   assignRbacRole: (id: string, body: { roleId?: string | null }) =>
-    client.put<unknown>(`/users/${id}/rbac-role`, body),
+    client.patch<unknown>(`/users/${id}/rbac-role`, body),
   assignRbacRoleByEmail: (email: string, body: { roleId?: string | null }) =>
-    client.put<unknown>(`/users/by-email/${encodeURIComponent(email.trim())}/rbac-role`, body),
+    client.patch<unknown>(`/users/by-email/${encodeURIComponent(email.trim())}/rbac-role`, body),
 }
 
 // --- Roles & groups ---
@@ -297,43 +484,83 @@ export const rolesAPI = {
     nameAr?: string
     descriptionAr?: string
   }) => client.post<unknown>('/roles/groups', body),
+  updateGroup: (
+    groupId: string,
+    body: {
+      name?: string
+      code?: string
+      description?: string
+      nameAr?: string
+      descriptionAr?: string
+    },
+  ) => client.patch<unknown>(`/roles/groups/${groupId}`, body),
+  deleteGroup: (groupId: string) => client.delete<unknown>(`/roles/groups/${groupId}`),
   /** Groups with roleCount and userCount (super_admin) */
   getGroupSummaries: () => client.get<unknown>('/roles/groups/summary'),
   getGroupMembers: (groupId: string, params?: { page?: number; size?: number }) =>
     client.get<unknown>(`/roles/groups/${groupId}/users`, { params: { page: 0, size: 20, ...params } }),
   getPermissionCatalogue: () => client.get<unknown>('/roles/permissions/catalogue'),
-  create: (body: { name: string; description?: string; groupId?: string; permissionIds?: string[] }) =>
+  create: (body: { name: string; description?: string; groupId?: string; permissionIds?: string[]; providerRole?: boolean }) =>
     client.post<unknown>('/roles', body),
   updatePermissions: (id: string, body: { permissionIds: string[] }) =>
     client.put<unknown>(`/roles/${id}/permissions`, body),
-  /** Super admin: name/description (en + ar) */
+  /** Super admin: name/description (en + ar) and optional group assignment */
   updateDetails: (
     id: string,
-    body: { name?: string; description?: string; nameAr?: string; descriptionAr?: string },
-  ) => client.put<unknown>(`/roles/${id}`, body),
+    body: { name?: string; description?: string; nameAr?: string; descriptionAr?: string; groupId?: string | null; removeFromGroup?: boolean },
+  ) => client.patch<unknown>(`/roles/${id}`, body),
   delete: (id: string, body?: { targetRoleId?: string }) =>
     client.delete<unknown>(`/roles/${id}`, { data: body }),
   updateNavigation: (id: string, body: { visibleItemIds: string[] }) =>
     client.put<unknown>(`/roles/${id}/navigation`, body),
+  getRoleMembers: (roleId: string, params?: { page?: number; size?: number }) =>
+    client.get<unknown>(`/roles/${roleId}/users`, { params: { page: 0, size: 20, ...params } }),
+}
+
+// --- Subscriptions ---
+export const subscriptionsAPI = {
+  list: () => client.get<unknown>('/admin/subscriptions'),
+  get: (providerId: string) => client.get<unknown>(`/admin/subscriptions/${providerId}`),
+  upsert: (providerId: string, body: { plan: string; staffLimit: number }) =>
+    client.put<unknown>(`/admin/subscriptions/${providerId}`, body),
 }
 
 // --- Providers ---
 export const providersAPI = {
-  list: (params?: { page?: number; size?: number; status?: string }) =>
+  list: (params?: { page?: number; size?: number; status?: string; type?: string }) =>
     client.get<unknown>('/providers', { params: { page: 0, size: 20, ...params } }),
   /** Portal: current provider profile */
   getMe: () => client.get<ServiceProviderDto>('/providers/me'),
-  updateMe: (body: UpdateProviderMePayload) => client.put<ServiceProviderDto>('/providers/me', body),
+  updateMe: (body: UpdateProviderMePayload) => client.patch<ServiceProviderDto>('/providers/me', body),
   get: (id: string) => client.get<unknown>(`/providers/${id}`),
   create: (body: CreateServiceProviderPayload) => client.post<ServiceProviderDto>('/providers', body),
-  updateCommission: (id: string, body: { commissionRate: number }) =>
+  updateCommission: (id: string, body: { profitMargin: number }) =>
     client.patch<unknown>(`/providers/${id}/commission`, body),
-  update: (id: string, body: Record<string, unknown>) =>
-    client.put<unknown>(`/providers/${id}`, body),
+  update: (id: string, body: UpdateServiceProviderPayload) =>
+    client.patch<ServiceProviderDto>(`/providers/${id}`, body),
   approve: (id: string) => client.post<unknown>(`/providers/${id}/approve`),
   reject: (id: string, body?: { reason?: string }) =>
     client.post<unknown>(`/providers/${id}/reject`, body ?? {}),
   suspend: (id: string) => client.post<unknown>(`/providers/${id}/suspend`),
+  delete: (id: string) => client.delete<unknown>(`/providers/${id}`),
+  resetPassword: (id: string) => client.post<unknown>(`/providers/${id}/reset-password`),
+  adminToken: (id: string) => client.post<unknown>(`/providers/${id}/admin-token`),
+}
+
+// --- Provider media submissions ---
+export const portalMediaAPI = {
+  getMySubmissions: () => client.get<unknown[]>('/portal/media-submissions'),
+  submitServiceImage: (serviceId: string, form: FormData) =>
+    client.post<unknown>(`/portal/services/${serviceId}/images/submit`, form),
+  submitProviderLogo: (form: FormData) =>
+    client.post<unknown>('/portal/logo/submit', form),
+}
+
+export const adminMediaAPI = {
+  list: () => client.get<unknown[]>('/admin/media-submissions'),
+  approve: (id: string) => client.post<unknown>(`/admin/media-submissions/${id}/approve`),
+  reject: (id: string, note?: string) =>
+    client.post<unknown>(`/admin/media-submissions/${id}/reject`, { note }),
 }
 
 // --- Discounts ---
@@ -343,7 +570,7 @@ export const discountsAPI = {
   get: (id: string) => client.get<unknown>(`/discounts/${id}`),
   create: (body: Record<string, unknown>) => client.post<unknown>('/discounts', body),
   update: (id: string, body: Record<string, unknown>) =>
-    client.put<unknown>(`/discounts/${id}`, body),
+    client.patch<unknown>(`/discounts/${id}`, body),
   delete: (id: string) => client.delete<unknown>(`/discounts/${id}`),
   approve: (id: string) => client.post<unknown>(`/discounts/${id}/approve`),
   deactivate: (id: string) => client.post<unknown>(`/discounts/${id}/deactivate`),
@@ -383,20 +610,49 @@ export const reportsAPI = {
     }),
   searchReportCustomers: (q: string, limit = 20) =>
     client.get<unknown>('/reports/customer-search', { params: { q, limit } }),
+  getAnalytics: (start: string, end: string) =>
+    client.get<unknown>('/reports/analytics', { params: { start, end } }),
+  exportReport: (start: string, end: string, type: 'revenue' | 'bookings', format: 'excel' | 'pdf' | 'csv') =>
+    client.get<Blob>('/reports/export', {
+      params: { start, end, type, format },
+      responseType: 'blob',
+    }),
 }
 
 // --- Bookings ---
 export const bookingsAPI = {
+  create: (body: {
+    serviceId: string
+    checkInDate: string
+    checkOutDate?: string
+    guests?: number
+    rooms?: number
+    specialRequests?: string
+    discountCode?: string
+    currency?: string
+    paymentMethod?: string
+  }) => client.post<unknown>('/bookings', body),
   list: (params?: { scope?: string; status?: string; page?: number; size?: number }) =>
     client.get<unknown>('/bookings', { params: { page: 0, size: 20, ...params } }),
-  listAdmin: (params?: { status?: string; page?: number; size?: number }) =>
+  listMy: () => client.get<BookingDto[]>('/bookings/my'),
+  listAdmin: (params?: {
+    status?: string
+    providerId?: string
+    serviceType?: string
+    dateFrom?: string
+    dateTo?: string
+    page?: number
+    size?: number
+  }) =>
     client.get<unknown>('/bookings/admin', { params: { page: 0, size: 20, ...params } }),
   get: (id: string) => client.get<unknown>(`/bookings/${id}`),
   getByReference: (ref: string) => client.get<unknown>(`/bookings/reference/${ref}`),
   confirm: (id: string) => client.post<unknown>(`/bookings/${id}/confirm`),
   cancel: (id: string, body?: { reason?: string }) =>
     client.post<unknown>(`/bookings/${id}/cancel`, null, { params: body?.reason ? { reason: body.reason } : {} }),
-  getVoucher: (id: string) => client.get<unknown>(`/bookings/${id}/voucher`),
+  getVoucher: (id: string) => client.get<import('../types/api').VoucherDto>(`/bookings/${id}/voucher`),
+  reject: (id: string, reason?: string) =>
+    client.post<unknown>(`/bookings/${id}/reject`, null, reason ? { params: { reason } } : {}),
 }
 
 // --- Taxi bookings (ops) ---
@@ -411,10 +667,20 @@ export const taxiBookingsAPI = {
   ) => client.post<unknown>(`/taxi-bookings/${id}/assign`, null, { params }),
 }
 
+// --- Permission matrix ---
+export const permissionsAPI = {
+  getMatrix: () => client.get<unknown>('/admin/permissions/matrix'),
+  upsert: (body: { roleId: string; module: string; action: string; granted: boolean }) =>
+    client.post<unknown>('/admin/permissions/matrix', body),
+  updateRole: (roleId: string, permissions: Array<{ module: string; action: string; granted: boolean }>) =>
+    client.put<unknown>(`/admin/permissions/roles/${roleId}`, permissions),
+}
+
 // --- Payments ---
 export const paymentsAPI = {
   list: (params?: { page?: number; size?: number; status?: string }) =>
     client.get<unknown>('/payments', { params: { page: 0, size: 20, ...params } }),
+  summary: () => client.get<{ totalCollected: number; totalPending: number; totalRefunded: number; currency: string }>('/payments/summary'),
   get: (id: string) => client.get<unknown>(`/payments/${id}`),
   getByRef: (ref: string) => client.get<unknown>(`/payments/transaction/${ref}`),
   refund: (id: string, body: { amount?: number; reason: string }) =>
@@ -427,7 +693,7 @@ export const currencyAPI = {
   getRate: (id: string) => client.get<unknown>(`/currency/rates/${id}`),
   createRate: (body: Record<string, unknown>) => client.post<unknown>('/currency/rates', body),
   updateRate: (id: string, body: Record<string, unknown>) =>
-    client.put<unknown>(`/currency/rates/${id}`, body),
+    client.patch<unknown>(`/currency/rates/${id}`, body),
   deleteRate: (id: string) => client.delete<unknown>(`/currency/rates/${id}`),
 }
 
@@ -487,7 +753,7 @@ export const reviewsAPI = {
     end?: string
   }) =>
     client.get<PageDto<unknown>>('/reviews', { params: { page: 0, size: 20, ...params } }),
-  getServiceReviews: (serviceId: string) => client.get<unknown[]>(`/reviews/service/${serviceId}`),
+  getServiceReviews: (serviceId: string) => client.get<import('../types/api').ReviewDto[]>(`/reviews/service/${serviceId}`),
   get: (id: string) => client.get<unknown>(`/reviews/${id}`),
   moderate: (id: string, body: { status: string }) =>
     client.post<unknown>(`/reviews/${id}/moderate`, body),
@@ -508,6 +774,9 @@ export const notificationsAPI = {
 export const auditLogsAPI = {
   getRecent: (params?: { limit?: number; search?: string }) =>
     client.get<unknown>('/audit-logs', { params }),
+  getFiltered: (params?: { page?: number; size?: number; entityType?: string; action?: string; dateFrom?: string; dateTo?: string }) =>
+    client.get<unknown>('/audit-logs/filter', { params }),
+  getForUser: (userId: string) => client.get<unknown>(`/audit-logs/user/${userId}`),
 }
 
 // --- Content pages (landing CMS) ---
@@ -519,11 +788,10 @@ export const contentPagesAPI = {
 }
 
 /** Super admin: customer lookup & soft-delete recycle (users + services) */
-/** Executive roles: SUPER_ADMIN, CEO, GENERAL_MANAGER */
 export const settingsAPI = {
   get: () => client.get<SystemSettingsDto>('/admin/settings'),
   update: (body: UpdateSystemSettingsPayload) =>
-    client.put<SystemSettingsDto>('/admin/settings', body),
+    client.patch<SystemSettingsDto>('/admin/settings', body),
 }
 
 /** Feature flags (SUPER_ADMIN, CEO, GENERAL_MANAGER) + integration API keys (Super Admin only) */
@@ -551,10 +819,74 @@ export const adminSuperAPI = {
     client.get<unknown>('/admin/super/deleted/search', { params: { q, limit } }),
   restoreDeleted: (body: { entityType: string; id: string }) =>
     client.post<unknown>('/admin/super/deleted/restore', body),
+  permanentDelete: (body: { entityType: string; id: string }) =>
+    client.delete<unknown>('/admin/super/deleted/permanent', { data: body }),
   customerBookings: (userId: string, params?: { page?: number; size?: number; status?: string }) =>
     client.get<unknown>(`/admin/super/customers/${userId}/bookings`, { params }),
   customerPayments: (userId: string, params?: { page?: number; size?: number }) =>
     client.get<unknown>(`/admin/super/customers/${userId}/payments`, { params }),
+}
+
+/** Finance ops: admin payout management — /admin/payouts */
+export const adminPayoutsAPI = {
+  getSummary: (params?: { start?: string; end?: string }) =>
+    client.get<import('../types/api').AdminPayoutSummaryDto>('/admin/payouts/summary', { params }),
+  list: (params?: {
+    page?: number
+    size?: number
+    status?: string
+    providerId?: string
+    start?: string
+    end?: string
+    q?: string
+  }) =>
+    client.get<import('../types/api').PageDto<import('../types/api').AdminPayoutDto>>(
+      '/admin/payouts',
+      { params: { page: 0, size: 50, ...params } },
+    ),
+  get: (id: string) =>
+    client.get<import('../types/api').AdminPayoutDto>(`/admin/payouts/${id}`),
+  approve: (id: string, body?: import('../types/api').AdminPayoutActionPayload) =>
+    client.post<import('../types/api').AdminPayoutDto>(`/admin/payouts/${id}/approve`, body ?? {}),
+  hold: (id: string) =>
+    client.post<import('../types/api').AdminPayoutDto>(`/admin/payouts/${id}/hold`, {}),
+  releaseHold: (id: string) =>
+    client.post<import('../types/api').AdminPayoutDto>(`/admin/payouts/${id}/release-hold`, {}),
+  cancel: (id: string) =>
+    client.post<import('../types/api').AdminPayoutDto>(`/admin/payouts/${id}/cancel`, {}),
+  retry: (id: string) =>
+    client.post<import('../types/api').AdminPayoutDto>(`/admin/payouts/${id}/retry`, {}),
+  markPaid: (id: string, body?: import('../types/api').AdminPayoutActionPayload) =>
+    client.post<import('../types/api').AdminPayoutDto>(`/admin/payouts/${id}/mark-paid`, body ?? {}),
+  schedule: (id: string, scheduledAt: string) =>
+    client.post<import('../types/api').AdminPayoutDto>(`/admin/payouts/${id}/schedule`, { scheduledAt }),
+  updateNotes: (id: string, notes: string) =>
+    client.patch<import('../types/api').AdminPayoutDto>(`/admin/payouts/${id}/notes`, { notes }),
+  bulkApprove: (body: import('../types/api').BulkPayoutActionPayload) =>
+    client.post<import('../types/api').BulkPayoutResultDto>('/admin/payouts/bulk/approve', body),
+  bulkHold: (body: import('../types/api').BulkPayoutActionPayload) =>
+    client.post<import('../types/api').BulkPayoutResultDto>('/admin/payouts/bulk/hold', body),
+  bulkReleaseHold: (body: import('../types/api').BulkPayoutActionPayload) =>
+    client.post<import('../types/api').BulkPayoutResultDto>('/admin/payouts/bulk/release-hold', body),
+  createManual: (body: import('../types/api').CreateManualPayoutPayload) =>
+    client.post<import('../types/api').AdminPayoutDto>('/admin/payouts/manual', body),
+  export: (params?: { status?: string; start?: string; end?: string }) =>
+    client.get('/admin/payouts/export', { params, responseType: 'blob' }),
+}
+
+/** Outbound webhook subscription management — /admin/webhooks */
+export const webhooksAPI = {
+  list: (params?: { page?: number; size?: number }) =>
+    client.get<WebhookSubscriptionDto[]>('/admin/webhooks', { params }),
+  create: (body: CreateWebhookSubscriptionPayload) =>
+    client.post<WebhookSubscriptionDto>('/admin/webhooks', body),
+  delete: (id: string) => client.delete<void>(`/admin/webhooks/${id}`),
+  setActive: (id: string, active: boolean) =>
+    client.patch<void>(`/admin/webhooks/${id}/active`, null, { params: { active } }),
+  ping: (id: string) => client.post<void>(`/admin/webhooks/${id}/ping`),
+  listDeliveries: (id: string, params?: { page?: number; size?: number }) =>
+    client.get<WebhookDeliveryDto[]>(`/admin/webhooks/${id}/deliveries`, { params }),
+  listEvents: () => client.get<string[]>('/admin/webhooks/events'),
 }
 
 export default client
