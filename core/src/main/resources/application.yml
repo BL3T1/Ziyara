@@ -8,7 +8,7 @@ spring:
 
   # ── Datasource ──────────────────────────────────────────────────────────────
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/ziyarah}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://pgbouncer:5432/ziyarah}
     username: ${SPRING_DATASOURCE_USERNAME:ziyarah_user}
     password: ${POSTGRES_PASSWORD:ziyarah_password}
     driver-class-name: org.postgresql.Driver

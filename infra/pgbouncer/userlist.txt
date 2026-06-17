@@ -1,2 +1,2 @@
-"ziyarah_user" "systempassword"
-"pgbouncer" "pgbouncer_admin"
+"ziyarah_user" "SCRAM-SHA-256$4096:FjQi38ucaj1lr3errYk0XA==$k5rgZsyLVeKStDokGoDQX9bixRJR4S7TIy76fuWvVrA=:tKyKhGlLue5c6z1fa08MngAaAQOZuRidwMORqFwh5jA="
+"pgbouncer" "SCRAM-SHA-256$4096:HDJn1AI7B7t/HoPRr68BGw==$b8kNIsEmUFBqctxdrBd19xfCTG6Bd4EI9GEJjpYo5aY=:jSj8F6gyKUx2aZVCcjVRO6m9IghczHtwb+h8kUsBZy8="

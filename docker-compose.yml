@@ -247,7 +247,7 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ziyarah
+      SPRING_DATASOURCE_URL: jdbc:postgresql://pgbouncer:5432/ziyarah
       SPRING_DATASOURCE_USERNAME: ziyarah_user
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
@@ -281,7 +281,7 @@ services:
     volumes:
       - media_data:/data/media
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
       kafka:
         condition: service_healthy
