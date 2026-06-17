@@ -25,6 +25,7 @@ public class RoleMapper {
         r.setUpdatedAt(entity.getUpdatedAt());
         r.setNavigationItemIds(entity.getNavigationItemIds());
         r.setMaxDiscountPct(entity.getMaxDiscountPct());
+        r.setProviderRole(entity.isProviderRole());
         return r;
     }
 
@@ -45,6 +46,7 @@ public class RoleMapper {
                 .updatedAt(domain.getUpdatedAt())
                 .navigationItemIds(domain.getNavigationItemIds())
                 .maxDiscountPct(domain.getMaxDiscountPct())
+                .providerRole(domain.isProviderRole())
                 .build();
     }
 }

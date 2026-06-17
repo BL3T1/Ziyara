@@ -68,6 +68,10 @@ public class RoleJpaEntity {
     @Column(name = "max_discount_pct", nullable = false)
     private short maxDiscountPct;
 
+    /** True if this role can be assigned to provider portal staff (independent of code prefix). */
+    @Column(name = "is_provider_role", nullable = false)
+    private boolean providerRole = false;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

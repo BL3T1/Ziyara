@@ -40,4 +40,7 @@ public class UpdateRoleRequest {
     @Min(0) @Max(100)
     @Schema(description = "Maximum discount percentage this role may approve (0–100); null = no change")
     private Short maxDiscountPct;
+
+    @Schema(description = "Assignable to provider portal staff; null = no change")
+    private Boolean providerRole;
 }

@@ -5,6 +5,7 @@ import com.ziyara.backend.application.dto.request.AddPortalStaffRequest;
 import com.ziyara.backend.application.dto.request.CreatePortalStaffUserRequest;
 import com.ziyara.backend.application.dto.request.ResetPortalStaffPasswordRequest;
 import com.ziyara.backend.application.dto.request.UpdatePortalStaffRequest;
+import com.ziyara.backend.application.dto.response.PortalAssignableRoleResponse;
 import com.ziyara.backend.application.dto.response.PortalStaffMemberResponse;
 import com.ziyara.backend.application.service.PortalStaffService;
 import com.ziyara.backend.application.service.ServiceProviderService;
@@ -46,6 +47,12 @@ public class PortalStaffController {
         UUID providerId = requireCurrentProviderId();
         PortalStaffMemberResponse created = portalStaffService.addStaff(providerId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Staff member added", created));
+    }
+
+    @GetMapping("/roles")
+    @Operation(summary = "List assignable roles", description = "Custom roles an admin has flagged as assignable to this provider's staff")
+    public ResponseEntity<ApiResponse<List<PortalAssignableRoleResponse>>> listAssignableRoles() {
+        return ResponseEntity.ok(ApiResponse.success(portalStaffService.listAssignableRoles()));
     }
 
     @PostMapping("/users")

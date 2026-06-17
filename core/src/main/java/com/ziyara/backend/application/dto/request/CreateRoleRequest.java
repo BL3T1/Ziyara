@@ -34,4 +34,7 @@ public class CreateRoleRequest {
     @Min(0) @Max(100)
     @Schema(description = "Maximum discount percentage this role may approve (0–100, default 0)")
     private short maxDiscountPct;
+
+    @Schema(description = "Assignable to provider portal staff (default false)")
+    private boolean providerRole;
 }

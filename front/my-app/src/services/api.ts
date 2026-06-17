@@ -336,8 +336,10 @@ export const portalStaffAPI = {
   list: () => client.get<PortalStaffMemberDto[]>('/portal/staff'),
   add: (body: { userId: string; title?: string }) =>
     client.post<PortalStaffMemberDto>('/portal/staff', body),
-  createUser: (body: { email: string; password: string; role: string; phone?: string; title?: string }) =>
+  createUser: (body: { email: string; password: string; roleId: string; phone?: string; title?: string }) =>
     client.post<PortalStaffMemberDto>('/portal/staff/users', body),
+  listAssignableRoles: () =>
+    client.get<{ id: string; code: string; name: string }[]>('/portal/staff/roles'),
   update: (userId: string, body: { title?: string }) =>
     client.patch<PortalStaffMemberDto>(`/portal/staff/${userId}`, body),
   remove: (userId: string) => client.delete<void>(`/portal/staff/${userId}`),
@@ -495,7 +497,7 @@ export const rolesAPI = {
   getGroupMembers: (groupId: string, params?: { page?: number; size?: number }) =>
     client.get<unknown>(`/roles/groups/${groupId}/users`, { params: { page: 0, size: 20, ...params } }),
   getPermissionCatalogue: () => client.get<unknown>('/roles/permissions/catalogue'),
-  create: (body: { name: string; description?: string; groupId?: string; permissionIds?: string[] }) =>
+  create: (body: { name: string; description?: string; groupId?: string; permissionIds?: string[]; providerRole?: boolean }) =>
     client.post<unknown>('/roles', body),
   updatePermissions: (id: string, body: { permissionIds: string[] }) =>
     client.put<unknown>(`/roles/${id}/permissions`, body),

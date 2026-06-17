@@ -15,6 +15,8 @@ public interface RoleRepository {
 
     List<Role> findByGroupIdIsNullOrderByName();
 
+    List<Role> findByProviderRoleTrueOrderByName();
+
     boolean existsByCode(String code);
     void deleteById(UUID id);
 }

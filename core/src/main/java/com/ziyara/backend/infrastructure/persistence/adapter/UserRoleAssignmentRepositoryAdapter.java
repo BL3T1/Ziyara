@@ -68,7 +68,7 @@ public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRe
     @Transactional
     @org.springframework.cache.annotation.Caching(evict = {
             @CacheEvict(value = "userPermissions", key = "#userId"),
-            @CacheEvict(value = "userDetails", key = "#userId.toString()")
+            @CacheEvict(value = "userDetails", key = "#userId.toString()", cacheManager = "localCacheManager")
     })
     public void setPrimaryRoleForUser(UUID userId, UUID roleId) {
         jpaRepository.deleteByUserId(userId);

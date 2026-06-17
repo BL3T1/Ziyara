@@ -47,12 +47,22 @@ public class CacheConfig {
                     .withCacheConfiguration("rolesCatalogue",      jsonCache(Duration.ofMinutes(30)))
                     .withCacheConfiguration("systemSettings",      jsonCache(Duration.ofMinutes(5)))
                     .withCacheConfiguration("exchangeRates",       jsonCache(Duration.ofHours(12)))
-                    .withCacheConfiguration("userDetails",         jsonCache(Duration.ofMinutes(2)))
                     .transactionAware()
                     .build();
         }
         return new ConcurrentMapCacheManager(
                 "staffRoleCatalog", "permissionCatalogue", "userPermissions", "providerStaffRole",
-                "rolesCatalogue", "systemSettings", "exchangeRates", "userDetails");
+                "rolesCatalogue", "systemSettings", "exchangeRates");
+    }
+
+    /**
+     * In-memory cache for UserPrincipal (Spring Security UserDetails).
+     * UserPrincipal contains Collection<GrantedAuthority> which cannot be safely
+     * round-tripped through GenericJackson2JsonRedisSerializer — keeping it local
+     * avoids deserialization failures that silently break every authenticated request.
+     */
+    @Bean
+    public CacheManager localCacheManager() {
+        return new ConcurrentMapCacheManager("userDetails");
     }
 }

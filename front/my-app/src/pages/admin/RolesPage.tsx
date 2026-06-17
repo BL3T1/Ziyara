@@ -16,6 +16,7 @@ import { FormField } from '../../components/FormField'
 const PROVIDER_ROLE_CODES = new Set(['PROVIDER_MANAGER', 'PROVIDER_FINANCE', 'PROVIDER_STAFF', 'TAXI_OPERATOR'])
 
 function isProviderRole(role: RoleDto): boolean {
+  if (role.providerRole) return true
   if (!role.code) return false
   return PROVIDER_ROLE_CODES.has(role.code) || role.code.startsWith('PROVIDER_')
 }
@@ -188,6 +189,7 @@ export function RolesPage() {
       {showCreate && (
         <CreateRoleModal
           groups={groups}
+          defaultProvider={activeTab === 'provider'}
           onClose={() => setShowCreate(false)}
           onSuccess={() => {
             setShowCreate(false)
@@ -230,6 +232,7 @@ export function RolesPage() {
         <EditRoleNavigationModal
           role={editNavRole}
           catalogue={catalogue}
+          isProvider={isProviderRole(editNavRole)}
           onClose={() => setEditNavRole(null)}
           onSuccess={() => {
             setEditNavRole(null)
@@ -297,15 +300,26 @@ const NAV_MANAGED_PERMS = new Set(
   })
 )
 
+/** Permission codes that gate access/features inside the provider portal (not tied to the company sidebar). */
+const PORTAL_PERMISSIONS: { code: string; labelKey: string; descKey: string }[] = [
+  { code: 'portal:access', labelKey: 'rolesPage.portalPermAccess', descKey: 'rolesPage.portalPermAccessDesc' },
+  { code: 'portal:manage', labelKey: 'rolesPage.portalPermManage', descKey: 'rolesPage.portalPermManageDesc' },
+  { code: 'portal:finance', labelKey: 'rolesPage.portalPermFinance', descKey: 'rolesPage.portalPermFinanceDesc' },
+  { code: 'portal:taxi', labelKey: 'rolesPage.portalPermTaxi', descKey: 'rolesPage.portalPermTaxiDesc' },
+]
+const PORTAL_MANAGED_PERMS = new Set(PORTAL_PERMISSIONS.map((p) => p.code))
+
 function EditRoleNavigationModal({
   role,
   catalogue,
+  isProvider,
   onClose,
   onSuccess,
   setError,
 }: {
   role: RoleDto
   catalogue: PermissionCatalogueItemDto[]
+  isProvider: boolean
   onClose: () => void
   onSuccess: () => void
   setError: (s: string) => void
@@ -333,7 +347,7 @@ function EditRoleNavigationModal({
         const rawPermIds: string[] = data?.permissionIds ?? data?.permissions ?? []
         const permIdToCode = new Map(catalogue.map((p) => [p.id, p.code]))
         const existingCodes = rawPermIds.map((id) => permIdToCode.get(id) ?? id).filter(Boolean)
-        setPermChecked(new Set(existingCodes.filter((c) => NAV_MANAGED_PERMS.has(c))))
+        setPermChecked(new Set(existingCodes.filter((c) => NAV_MANAGED_PERMS.has(c) || PORTAL_MANAGED_PERMS.has(c))))
       })
       .catch(() => { setSelected(new Set()); setPermChecked(new Set()) })
       .finally(() => setLoading(false))
@@ -387,7 +401,9 @@ function EditRoleNavigationModal({
     setError('')
     setSubmitting(true)
     try {
-      await rolesAPI.updateNavigation(role.id, { visibleItemIds: orderedVisibleIds() })
+      if (!isProvider) {
+        await rolesAPI.updateNavigation(role.id, { visibleItemIds: orderedVisibleIds() })
+      }
       await rolesAPI.updatePermissions(role.id, { permissionIds: buildPermissionIds() })
       refreshPermissions()
       onSuccess()
@@ -428,6 +444,33 @@ function EditRoleNavigationModal({
         <div className="py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
       ) : (
         <form id="role-nav-form" onSubmit={handleSubmit} className="space-y-4">
+          {isProvider ? (
+            <div className="space-y-3 rounded-xl border border-slate-100 p-3.5 dark:border-white/[0.05]">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {t('rolesPage.portalPermSection')}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{t('rolesPage.portalPermHint')}</p>
+              </div>
+              <div className="space-y-2.5">
+                {PORTAL_PERMISSIONS.filter((p) => unlockedCodes.has(p.code)).map((p) => (
+                  <label key={p.code} className="flex cursor-pointer items-start gap-2.5 py-0.5">
+                    <input
+                      type="checkbox"
+                      checked={permChecked.has(p.code)}
+                      onChange={() => togglePerm(p.code)}
+                      className="mt-0.5 rounded border-slate-300 text-primary"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-slate-700 dark:text-slate-200">{t(p.labelKey)}</span>
+                      <span className="block text-xs text-slate-400 dark:text-slate-500">{t(p.descKey)}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -541,6 +584,8 @@ function EditRoleNavigationModal({
               </div>
             ))}
           </div>
+          </>
+          )}
 
         </form>
       )}
@@ -705,11 +750,13 @@ function EditRoleDetailsModal({
 
 function CreateRoleModal({
   groups,
+  defaultProvider,
   onClose,
   onSuccess,
   setError,
 }: {
   groups: GroupDto[]
+  defaultProvider?: boolean
   onClose: () => void
   onSuccess: () => void
   setError: (s: string) => void
@@ -718,6 +765,7 @@ function CreateRoleModal({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [groupId, setGroupId] = useState('')
+  const [providerRole, setProviderRole] = useState(!!defaultProvider)
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState('')
 
@@ -735,6 +783,7 @@ function CreateRoleModal({
         name: name.trim(),
         description: description.trim() || undefined,
         groupId: groupId || undefined,
+        providerRole,
       })
       onSuccess()
     } catch (err) {
@@ -798,6 +847,15 @@ function CreateRoleModal({
             ))}
           </select>
         </FormField>
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={providerRole}
+            onChange={(e) => setProviderRole(e.target.checked)}
+            className="modal-checkbox"
+          />
+          {t('rolesPage.providerRoleLabel')}
+        </label>
 
       </form>
     </Modal>

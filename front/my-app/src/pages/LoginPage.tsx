@@ -137,7 +137,7 @@ export function LoginPage() {
       if (hasBearer) {
         setStoredToken(data.accessToken as string)
       } else {
-        localStorage.setItem('ziyara_cookie_session', '1')
+        sessionStorage.setItem('ziyara_cookie_session', '1')
       }
       const mustChangePassword = Boolean(data.mustChangePassword)
       setUser({

@@ -169,6 +169,7 @@ public class RoleManagementService implements RoleServiceApi {
         role.setSystemRole(false);
         role.setStatus(RoleStatus.ACTIVE);
         role.setMaxDiscountPct(request.getMaxDiscountPct());
+        role.setProviderRole(request.isProviderRole());
         Role saved = roleRepository.save(role);
         if (request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
             rolePermissionRepository.setPermissionsForRole(saved.getId(), request.getPermissionIds());
@@ -213,6 +214,10 @@ public class RoleManagementService implements RoleServiceApi {
         }
         if (request.getMaxDiscountPct() != null) {
             role.setMaxDiscountPct(request.getMaxDiscountPct());
+            any = true;
+        }
+        if (request.getProviderRole() != null) {
+            role.setProviderRole(request.getProviderRole());
             any = true;
         }
         if (!any) {
@@ -379,6 +384,7 @@ public class RoleManagementService implements RoleServiceApi {
                 .userCount(userCount)
                 .navigationItemIds(navIds)
                 .maxDiscountPct(r.getMaxDiscountPct())
+                .providerRole(r.isProviderRole())
                 .build();
     }
 }

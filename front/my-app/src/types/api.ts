@@ -184,6 +184,8 @@ export interface RoleDto {
   /** Custom role dashboard sidebar (ordered); empty/absent = use assignee UserRole default */
   navigationItemIds?: string[] | null
   maxDiscountPct?: number
+  /** Assignable to provider portal staff (custom roles only) */
+  providerRole?: boolean
 }
 
 export interface UserNavigationDto {

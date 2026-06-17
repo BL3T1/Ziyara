@@ -16,5 +16,7 @@ public interface RoleJpaRepository extends JpaRepository<RoleJpaEntity, UUID> {
 
     List<RoleJpaEntity> findByGroupIdIsNullOrderByNameAsc();
 
+    List<RoleJpaEntity> findByProviderRoleTrueAndStatusOrderByNameAsc(com.ziyara.backend.domain.enums.RoleStatus status);
+
     boolean existsByCode(String code);
 }

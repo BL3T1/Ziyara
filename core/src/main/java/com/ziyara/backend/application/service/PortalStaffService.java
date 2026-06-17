@@ -3,7 +3,9 @@ package com.ziyara.backend.application.service;
 import com.ziyara.backend.application.dto.request.AddPortalStaffRequest;
 import com.ziyara.backend.application.dto.request.CreatePortalStaffUserRequest;
 import com.ziyara.backend.application.dto.request.UpdatePortalStaffRequest;
+import com.ziyara.backend.application.dto.response.PortalAssignableRoleResponse;
 import com.ziyara.backend.application.dto.response.PortalStaffMemberResponse;
+import com.ziyara.backend.application.locale.RequestLocaleHolder;
 import com.ziyara.backend.domain.entity.ProviderStaff;
 import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.entity.User;
@@ -11,6 +13,7 @@ import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
 import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
 import com.ziyara.backend.domain.repository.ProviderStaffRepository;
+import com.ziyara.backend.domain.repository.RoleRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.modules.subscription.api.SubscriptionServiceApi;
@@ -40,6 +43,18 @@ public class PortalStaffService {
     private final UserRbacAssignmentService userRbacAssignmentService;
     private final PasswordPolicyService passwordPolicyService;
     private final SubscriptionServiceApi subscriptionService;
+    private final RoleRepository roleRepository;
+
+    @Transactional(readOnly = true)
+    public List<PortalAssignableRoleResponse> listAssignableRoles() {
+        return roleRepository.findByProviderRoleTrueOrderByName().stream()
+                .map(r -> PortalAssignableRoleResponse.builder()
+                        .id(r.getId())
+                        .code(r.getCode())
+                        .name(RequestLocaleHolder.localized(r.getName(), r.getNameAr()))
+                        .build())
+                .collect(Collectors.toList());
+    }
 
     @Transactional(readOnly = true)
     public List<PortalStaffMemberResponse> listStaff(UUID providerId) {

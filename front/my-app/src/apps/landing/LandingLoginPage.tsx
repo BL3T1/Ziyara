@@ -87,7 +87,7 @@ export function LandingLoginPage() {
       if (hasBearer) {
         setStoredToken(data.accessToken as string)
       } else {
-        localStorage.setItem('ziyara_cookie_session', '1')
+        sessionStorage.setItem('ziyara_cookie_session', '1')
       }
       setUser({
         id: String(data.userId),

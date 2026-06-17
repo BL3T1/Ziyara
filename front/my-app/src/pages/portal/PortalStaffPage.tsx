@@ -44,7 +44,8 @@ export function PortalStaffPage() {
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newPhone, setNewPhone] = useState('')
-  const [newRole, setNewRole] = useState('PROVIDER_STAFF')
+  const [assignableRoles, setAssignableRoles] = useState<{ id: string; code: string; name: string }[]>([])
+  const [newRoleId, setNewRoleId] = useState('')
   const [newTitle, setNewTitle] = useState('')
   const [creatingUser, setCreatingUser] = useState(false)
   const [editUserId, setEditUserId] = useState<string | null>(null)
@@ -93,6 +94,18 @@ export function PortalStaffPage() {
   useEffect(() => {
     if (!loading && !error) loadTeam()
   }, [loading, error, loadTeam])
+
+  useEffect(() => {
+    if (!canManage) return
+    portalStaffAPI
+      .listAssignableRoles()
+      .then((r) => {
+        const roles = Array.isArray(r.data) ? r.data : []
+        setAssignableRoles(roles)
+        setNewRoleId((prev) => prev || roles[0]?.id || '')
+      })
+      .catch(() => setAssignableRoles([]))
+  }, [canManage])
 
   const row = (label: string, value: string) => (
     <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2.5 last:border-0 dark:border-slate-700/80">
@@ -160,13 +173,17 @@ export function PortalStaffPage() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!newRoleId) {
+      setError(t('portalStaffPage.errNoRoles'))
+      return
+    }
     setCreatingUser(true)
     setError(null)
     try {
-      const body: { email: string; password: string; role: string; phone?: string; title?: string } = {
+      const body: { email: string; password: string; roleId: string; phone?: string; title?: string } = {
         email: newEmail.trim(),
         password: newPassword,
-        role: newRole,
+        roleId: newRoleId,
       }
       const p = newPhone.trim()
       if (p) body.phone = p
@@ -176,7 +193,6 @@ export function PortalStaffPage() {
       setNewEmail('')
       setNewPassword('')
       setNewPhone('')
-      setNewRole('PROVIDER_STAFF')
       setNewTitle('')
       loadTeam()
     } catch (e) {
@@ -395,14 +411,14 @@ export function PortalStaffPage() {
               className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
             <select
-              value={newRole}
-              onChange={(e) => setNewRole(e.target.value)}
+              value={newRoleId}
+              onChange={(e) => setNewRoleId(e.target.value)}
               className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             >
-              <option value="PROVIDER_STAFF">{t('portalStaffPage.roleProviderStaff')}</option>
-              <option value="PROVIDER_FINANCE">{t('portalStaffPage.roleProviderFinance')}</option>
-              <option value="TAXI_OPERATOR">{t('portalStaffPage.roleTaxiOperator')}</option>
-              <option value="PROVIDER_MANAGER">{t('portalStaffPage.roleProviderManager')}</option>
+              {assignableRoles.length === 0 && <option value="">{t('portalStaffPage.errNoRoles')}</option>}
+              {assignableRoles.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
             </select>
             <input
               type="text"
@@ -413,7 +429,7 @@ export function PortalStaffPage() {
             />
             <button
               type="submit"
-              disabled={creatingUser}
+              disabled={creatingUser || !newRoleId}
               className="dashboard-btn-primary disabled:opacity-50"
             >
               {t('portalStaffPage.createMember')}

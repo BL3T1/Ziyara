@@ -31,11 +31,11 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
     private final UserRoleAssignmentRepository userRoleAssignmentRepository;
 
-    @CacheEvict(value = "userDetails", key = "#userId")
+    @CacheEvict(value = "userDetails", key = "#userId", cacheManager = "localCacheManager")
     public void evictUserDetails(String userId) {}
 
     @Override
-    @Cacheable(value = "userDetails", key = "#userId")
+    @Cacheable(value = "userDetails", key = "#userId", cacheManager = "localCacheManager")
     public UserDetails loadUserByUsername(String userId) throws UsernameNotFoundException {
         UUID id = UUID.fromString(userId);
         User user = userRepository.findById(id)
