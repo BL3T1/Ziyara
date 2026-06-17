@@ -18,7 +18,7 @@ public class DashboardExecutorConfig {
     public Executor dashboardExecutor() {
         ThreadPoolTaskExecutor ex = new ThreadPoolTaskExecutor();
         ex.setCorePoolSize(2);
-        ex.setMaxPoolSize(4);
+        ex.setMaxPoolSize(6);
         ex.setQueueCapacity(50);
         ex.setThreadNamePrefix("dashboard-");
         ex.initialize();
