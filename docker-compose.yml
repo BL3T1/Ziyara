@@ -59,6 +59,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./infra/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     networks:
       - ziyarah-network
     healthcheck:
@@ -85,12 +86,13 @@ services:
   # session-level GUCs (app.current_user_id etc.) at connection acquire time.
   # Transaction-mode would silently clear these between statements, breaking RLS.
   #
-  # First-time setup — populate infra/pgbouncer/userlist.txt before starting:
-  #   docker compose up postgres -d
+  # userlist.txt only needs the 'pgbouncer' admin user hash. App users are looked
+  # up dynamically via pgbouncer.get_auth() (V62 migration). To refresh the
+  # pgbouncer admin hash after a password change:
   #   docker exec -it ziyarah-db psql -U ziyarah_user -d ziyarah \
-  #     -c "SELECT concat('\"', usename, '\" \"', passwd, '\"') FROM pg_shadow WHERE usename = 'ziyarah_user';"
+  #     -c "SELECT concat('\"', usename, '\" \"', passwd, '\"') FROM pg_shadow WHERE usename = 'pgbouncer';"
   #   # Paste result into infra/pgbouncer/userlist.txt, then:
-  #   docker compose up pgbouncer -d
+  #   docker compose up pgbouncer -d --force-recreate
   #
   # Admin console (inside Docker network):
   #   psql -h pgbouncer -p 5432 -U pgbouncer pgbouncer
@@ -114,10 +116,15 @@ services:
       # Pre-warm: keep 2 server connections open at all times (matches HikariCP minimum-idle).
       # Eliminates TCP + auth latency on the first request after a quiet period.
       PGBOUNCER_MIN_POOL_SIZE: 2
-      # Auth — userlist.txt holds real SCRAM-SHA-256 hashes from pg_shadow
+      # Auth — userlist.txt holds only the pgbouncer admin user's SCRAM hash.
+      # App users (ziyarah_user etc.) are authenticated dynamically via auth_query:
+      # PgBouncer connects to PostgreSQL as AUTH_USER and calls get_auth($1) to
+      # retrieve the current SCRAM hash. No manual hash sync needed on password rotation.
       PGBOUNCER_LISTEN_PORT: 5432
       PGBOUNCER_AUTH_TYPE: scram-sha-256
       PGBOUNCER_AUTH_FILE: /etc/pgbouncer/userlist.txt
+      PGBOUNCER_AUTH_USER: pgbouncer
+      PGBOUNCER_AUTH_QUERY: "SELECT * FROM pgbouncer.get_auth($1)"
       PGBOUNCER_ADMIN_USERS: pgbouncer
       PGBOUNCER_STATS_USERS: pgbouncer
       # Spring JDBC sends application_name + extra_float_digits on connect
