@@ -46,7 +46,7 @@ RUN chmod +x /docker-entrypoint.sh && chown -R ziyarah:ziyarah /app
 EXPOSE 8080
 
 # JVM options for containerized environment (overridable)
-ENV JAVA_OPTS="-Xms128m -Xmx512m -XX:+UseContainerSupport"
+ENV JAVA_OPTS="-Xms256m -Xmx560m -XX:MaxMetaspaceSize=160m -XX:+UseContainerSupport -XX:+ExitOnOutOfMemoryError"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
