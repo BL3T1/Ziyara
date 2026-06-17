@@ -108,7 +108,12 @@ services:
       # (app.current_user_id etc.) that must survive for the connection lifetime.
       PGBOUNCER_POOL_MODE: session
       PGBOUNCER_MAX_CLIENT_CONN: 100
-      PGBOUNCER_DEFAULT_POOL_SIZE: 20
+      # Sized to match HikariCP maximum-pool-size (15). Session mode is 1-client-to-1-server,
+      # so there is no benefit in reserving more server slots than HikariCP can ever open.
+      PGBOUNCER_DEFAULT_POOL_SIZE: 15
+      # Pre-warm: keep 2 server connections open at all times (matches HikariCP minimum-idle).
+      # Eliminates TCP + auth latency on the first request after a quiet period.
+      PGBOUNCER_MIN_POOL_SIZE: 2
       # Auth — userlist.txt holds real SCRAM-SHA-256 hashes from pg_shadow
       PGBOUNCER_LISTEN_PORT: 5432
       PGBOUNCER_AUTH_TYPE: scram-sha-256
@@ -118,7 +123,14 @@ services:
       # Spring JDBC sends application_name + extra_float_digits on connect
       PGBOUNCER_IGNORE_STARTUP_PARAMETERS: extra_float_digits,application_name
       PGBOUNCER_SERVER_CONNECT_TIMEOUT: 15
-      PGBOUNCER_SERVER_IDLE_TIMEOUT: 600
+      # Release freed server connections 60 s after HikariCP's own idle-timeout (300 s) evicts them.
+      PGBOUNCER_SERVER_IDLE_TIMEOUT: 360
+      # Fail fast if the pool is temporarily exhausted instead of queuing for 120 s (default).
+      PGBOUNCER_QUERY_WAIT_TIMEOUT: 15
+      # Fire OS-level TCP keepalive probes on the PgBouncer→Postgres socket.
+      # Docker bridge networks can silently drop idle connections; without this,
+      # the first query after an idle period hits a dead socket and fails.
+      PGBOUNCER_TCP_KEEPALIVE: 1
       PGBOUNCER_LOG_CONNECTIONS: 0
       PGBOUNCER_LOG_DISCONNECTIONS: 0
       PGBOUNCER_LOG_POOLER_ERRORS: 1
