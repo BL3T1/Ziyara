@@ -1,0 +1,2 @@
+"ziyarah_user" "systempassword"
+"pgbouncer" "pgbouncer_admin"
