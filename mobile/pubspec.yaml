@@ -32,7 +32,6 @@ dependencies:
   go_router: ^17.0.0
 
   # UI & Design
-  google_fonts: ^6.3.2
   flutter_svg: ^2.2.2
   cached_network_image: ^3.4.1
   carousel_slider: ^5.1.1
@@ -80,3 +79,9 @@ flutter:
   assets:
     - assets/images/
     - assets/flags/
+    - assets/fonts/
+
+  fonts:
+    - family: Cairo
+      fonts:
+        - asset: assets/fonts/Cairo-Regular.ttf

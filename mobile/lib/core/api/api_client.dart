@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import '../services/token_storage_service.dart';
@@ -49,10 +51,17 @@ class ApiClient {
 }
 
 /// Injects Bearer token into every request and silently refreshes on 401.
+///
+/// Concurrent 401s are queued behind a single in-flight refresh via
+/// [_refreshCompleter]. The first request to receive a 401 starts the
+/// refresh; all others await the same [Completer] and retry once it resolves.
 class _AuthInterceptor extends Interceptor {
   final TokenStorageService _storage;
   final Dio _dio;
-  bool _isRefreshing = false;
+
+  /// Non-null while a token refresh is in progress.
+  /// Resolves to the new access token string, or null on failure.
+  Completer<String?>? _refreshCompleter;
 
   _AuthInterceptor(this._storage, this._dio);
 
@@ -61,23 +70,6 @@ class _AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    // Connectivity check before every request
-    final connectivity = await Connectivity().checkConnectivity();
-    if (connectivity.contains(ConnectivityResult.none) ||
-        connectivity.isEmpty) {
-      handler.reject(
-        DioException(
-          requestOptions: options,
-          error: const BackendException(
-            code: 'NO_INTERNET',
-            rawMessage: 'لا يوجد اتصال بالإنترنت',
-          ),
-          type: DioExceptionType.connectionError,
-        ),
-      );
-      return;
-    }
-
     // Skip auth header for auth endpoints (login / register / refresh)
     if (_isPublicPath(options.path)) {
       handler.next(options);
@@ -113,42 +105,73 @@ class _AuthInterceptor extends Interceptor {
       return;
     }
 
-    if (err.response?.statusCode == 401 && !_isRefreshing) {
-      _isRefreshing = true;
-      try {
-        final refreshToken = await _storage.getRefreshToken();
-        if (refreshToken == null) {
-          // No refresh token — clear credentials and propagate error
-          await _storage.clearAll();
+    if (err.response?.statusCode != 401) {
+      handler.next(err);
+      return;
+    }
+
+    // Another refresh is already in flight — await its result and retry.
+    if (_refreshCompleter != null && !_refreshCompleter!.isCompleted) {
+      final newToken = await _refreshCompleter!.future;
+      if (newToken != null) {
+        final retryOptions = err.requestOptions;
+        retryOptions.headers['Authorization'] = 'Bearer $newToken';
+        try {
+          handler.resolve(await _dio.fetch(retryOptions));
+        } catch (e) {
           handler.next(err);
-          return;
         }
-        final refreshResponse = await _dio.post(
-          '/auth/refresh',
-          data: {'refreshToken': refreshToken},
-          options: Options(headers: {'Authorization': null}),
-        );
-        final newAccess = refreshResponse.data['accessToken'] as String?;
-        final newRefresh = refreshResponse.data['refreshToken'] as String?;
-        if (newAccess != null) {
-          await _storage.saveAccessToken(newAccess);
-        }
-        if (newRefresh != null) {
-          await _storage.saveRefreshToken(newRefresh);
-        }
-        // Retry original request with new token
+      } else {
+        handler.next(err);
+      }
+      return;
+    }
+
+    // This is the first 401 — start the refresh.
+    _refreshCompleter = Completer<String?>();
+    try {
+      final refreshToken = await _storage.getRefreshToken();
+      if (refreshToken == null) {
+        await _storage.clearAll();
+        _refreshCompleter!.complete(null);
+        handler.next(err);
+        return;
+      }
+
+      final refreshResponse = await _dio.post(
+        '/auth/refresh',
+        data: {'refreshToken': refreshToken},
+        options: Options(headers: {'Authorization': null}),
+      );
+      final newAccess = refreshResponse.data['accessToken'] as String?;
+      final newRefresh = refreshResponse.data['refreshToken'] as String?;
+      if (newAccess != null) await _storage.saveAccessToken(newAccess);
+      if (newRefresh != null) await _storage.saveRefreshToken(newRefresh);
+
+      _refreshCompleter!.complete(newAccess);
+
+      if (newAccess != null) {
         final retryOptions = err.requestOptions;
         retryOptions.headers['Authorization'] = 'Bearer $newAccess';
-        final retryResponse = await _dio.fetch(retryOptions);
-        handler.resolve(retryResponse);
-      } catch (_) {
+        try {
+          handler.resolve(await _dio.fetch(retryOptions));
+        } catch (e) {
+          handler.next(err);
+        }
+      } else {
         await _storage.clearAll();
         handler.next(err);
-      } finally {
-        _isRefreshing = false;
       }
-    } else {
+    } catch (_) {
+      await _storage.clearAll();
+      _refreshCompleter!.complete(null);
       handler.next(err);
+    } finally {
+      // Reset after a delay so future 401s (e.g. after token genuinely
+      // expires again) can trigger a new refresh cycle.
+      Future.delayed(const Duration(seconds: 3), () {
+        _refreshCompleter = null;
+      });
     }
   }
 

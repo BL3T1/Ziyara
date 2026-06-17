@@ -5,6 +5,18 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 class PdfGenerator {
+  // Cached to avoid re-loading from disk on every PDF generation.
+  static pw.Font? _cairoFont;
+
+  static Future<pw.Font> _loadCairo() async {
+    _cairoFont ??= pw.Font.ttf(
+      (await rootBundle.load('assets/fonts/Cairo-Regular.ttf'))
+          .buffer
+          .asByteData(),
+    );
+    return _cairoFont!;
+  }
+
   static Future<void> generateTicket({
     required String title,
     required String price,
@@ -12,10 +24,9 @@ class PdfGenerator {
     required String userName,
     required String bookingId,
   }) async {
-    // تحميل الخط العربي (كايرو) ليعمل داخل الـ PDF
-    // سنستخدم الخط الافتراضي للنظام إذا لم نتمكن من تحميل الخط المخصص
-    final font = await PdfGoogleFonts.cairoRegular();
-    final fontBold = await PdfGoogleFonts.cairoBold();
+    // تحميل الخط العربي (كايرو) من ملفات التطبيق المحلية
+    final font = await _loadCairo();
+    final fontBold = font;
     
     // تحميل الشعار
     final logoImage = await imageFromAssetBundle('assets/images/logo.png');

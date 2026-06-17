@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
+
+const _cairo = 'Cairo';
 
 class AppTheme {
   static ThemeData get lightTheme {
@@ -9,7 +10,12 @@ class AppTheme {
       brightness: Brightness.light,
       primaryColor: AppColors.primaryDark,
       scaffoldBackgroundColor: AppColors.background,
-      textTheme: GoogleFonts.cairoTextTheme().apply(bodyColor: AppColors.textMain, displayColor: AppColors.textMain),
+      fontFamily: _cairo,
+      textTheme: ThemeData.light().textTheme.apply(
+            fontFamily: _cairo,
+            bodyColor: AppColors.textMain,
+            displayColor: AppColors.textMain,
+          ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -39,8 +45,13 @@ class AppTheme {
       brightness: Brightness.dark,
       primaryColor: AppColors.cyan,
       scaffoldBackgroundColor: const Color(0xFF121212),
+      fontFamily: _cairo,
       // إصلاح لون النصوص في الوضع المظلم
-      textTheme: GoogleFonts.cairoTextTheme(ThemeData.dark().textTheme).apply(bodyColor: Colors.white, displayColor: Colors.white),
+      textTheme: ThemeData.dark().textTheme.apply(
+            fontFamily: _cairo,
+            bodyColor: Colors.white,
+            displayColor: Colors.white,
+          ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,

@@ -11,6 +11,7 @@ import 'core/services/push_notification_service.dart';
 import 'core/services/search_history_service.dart';
 import 'core/services/token_storage_service.dart';
 import 'core/di/injection_container.dart';
+import 'core/widgets/connectivity_banner.dart';
 
 void main() async {
   // ضمان تهيئة النظام
@@ -96,7 +97,7 @@ class SyriaTourismApp extends StatelessWidget {
                 final mediaQueryData = MediaQuery.of(context);
                 return MediaQuery(
                   data: mediaQueryData.copyWith(textScaler: const TextScaler.linear(1.0)),
-                  child: child!,
+                  child: ConnectivityBanner(child: child!),
                 );
               },
             );
