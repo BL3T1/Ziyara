@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,4 +35,6 @@ public class RoleResponse {
     private short maxDiscountPct;
     @Schema(description = "Assignable to provider portal staff")
     private boolean providerRole;
+    @Schema(description = "Maximum single payout request amount for this role; null = unlimited")
+    private BigDecimal maxPayoutRequestAmount;
 }

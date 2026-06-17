@@ -216,6 +216,38 @@ public final class ApiAuthorizationExpressions {
 
     public static final String PORTAL_FINANCE   = "hasAuthority('portal:finance')";
 
+    // Granular portal permissions (V61) — OR with broad permission so existing system roles keep working.
+
+    public static final String PORTAL_BOOKINGS_READ =
+            "hasAuthority('portal:bookings:read') or hasAuthority('portal:manage')";
+
+    public static final String PORTAL_BOOKINGS_MANAGE =
+            "hasAuthority('portal:bookings:manage') or hasAuthority('portal:manage')";
+
+    public static final String PORTAL_SERVICES_MANAGE =
+            "hasAuthority('portal:services:manage') or hasAuthority('portal:manage')";
+
+    public static final String PORTAL_STAFF_MANAGE =
+            "hasAuthority('portal:staff:manage') or hasAuthority('portal:manage')";
+
+    public static final String PORTAL_REPORTS_READ =
+            "hasAuthority('portal:reports:read') or hasAuthority('portal:finance') or hasAuthority('portal:manage')";
+
+    public static final String PORTAL_PAYOUTS_REQUEST =
+            "hasAuthority('portal:payouts:request') or hasAuthority('portal:finance') or hasAuthority('portal:manage')";
+
+    public static final String PORTAL_DISCOUNTS_MANAGE =
+            "hasAuthority('portal:discounts:manage') or hasAuthority('portal:manage')";
+
+    public static final String PORTAL_MEDIA_SUBMIT =
+            "hasAuthority('portal:media:submit') or hasAuthority('portal:manage')";
+
+    public static final String PORTAL_SUPPORT_WRITE =
+            "hasAuthority('portal:support:write') or hasAuthority('portal:manage')";
+
+    public static final String PORTAL_MENU_MANAGE =
+            "hasAuthority('portal:menu:manage') or hasAuthority('portal:manage')";
+
     // -------------------------------------------------------------------------
     // Runtime helper — used by BookingController and ReviewController to decide
     // whether to scope results to the authenticated user's own records.

@@ -500,14 +500,19 @@ export const rolesAPI = {
   getGroupMembers: (groupId: string, params?: { page?: number; size?: number }) =>
     client.get<unknown>(`/roles/groups/${groupId}/users`, { params: { page: 0, size: 20, ...params } }),
   getPermissionCatalogue: () => client.get<unknown>('/roles/permissions/catalogue'),
-  create: (body: { name: string; description?: string; groupId?: string; permissionIds?: string[]; providerRole?: boolean }) =>
+  create: (body: { name: string; description?: string; groupId?: string; permissionIds?: string[]; providerRole?: boolean; maxDiscountPct?: number; maxPayoutRequestAmount?: number }) =>
     client.post<unknown>('/roles', body),
   updatePermissions: (id: string, body: { permissionIds: string[] }) =>
     client.put<unknown>(`/roles/${id}/permissions`, body),
   /** Super admin: name/description (en + ar) and optional group assignment */
   updateDetails: (
     id: string,
-    body: { name?: string; description?: string; nameAr?: string; descriptionAr?: string; groupId?: string | null; removeFromGroup?: boolean },
+    body: {
+      name?: string; description?: string; nameAr?: string; descriptionAr?: string
+      groupId?: string | null; removeFromGroup?: boolean
+      maxDiscountPct?: number; maxPayoutRequestAmount?: number
+      clearPayoutLimit?: boolean
+    },
   ) => client.patch<unknown>(`/roles/${id}`, body),
   delete: (id: string, body?: { targetRoleId?: string }) =>
     client.delete<unknown>(`/roles/${id}`, { data: body }),

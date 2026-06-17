@@ -85,6 +85,7 @@ public class PortalController {
     }
 
     @PostMapping("/services")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
     @Operation(summary = "Create service", description = "Create a new service listing for current provider")
     public ResponseEntity<ApiResponse<ServiceResponse>> createService(@Valid @RequestBody CreateServiceRequest request) {
         UUID providerId = requireCurrentProviderId();
@@ -93,6 +94,7 @@ public class PortalController {
     }
 
     @PutMapping("/services/{id}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
     @Operation(summary = "Update service", description = "Update own service listing")
     public ResponseEntity<ApiResponse<ServiceResponse>> updateService(
             @PathVariable UUID id,
@@ -102,6 +104,7 @@ public class PortalController {
     }
 
     @DeleteMapping("/services/{id}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
     @Operation(summary = "Delete service", description = "Soft-delete own service listing")
     public ResponseEntity<ApiResponse<Void>> deleteService(@PathVariable UUID id) {
         UUID providerId = requireCurrentProviderId();
@@ -181,6 +184,7 @@ public class PortalController {
     }
 
     @PostMapping("/services/{id}/menu/sections")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_MENU_MANAGE)
     @Operation(summary = "Create menu section", description = "RESTAURANT listings only")
     public ResponseEntity<ApiResponse<RestaurantMenuSectionResponse>> createMenuSection(
             @PathVariable UUID id,
@@ -191,6 +195,7 @@ public class PortalController {
     }
 
     @PutMapping("/services/{id}/menu/sections/{sectionId}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_MENU_MANAGE)
     @Operation(summary = "Update menu section", description = "Own listing only")
     public ResponseEntity<ApiResponse<RestaurantMenuSectionResponse>> updateMenuSection(
             @PathVariable UUID id,
@@ -201,6 +206,7 @@ public class PortalController {
     }
 
     @DeleteMapping("/services/{id}/menu/sections/{sectionId}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_MENU_MANAGE)
     @Operation(summary = "Delete menu section", description = "Own listing only")
     public ResponseEntity<ApiResponse<Void>> deleteMenuSection(@PathVariable UUID id, @PathVariable UUID sectionId) {
         UUID providerId = requireCurrentProviderId();
@@ -209,6 +215,7 @@ public class PortalController {
     }
 
     @PostMapping("/services/{id}/menu/sections/{sectionId}/items")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_MENU_MANAGE)
     @Operation(summary = "Create menu item", description = "Own listing only")
     public ResponseEntity<ApiResponse<RestaurantMenuItemResponse>> createMenuItem(
             @PathVariable UUID id,
@@ -220,6 +227,7 @@ public class PortalController {
     }
 
     @PutMapping("/services/{id}/menu/items/{itemId}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_MENU_MANAGE)
     @Operation(summary = "Update menu item", description = "Own listing only")
     public ResponseEntity<ApiResponse<RestaurantMenuItemResponse>> updateMenuItem(
             @PathVariable UUID id,
@@ -230,6 +238,7 @@ public class PortalController {
     }
 
     @DeleteMapping("/services/{id}/menu/items/{itemId}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_MENU_MANAGE)
     @Operation(summary = "Delete menu item", description = "Own listing only")
     public ResponseEntity<ApiResponse<Void>> deleteMenuItem(@PathVariable UUID id, @PathVariable UUID itemId) {
         UUID providerId = requireCurrentProviderId();
@@ -238,6 +247,7 @@ public class PortalController {
     }
 
     @GetMapping("/bookings")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_BOOKINGS_READ)
     @Operation(summary = "My bookings", description = "List bookings for current provider's services")
     public ResponseEntity<ApiResponse<List<BookingResponse>>> getBookings() {
         UUID providerId = requireCurrentProviderId();
@@ -245,6 +255,7 @@ public class PortalController {
     }
 
     @GetMapping("/earnings")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_REPORTS_READ)
     @Operation(summary = "My earnings", description = "Total completed payment amount for provider's bookings")
     public ResponseEntity<ApiResponse<PortalEarningsResponse>> getEarnings(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,

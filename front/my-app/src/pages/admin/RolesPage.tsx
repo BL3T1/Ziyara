@@ -301,11 +301,23 @@ const NAV_MANAGED_PERMS = new Set(
 )
 
 /** Permission codes that gate access/features inside the provider portal (not tied to the company sidebar). */
-const PORTAL_PERMISSIONS: { code: string; labelKey: string; descKey: string }[] = [
-  { code: 'portal:access', labelKey: 'rolesPage.portalPermAccess', descKey: 'rolesPage.portalPermAccessDesc' },
-  { code: 'portal:manage', labelKey: 'rolesPage.portalPermManage', descKey: 'rolesPage.portalPermManageDesc' },
-  { code: 'portal:finance', labelKey: 'rolesPage.portalPermFinance', descKey: 'rolesPage.portalPermFinanceDesc' },
-  { code: 'portal:taxi', labelKey: 'rolesPage.portalPermTaxi', descKey: 'rolesPage.portalPermTaxiDesc' },
+const PORTAL_PERMISSIONS: { code: string; labelKey: string; descKey: string; group: 'core' | 'granular' }[] = [
+  // Core broad permissions
+  { code: 'portal:access',           labelKey: 'rolesPage.portalPermAccess',           descKey: 'rolesPage.portalPermAccessDesc',           group: 'core' },
+  { code: 'portal:manage',           labelKey: 'rolesPage.portalPermManage',           descKey: 'rolesPage.portalPermManageDesc',           group: 'core' },
+  { code: 'portal:finance',          labelKey: 'rolesPage.portalPermFinance',          descKey: 'rolesPage.portalPermFinanceDesc',          group: 'core' },
+  { code: 'portal:taxi',             labelKey: 'rolesPage.portalPermTaxi',             descKey: 'rolesPage.portalPermTaxiDesc',             group: 'core' },
+  // Granular permissions (V61)
+  { code: 'portal:bookings:read',    labelKey: 'rolesPage.portalPermBookingsRead',    descKey: 'rolesPage.portalPermBookingsReadDesc',    group: 'granular' },
+  { code: 'portal:bookings:manage',  labelKey: 'rolesPage.portalPermBookingsManage',  descKey: 'rolesPage.portalPermBookingsManageDesc',  group: 'granular' },
+  { code: 'portal:services:manage',  labelKey: 'rolesPage.portalPermServicesManage',  descKey: 'rolesPage.portalPermServicesManageDesc',  group: 'granular' },
+  { code: 'portal:staff:manage',     labelKey: 'rolesPage.portalPermStaffManage',     descKey: 'rolesPage.portalPermStaffManageDesc',     group: 'granular' },
+  { code: 'portal:reports:read',     labelKey: 'rolesPage.portalPermReportsRead',     descKey: 'rolesPage.portalPermReportsReadDesc',     group: 'granular' },
+  { code: 'portal:payouts:request',  labelKey: 'rolesPage.portalPermPayoutsRequest',  descKey: 'rolesPage.portalPermPayoutsRequestDesc',  group: 'granular' },
+  { code: 'portal:discounts:manage', labelKey: 'rolesPage.portalPermDiscountsManage', descKey: 'rolesPage.portalPermDiscountsManageDesc', group: 'granular' },
+  { code: 'portal:media:submit',     labelKey: 'rolesPage.portalPermMediaSubmit',     descKey: 'rolesPage.portalPermMediaSubmitDesc',     group: 'granular' },
+  { code: 'portal:support:write',    labelKey: 'rolesPage.portalPermSupportWrite',    descKey: 'rolesPage.portalPermSupportWriteDesc',    group: 'granular' },
+  { code: 'portal:menu:manage',      labelKey: 'rolesPage.portalPermMenuManage',      descKey: 'rolesPage.portalPermMenuManageDesc',      group: 'granular' },
 ]
 const PORTAL_MANAGED_PERMS = new Set(PORTAL_PERMISSIONS.map((p) => p.code))
 
@@ -445,28 +457,56 @@ function EditRoleNavigationModal({
       ) : (
         <form id="role-nav-form" onSubmit={handleSubmit} className="space-y-4">
           {isProvider ? (
-            <div className="space-y-3 rounded-xl border border-slate-100 p-3.5 dark:border-white/[0.05]">
+            <div className="space-y-4 rounded-xl border border-slate-100 p-3.5 dark:border-white/[0.05]">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('rolesPage.portalPermSection')}
                 </p>
                 <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{t('rolesPage.portalPermHint')}</p>
               </div>
-              <div className="space-y-2.5">
-                {PORTAL_PERMISSIONS.filter((p) => unlockedCodes.has(p.code)).map((p) => (
-                  <label key={p.code} className="flex cursor-pointer items-start gap-2.5 py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={permChecked.has(p.code)}
-                      onChange={() => togglePerm(p.code)}
-                      className="mt-0.5 rounded border-slate-300 text-primary"
-                    />
-                    <span>
-                      <span className="block text-sm font-medium text-slate-700 dark:text-slate-200">{t(p.labelKey)}</span>
-                      <span className="block text-xs text-slate-400 dark:text-slate-500">{t(p.descKey)}</span>
-                    </span>
-                  </label>
-                ))}
+              {/* Core broad permissions */}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  {t('rolesPage.portalPermGroupCore')}
+                </p>
+                <div className="space-y-2.5">
+                  {PORTAL_PERMISSIONS.filter((p) => p.group === 'core' && unlockedCodes.has(p.code)).map((p) => (
+                    <label key={p.code} className="flex cursor-pointer items-start gap-2.5 py-0.5">
+                      <input
+                        type="checkbox"
+                        checked={permChecked.has(p.code)}
+                        onChange={() => togglePerm(p.code)}
+                        className="mt-0.5 rounded border-slate-300 text-primary"
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-slate-700 dark:text-slate-200">{t(p.labelKey)}</span>
+                        <span className="block text-xs text-slate-400 dark:text-slate-500">{t(p.descKey)}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {/* Granular permissions */}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  {t('rolesPage.portalPermGroupGranular')}
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {PORTAL_PERMISSIONS.filter((p) => p.group === 'granular' && unlockedCodes.has(p.code)).map((p) => (
+                    <label key={p.code} className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-100 p-2.5 py-0.5 dark:border-white/[0.05]">
+                      <input
+                        type="checkbox"
+                        checked={permChecked.has(p.code)}
+                        onChange={() => togglePerm(p.code)}
+                        className="mt-1 rounded border-slate-300 text-primary"
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-slate-700 dark:text-slate-200">{t(p.labelKey)}</span>
+                        <span className="block text-xs text-slate-400 dark:text-slate-500">{t(p.descKey)}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
@@ -612,9 +652,13 @@ function EditRoleDetailsModal({
   const [nameAr, setNameAr] = useState('')
   const [descriptionAr, setDescriptionAr] = useState('')
   const [groupId, setGroupId] = useState('')
+  const [maxDiscountPct, setMaxDiscountPct] = useState(0)
+  const [maxPayoutRequestAmount, setMaxPayoutRequestAmount] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState('')
+
+  const isProvider = isProviderRole(role)
 
   useEffect(() => {
     rolesAPI
@@ -626,6 +670,8 @@ function EditRoleDetailsModal({
         setNameAr('')
         setDescriptionAr('')
         setGroupId(d?.groupId ?? role.groupId ?? '')
+        setMaxDiscountPct(d?.maxDiscountPct ?? 0)
+        setMaxPayoutRequestAmount(d?.maxPayoutRequestAmount != null ? String(d.maxPayoutRequestAmount) : '')
       })
       .catch(() => {
         setName(role.name ?? '')
@@ -647,12 +693,16 @@ function EditRoleDetailsModal({
     }
     setSubmitting(true)
     try {
+      const payoutAmt = maxPayoutRequestAmount.trim() ? parseFloat(maxPayoutRequestAmount) : undefined
       await rolesAPI.updateDetails(role.id, {
         name: name.trim(),
         description: description.trim() || undefined,
         nameAr: nameAr.trim() || undefined,
         descriptionAr: descriptionAr.trim() || undefined,
         groupId: groupId || null,
+        maxDiscountPct: isProvider ? undefined : maxDiscountPct,
+        maxPayoutRequestAmount: isProvider ? payoutAmt : undefined,
+        clearPayoutLimit: isProvider && maxPayoutRequestAmount.trim() === '' ? true : undefined,
       })
       onSuccess()
     } catch (err) {
@@ -742,6 +792,33 @@ function EditRoleDetailsModal({
               />
             </FormField>
           </div>
+          {!isProvider && (
+            <FormField label={t('rolesPage.maxDiscountPctLabel')}>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={maxDiscountPct}
+                onChange={(e) => setMaxDiscountPct(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                className="modal-input"
+              />
+              <p className="mt-1 text-xs text-slate-400">{t('rolesPage.maxDiscountPctHint')}</p>
+            </FormField>
+          )}
+          {isProvider && (
+            <FormField label={t('rolesPage.maxPayoutRequestAmountLabel')}>
+              <input
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={maxPayoutRequestAmount}
+                onChange={(e) => setMaxPayoutRequestAmount(e.target.value)}
+                placeholder={t('rolesPage.maxPayoutRequestAmountPlaceholder')}
+                className="modal-input"
+              />
+              <p className="mt-1 text-xs text-slate-400">{t('rolesPage.maxPayoutRequestAmountHint')}</p>
+            </FormField>
+          )}
         </form>
       )}
     </Modal>
@@ -766,6 +843,8 @@ function CreateRoleModal({
   const [description, setDescription] = useState('')
   const [groupId, setGroupId] = useState('')
   const [providerRole, setProviderRole] = useState(!!defaultProvider)
+  const [maxDiscountPct, setMaxDiscountPct] = useState(0)
+  const [maxPayoutRequestAmount, setMaxPayoutRequestAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState('')
 
@@ -779,11 +858,14 @@ function CreateRoleModal({
     }
     setSubmitting(true)
     try {
+      const payoutAmt = maxPayoutRequestAmount.trim() ? parseFloat(maxPayoutRequestAmount) : undefined
       await rolesAPI.create({
         name: name.trim(),
         description: description.trim() || undefined,
         groupId: groupId || undefined,
         providerRole,
+        maxDiscountPct: providerRole ? 0 : maxDiscountPct,
+        maxPayoutRequestAmount: providerRole ? payoutAmt : undefined,
       })
       onSuccess()
     } catch (err) {
@@ -856,7 +938,33 @@ function CreateRoleModal({
           />
           {t('rolesPage.providerRoleLabel')}
         </label>
-
+        {!providerRole && (
+          <FormField label={t('rolesPage.maxDiscountPctLabel')}>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={maxDiscountPct}
+              onChange={(e) => setMaxDiscountPct(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+              className="modal-input"
+            />
+            <p className="mt-1 text-xs text-slate-400">{t('rolesPage.maxDiscountPctHint')}</p>
+          </FormField>
+        )}
+        {providerRole && (
+          <FormField label={t('rolesPage.maxPayoutRequestAmountLabel')}>
+            <input
+              type="number"
+              min={0.01}
+              step={0.01}
+              value={maxPayoutRequestAmount}
+              onChange={(e) => setMaxPayoutRequestAmount(e.target.value)}
+              placeholder={t('rolesPage.maxPayoutRequestAmountPlaceholder')}
+              className="modal-input"
+            />
+            <p className="mt-1 text-xs text-slate-400">{t('rolesPage.maxPayoutRequestAmountHint')}</p>
+          </FormField>
+        )}
       </form>
     </Modal>
   )

@@ -1,11 +1,13 @@
 package com.ziyara.backend.application.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,4 +39,8 @@ public class CreateRoleRequest {
 
     @Schema(description = "Assignable to provider portal staff (default false)")
     private boolean providerRole;
+
+    @DecimalMin("0.01")
+    @Schema(description = "Maximum single payout request amount for provider roles; null = unlimited")
+    private BigDecimal maxPayoutRequestAmount;
 }

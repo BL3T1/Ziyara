@@ -26,6 +26,7 @@ public class RoleMapper {
         r.setNavigationItemIds(entity.getNavigationItemIds());
         r.setMaxDiscountPct(entity.getMaxDiscountPct());
         r.setProviderRole(entity.isProviderRole());
+        r.setMaxPayoutRequestAmount(entity.getMaxPayoutRequestAmount());
         return r;
     }
 
@@ -47,6 +48,7 @@ public class RoleMapper {
                 .navigationItemIds(domain.getNavigationItemIds())
                 .maxDiscountPct(domain.getMaxDiscountPct())
                 .providerRole(domain.isProviderRole())
+                .maxPayoutRequestAmount(domain.getMaxPayoutRequestAmount())
                 .build();
     }
 }

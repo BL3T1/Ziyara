@@ -2,6 +2,7 @@ package com.ziyara.backend.domain.entity;
 
 import com.ziyara.backend.domain.enums.RoleLevel;
 import com.ziyara.backend.domain.enums.RoleStatus;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +26,7 @@ public class Role {
     private List<String> navigationItemIds;
     private short maxDiscountPct;
     private boolean providerRole;
+    private BigDecimal maxPayoutRequestAmount;
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -56,4 +58,6 @@ public class Role {
     public void setMaxDiscountPct(short maxDiscountPct) { this.maxDiscountPct = maxDiscountPct; }
     public boolean isProviderRole() { return providerRole; }
     public void setProviderRole(boolean providerRole) { this.providerRole = providerRole; }
+    public BigDecimal getMaxPayoutRequestAmount() { return maxPayoutRequestAmount; }
+    public void setMaxPayoutRequestAmount(BigDecimal maxPayoutRequestAmount) { this.maxPayoutRequestAmount = maxPayoutRequestAmount; }
 }

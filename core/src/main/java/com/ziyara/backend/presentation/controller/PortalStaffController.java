@@ -42,6 +42,7 @@ public class PortalStaffController {
     }
 
     @PostMapping
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_STAFF_MANAGE)
     @Operation(summary = "Add staff", description = "Link an existing provider-role user to this organization")
     public ResponseEntity<ApiResponse<PortalStaffMemberResponse>> add(@Valid @RequestBody AddPortalStaffRequest request) {
         UUID providerId = requireCurrentProviderId();
@@ -56,6 +57,7 @@ public class PortalStaffController {
     }
 
     @PostMapping("/users")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_STAFF_MANAGE)
     @Operation(summary = "Create staff user", description = "Provider Manager creates a new provider portal user and links it to this organization")
     public ResponseEntity<ApiResponse<PortalStaffMemberResponse>> createUser(
             @Valid @RequestBody CreatePortalStaffUserRequest request) {
@@ -78,6 +80,7 @@ public class PortalStaffController {
     }
 
     @DeleteMapping("/{userId}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_STAFF_MANAGE)
     @Operation(summary = "Remove staff", description = "Unlink a staff user (cannot remove primary owner)")
     public ResponseEntity<ApiResponse<Void>> remove(@PathVariable UUID userId) {
         UUID providerId = requireCurrentProviderId();

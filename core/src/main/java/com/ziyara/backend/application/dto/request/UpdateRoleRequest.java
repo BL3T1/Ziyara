@@ -1,6 +1,7 @@
 package com.ziyara.backend.application.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -8,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.math.BigDecimal;
 
 /**
  * Update role display fields only (not code or permissions). System and custom roles supported.
@@ -43,4 +45,11 @@ public class UpdateRoleRequest {
 
     @Schema(description = "Assignable to provider portal staff; null = no change")
     private Boolean providerRole;
+
+    @DecimalMin("0.01")
+    @Schema(description = "Maximum single payout request amount for provider roles; null = no change, 0 = clear limit")
+    private BigDecimal maxPayoutRequestAmount;
+
+    @Schema(description = "When true, clears the payout request amount limit (sets to null/unlimited)")
+    private Boolean clearPayoutLimit;
 }

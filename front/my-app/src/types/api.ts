@@ -195,6 +195,8 @@ export interface RoleDto {
   maxDiscountPct?: number
   /** Assignable to provider portal staff (custom roles only) */
   providerRole?: boolean
+  /** Maximum single payout request amount for provider roles; null = unlimited */
+  maxPayoutRequestAmount?: number | null
 }
 
 export interface UserNavigationDto {
