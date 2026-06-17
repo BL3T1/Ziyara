@@ -1,10 +1,10 @@
 package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.ApiResponse;
+import com.ziyara.backend.application.dto.response.DeliveryLocationResponse;
 import com.ziyara.backend.application.dto.response.ProviderMapPinResponse;
 import com.ziyara.backend.application.service.MapService;
 import com.ziyara.backend.application.service.ServiceProviderService;
-import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.PROVIDER_PORTAL;
 import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.SUBSCRIPTIONS_READ;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -39,19 +39,13 @@ public class MapController {
         return ResponseEntity.ok(ApiResponse.success(mapService.getProviderPins(typeFilter)));
     }
 
-    @GetMapping("/portal/pins")
-    @PreAuthorize(PROVIDER_PORTAL)
-    @Operation(summary = "Provider's own listing locations (portal map)")
-    public ResponseEntity<ApiResponse<List<ProviderMapPinResponse>>> getPortalPins() {
-        UUID providerId = requireCurrentProviderId();
-        return ResponseEntity.ok(ApiResponse.success(mapService.getPortalPins(providerId)));
-    }
-
     @GetMapping("/delivery/{bookingId}")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Latest delivery location for a booking (stub — requires driver app)")
-    public ResponseEntity<Void> getDeliveryLocation(@PathVariable UUID bookingId) {
-        return ResponseEntity.notFound().build();
+    @Operation(summary = "Latest delivery location for a booking")
+    public ResponseEntity<ApiResponse<DeliveryLocationResponse>> getDeliveryLocation(@PathVariable UUID bookingId) {
+        return mapService.getDeliveryLocation(bookingId)
+                .map(loc -> ResponseEntity.ok(ApiResponse.success(loc)))
+                .orElse(ResponseEntity.notFound().build());
     }
 
     private UUID requireCurrentProviderId() {
