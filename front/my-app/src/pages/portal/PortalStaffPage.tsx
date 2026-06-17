@@ -5,14 +5,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
-import { usePermission } from '../../hooks/usePermission'
 import { usersAPI, providersAPI, portalStaffAPI, getApiErrorMessage } from '../../services/api'
 import { Card } from '../../components/Card'
-import { Modal } from '../../components/Modal'
-import { FormField } from '../../components/FormField'
-import { PasswordInput } from '../../components/PasswordInput'
-import { SearchableSelect, type SelectOption } from '../../components/SearchableSelect'
-import type { PortalStaffMemberDto, ServiceProviderDto } from '../../types/api'
+import type { LinkableUserDto, PortalStaffMemberDto, ServiceProviderDto } from '../../types/api'
 
 type MeUser = {
   id?: string
@@ -31,31 +26,26 @@ function displayName(u: MeUser) {
 
 export function PortalStaffPage() {
   const { t } = useLanguage()
-  const canManage = usePermission('portal:manage')
   const [user, setUser] = useState<MeUser | null>(null)
   const [provider, setProvider] = useState<ServiceProviderDto | null>(null)
   const [team, setTeam] = useState<PortalStaffMemberDto[]>([])
   const [loading, setLoading] = useState(true)
   const [teamLoading, setTeamLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [addUser, setAddUser] = useState<SelectOption | null>(null)
+  const [linkableUsers, setLinkableUsers] = useState<LinkableUserDto[]>([])
+  const [addUserId, setAddUserId] = useState('')
   const [addTitle, setAddTitle] = useState('')
   const [adding, setAdding] = useState(false)
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newPhone, setNewPhone] = useState('')
-  const [assignableRoles, setAssignableRoles] = useState<{ id: string; code: string; name: string }[]>([])
-  const [newRoleId, setNewRoleId] = useState('')
+  const [newRole, setNewRole] = useState('PROVIDER_STAFF')
   const [newTitle, setNewTitle] = useState('')
   const [creatingUser, setCreatingUser] = useState(false)
   const [editUserId, setEditUserId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
-  const [resetPwUserId, setResetPwUserId] = useState<string | null>(null)
-  const [resetPwValue, setResetPwValue] = useState('')
-  const [resetPwSaving, setResetPwSaving] = useState(false)
-  const [resetPwSuccess, setResetPwSuccess] = useState(false)
 
   const loadTeam = useCallback(() => {
     setTeamLoading(true)
@@ -96,16 +86,11 @@ export function PortalStaffPage() {
   }, [loading, error, loadTeam])
 
   useEffect(() => {
-    if (!canManage) return
     portalStaffAPI
-      .listAssignableRoles()
-      .then((r) => {
-        const roles = Array.isArray(r.data) ? r.data : []
-        setAssignableRoles(roles)
-        setNewRoleId((prev) => prev || roles[0]?.id || '')
-      })
-      .catch(() => setAssignableRoles([]))
-  }, [canManage])
+      .listLinkable()
+      .then((r) => setLinkableUsers(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setLinkableUsers([]))
+  }, [])
 
   const row = (label: string, value: string) => (
     <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2.5 last:border-0 dark:border-slate-700/80">
@@ -114,29 +99,9 @@ export function PortalStaffPage() {
     </div>
   )
 
-  const fetchUserOptions = useCallback(async (query: string) => {
-    try {
-      const res = await usersAPI.list({ size: 50 })
-      const items = (Array.isArray(res.data) ? res.data : ((res.data as { content?: unknown[] })?.content ?? [])) as Array<{ id?: string; firstName?: string; lastName?: string; email?: string }>
-      const q = query.toLowerCase()
-      return items
-        .filter((u) => {
-          const name = `${u.firstName ?? ''} ${u.lastName ?? ''}`.toLowerCase()
-          return !q || name.includes(q) || (u.email ?? '').toLowerCase().includes(q)
-        })
-        .map((u) => ({
-          value: u.id ?? '',
-          label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || (u.email ?? ''),
-          sublabel: u.email,
-        }))
-    } catch {
-      return []
-    }
-  }, [])
-
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
-    const uid = addUser?.value
+    const uid = addUserId.trim()
     if (!uid) return
     setAdding(true)
     setError(null)
@@ -145,7 +110,7 @@ export function PortalStaffPage() {
       const t = addTitle.trim()
       if (t) body.title = t
       await portalStaffAPI.add(body)
-      setAddUser(null)
+      setAddUserId('')
       setAddTitle('')
       loadTeam()
     } catch (e) {
@@ -173,17 +138,13 @@ export function PortalStaffPage() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newRoleId) {
-      setError(t('portalStaffPage.errNoRoles'))
-      return
-    }
     setCreatingUser(true)
     setError(null)
     try {
-      const body: { email: string; password: string; roleId: string; phone?: string; title?: string } = {
+      const body: { email: string; password: string; role: string; phone?: string; title?: string } = {
         email: newEmail.trim(),
         password: newPassword,
-        roleId: newRoleId,
+        role: newRole,
       }
       const p = newPhone.trim()
       if (p) body.phone = p
@@ -193,6 +154,7 @@ export function PortalStaffPage() {
       setNewEmail('')
       setNewPassword('')
       setNewPhone('')
+      setNewRole('PROVIDER_STAFF')
       setNewTitle('')
       loadTeam()
     } catch (e) {
@@ -214,23 +176,6 @@ export function PortalStaffPage() {
       setError(getApiErrorMessage(e))
     } finally {
       setRemovingId(null)
-    }
-  }
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!resetPwUserId || !resetPwValue.trim()) return
-    setResetPwSaving(true)
-    setResetPwSuccess(false)
-    setError(null)
-    try {
-      await portalStaffAPI.resetPassword(resetPwUserId, { newPassword: resetPwValue })
-      setResetPwSuccess(true)
-      setResetPwValue('')
-    } catch (e) {
-      setError(getApiErrorMessage(e))
-    } finally {
-      setResetPwSaving(false)
     }
   }
 
@@ -312,7 +257,7 @@ export function PortalStaffPage() {
                     <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{m.title ?? '—'}</td>
                     <td className="px-4 py-3 text-sm">{m.owner ? t('portalStaffPage.badgeOwner') : '—'}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm">
-                      {!m.owner && canManage && (
+                      {!m.owner && (
                         <>
                           <button
                             type="button"
@@ -323,18 +268,6 @@ export function PortalStaffPage() {
                             className="text-primary hover:underline"
                           >
                             {t('portalStaffPage.editTitle')}
-                          </button>
-                          <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setResetPwUserId(m.userId)
-                              setResetPwValue('')
-                              setResetPwSuccess(false)
-                            }}
-                            className="text-amber-600 hover:underline dark:text-amber-400"
-                          >
-                            {t('portalStaffPage.resetPassword')}
                           </button>
                           <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
                           <button
@@ -355,87 +288,90 @@ export function PortalStaffPage() {
           </table>
         </div>
 
-        {canManage && (
-          <form onSubmit={handleAdd} className="mt-8 max-w-xl space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('portalStaffPage.addMemberTitle')}</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{t('portalStaffPage.addMemberHint')}</p>
-            <SearchableSelect
-              selectedOption={addUser}
-              onSelect={setAddUser}
-              fetchOptions={fetchUserOptions}
-              placeholder={t('portalStaffPage.searchUserPlaceholder')}
-              clearable
-            />
-            <input
-              type="text"
-              placeholder={t('portalStaffPage.titlePlaceholder')}
-              value={addTitle}
-              onChange={(e) => setAddTitle(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            />
-            <button
-              type="submit"
-              disabled={adding || !addUser?.value}
-              className="dashboard-btn-primary disabled:opacity-50"
-            >
-              {t('portalStaffPage.addMember')}
-            </button>
-          </form>
-        )}
+        <form onSubmit={handleAdd} className="mt-8 max-w-xl space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('portalStaffPage.addMemberTitle')}</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t('portalStaffPage.addMemberHint')}</p>
+          <select
+            required
+            value={addUserId}
+            onChange={(e) => setAddUserId(e.target.value)}
+            className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="">{t('portalStaffPage.searchUserPlaceholder')}</option>
+            {linkableUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name || u.email}{u.phone ? ` · ${u.phone}` : ''}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            placeholder={t('portalStaffPage.titlePlaceholder')}
+            value={addTitle}
+            onChange={(e) => setAddTitle(e.target.value)}
+            className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <button
+            type="submit"
+            disabled={adding}
+            className="dashboard-btn-primary disabled:opacity-50"
+          >
+            {t('portalStaffPage.addMember')}
+          </button>
+        </form>
 
-        {canManage && (
-          <form onSubmit={handleCreateUser} className="mt-4 max-w-xl space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('portalStaffPage.createMemberTitle')}</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{t('portalStaffPage.createMemberHint')}</p>
-            <input
-              type="email"
-              required
-              placeholder={t('portalStaffPage.createEmailPlaceholder')}
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            />
-            <PasswordInput
-              required
-              minLength={6}
-              placeholder={t('portalStaffPage.createPasswordPlaceholder')}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            />
-            <input
-              type="text"
-              placeholder={t('portalStaffPage.createPhonePlaceholder')}
-              value={newPhone}
-              onChange={(e) => setNewPhone(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            />
-            <select
-              value={newRoleId}
-              onChange={(e) => setNewRoleId(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            >
-              {assignableRoles.length === 0 && <option value="">{t('portalStaffPage.errNoRoles')}</option>}
-              {assignableRoles.map((r) => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder={t('portalStaffPage.titlePlaceholder')}
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            />
-            <button
-              type="submit"
-              disabled={creatingUser || !newRoleId}
-              className="dashboard-btn-primary disabled:opacity-50"
-            >
-              {t('portalStaffPage.createMember')}
-            </button>
-          </form>
-        )}
+        <form onSubmit={handleCreateUser} className="mt-4 max-w-xl space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('portalStaffPage.createMemberTitle')}</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t('portalStaffPage.createMemberHint')}</p>
+          <input
+            type="email"
+            required
+            placeholder={t('portalStaffPage.createEmailPlaceholder')}
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <input
+            type="password"
+            required
+            minLength={6}
+            placeholder={t('portalStaffPage.createPasswordPlaceholder')}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <input
+            type="text"
+            placeholder={t('portalStaffPage.createPhonePlaceholder')}
+            value={newPhone}
+            onChange={(e) => setNewPhone(e.target.value)}
+            className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <select
+            value={newRole}
+            onChange={(e) => setNewRole(e.target.value)}
+            className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="PROVIDER_STAFF">{t('portalStaffPage.roleProviderStaff')}</option>
+            <option value="PROVIDER_FINANCE">{t('portalStaffPage.roleProviderFinance')}</option>
+            <option value="TAXI_OPERATOR">{t('portalStaffPage.roleTaxiOperator')}</option>
+            <option value="PROVIDER_MANAGER">{t('portalStaffPage.roleProviderManager')}</option>
+          </select>
+          <input
+            type="text"
+            placeholder={t('portalStaffPage.titlePlaceholder')}
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <button
+            type="submit"
+            disabled={creatingUser}
+            className="dashboard-btn-primary disabled:opacity-50"
+          >
+            {t('portalStaffPage.createMember')}
+          </button>
+        </form>
 
         <Link
           to="/portal/support"
@@ -445,89 +381,37 @@ export function PortalStaffPage() {
         </Link>
       </Card>
 
-      <Modal
-        open={!!editUserId}
-        onClose={() => { setEditUserId(null); setEditTitle('') }}
-        title={t('portalStaffPage.editTitleModal')}
-        size="sm"
-        footer={
-          <>
-            <button
-              type="button"
-              onClick={() => { setEditUserId(null); setEditTitle('') }}
-              disabled={editSaving}
-              className="dashboard-btn-secondary"
-            >
-              {t('ui.cancel')}
-            </button>
-            <button
-              type="submit"
-              form="staff-edit-title-form"
-              disabled={editSaving}
-              className="dashboard-btn-primary disabled:opacity-50"
-            >
-              {t('portalStaffPage.saveTitle')}
-            </button>
-          </>
-        }
-      >
-        <form id="staff-edit-title-form" onSubmit={(e) => { e.preventDefault(); handleSaveEdit() }}>
-          <FormField label={t('portalStaffPage.colTitle')}>
+      {editUserId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('portalStaffPage.editTitleModal')}</h2>
             <input
               type="text"
               placeholder={t('portalStaffPage.titlePlaceholder')}
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="modal-input"
+              className="mt-3 w-full rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
             />
-          </FormField>
-        </form>
-      </Modal>
-
-      <Modal
-        open={!!resetPwUserId}
-        onClose={() => { setResetPwUserId(null); setResetPwValue(''); setResetPwSuccess(false) }}
-        title={t('portalStaffPage.resetPasswordTitle')}
-        size="sm"
-        footer={
-          <>
-            <button
-              type="button"
-              onClick={() => { setResetPwUserId(null); setResetPwValue(''); setResetPwSuccess(false) }}
-              disabled={resetPwSaving}
-              className="dashboard-btn-secondary"
-            >
-              {t('ui.cancel')}
-            </button>
-            <button
-              type="submit"
-              form="staff-reset-pw-form"
-              disabled={resetPwSaving || !resetPwValue.trim()}
-              className="dashboard-btn-primary disabled:opacity-50"
-            >
-              {resetPwSaving ? t('ui.saving') : t('portalStaffPage.resetPassword')}
-            </button>
-          </>
-        }
-      >
-        <form id="staff-reset-pw-form" onSubmit={handleResetPassword} className="space-y-3">
-          {resetPwSuccess && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300">
-              {t('portalStaffPage.resetPasswordSuccess')}
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={handleSaveEdit}
+                disabled={editSaving}
+                className="dashboard-btn-primary disabled:opacity-50"
+              >
+                {t('portalStaffPage.saveTitle')}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEditUserId(null); setEditTitle(''); }}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm dark:border-slate-600 dark:text-slate-200"
+              >
+                {t('ui.cancel')}
+              </button>
             </div>
-          )}
-          <FormField label={t('portalStaffPage.newPassword')}>
-            <PasswordInput
-              required
-              minLength={6}
-              placeholder={t('portalStaffPage.newPasswordPlaceholder')}
-              value={resetPwValue}
-              onChange={(e) => setResetPwValue(e.target.value)}
-              className="modal-input"
-            />
-          </FormField>
-        </form>
-      </Modal>
+          </div>
+        </div>
+      )}
     </>
   )
 }

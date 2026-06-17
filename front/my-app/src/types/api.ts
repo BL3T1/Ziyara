@@ -11,10 +11,8 @@ export interface AuthResponseDto {
   expiresIn?: number
   userId: string
   email: string
-  role: string  // Backend UserRole enum: SUPER_ADMIN | CUSTOMER | STAFF
+  role: string  // Backend UserRole enum
   fullName: string
-  mustChangePassword?: boolean
-  hasPortalAccess?: boolean
 }
 
 // Dashboard
@@ -28,12 +26,6 @@ export interface DashboardKpiDto {
   openTickets: number
 }
 
-export interface WeeklyRevenueItem {
-  /** ISO week start date string, e.g. "2025-05-12" */
-  week: string
-  amount: number
-}
-
 /** GET /portal/dashboard */
 export interface PortalDashboardDto {
   serviceCount: number
@@ -41,11 +33,6 @@ export interface PortalDashboardDto {
   activeBookings: number
   totalRevenue: number
   revenueCurrency: string
-  weeklyRevenue?: WeeklyRevenueItem[]
-  bookingsLast30Days?: number
-  bookingsPrev30Days?: number
-  revenueLast30Days?: number
-  revenuePrev30Days?: number
 }
 
 /** GET /portal/earnings */
@@ -59,6 +46,8 @@ export interface PortalEarningsDto {
   platformCommissionPct?: number
   platformFee?: number
   providerNet?: number
+  /** providerNet minus pending payout requests — the actual amount available to request */
+  availableForPayout?: number
   bookingCount?: number
   perServiceBreakdown?: PortalServiceEarningRow[]
 }
@@ -70,6 +59,13 @@ export interface PortalServiceEarningRow {
   grossRevenue: number
   platformFee: number
   providerNet: number
+}
+
+export interface LinkableUserDto {
+  id: string
+  email: string
+  name: string
+  phone?: string
 }
 
 export interface ActivityFeedItemDto {
@@ -135,9 +131,8 @@ export interface PayoutsResponseDto {
 export interface UserDto {
   id: string
   email: string
-  username?: string
   phone?: string
-  role: 'SUPER_ADMIN' | 'CUSTOMER' | 'STAFF'
+  role: string
   status?: string
   fullName?: string
   firstName?: string
@@ -148,11 +143,12 @@ export interface UserDto {
   phoneVerified?: boolean
 }
 
-/** GET /users/staff-role-options — active sys_roles; submit rbacRoleId as primaryRbacRoleId on POST /users */
+/** GET /users/staff-role-options — built-in + custom RBAC; submit rbacRoleId as primaryRbacRoleId or legacy role code */
 export interface StaffDirectoryRoleOptionDto {
   source?: 'SYSTEM' | 'CUSTOM'
-  /** sys_roles.id — submit as primaryRbacRoleId on POST /users */
+  /** sys_roles.id — preferred submit as primaryRbacRoleId on POST /users */
   rbacRoleId?: string | null
+  /** Stored on user + JWT when this option is chosen (CUSTOM roles map from RoleLevel) */
   securityUserRole?: string | null
   code: string
   displayName: string
@@ -183,9 +179,6 @@ export interface RoleDto {
   systemRole?: boolean
   /** Custom role dashboard sidebar (ordered); empty/absent = use assignee UserRole default */
   navigationItemIds?: string[] | null
-  maxDiscountPct?: number
-  /** Assignable to provider portal staff (custom roles only) */
-  providerRole?: boolean
 }
 
 export interface UserNavigationDto {
@@ -281,8 +274,6 @@ export interface ServiceDto {
   address?: string
   city?: string
   country?: string
-  latitude?: number
-  longitude?: number
   basePrice?: number
   currency?: string
   status?: string
@@ -290,15 +281,8 @@ export interface ServiceDto {
   totalRooms?: number
   availableRooms?: number
   maxGuests?: number
-  checkInTime?: string
-  checkOutTime?: string
-  policies?: string
-  amenities?: Record<string, boolean>
-  attributes?: Record<string, unknown>
   createdAt?: string
   updatedAt?: string
-  rooms?: HotelRoomDto[]
-  rejectionReason?: string
 }
 
 export type ServiceImageCategoryDto = 'PROPERTY' | 'ROOM' | 'TRIP' | 'OTHER'
@@ -386,62 +370,6 @@ export interface UpdateMenuItemPayload {
   sortOrder?: number
 }
 
-export type HotelRoomStatusDto = 'ACTIVE' | 'INACTIVE'
-
-export interface HotelRoomImageDto {
-  id: string
-  roomId: string
-  url: string
-  altText?: string
-  primary: boolean
-  displayOrder: number
-}
-
-export interface HotelRoomDto {
-  id: string
-  serviceId: string
-  roomType: string
-  roomName: string
-  description?: string
-  capacity: number
-  basePrice?: number
-  currency?: string
-  quantityTotal: number
-  quantityAvailable: number
-  amenities?: Record<string, unknown>
-  status: HotelRoomStatusDto
-  sortOrder: number
-  images: HotelRoomImageDto[]
-}
-
-export interface CreateHotelRoomPayload {
-  roomType: string
-  roomName: string
-  description?: string
-  capacity: number
-  basePrice?: number
-  currency?: string
-  quantityTotal: number
-  quantityAvailable: number
-  amenities?: Record<string, unknown>
-  status?: HotelRoomStatusDto
-  sortOrder?: number
-}
-
-export interface UpdateHotelRoomPayload {
-  roomType?: string
-  roomName?: string
-  description?: string
-  capacity?: number
-  basePrice?: number
-  currency?: string
-  quantityTotal?: number
-  quantityAvailable?: number
-  amenities?: Record<string, unknown>
-  status?: HotelRoomStatusDto
-  sortOrder?: number
-}
-
 // Providers
 export interface ServiceProviderDto {
   id: string
@@ -450,29 +378,16 @@ export interface ServiceProviderDto {
   phone?: string
   email?: string
   address?: string
-  description?: string
-  logoUrl?: string
   rating?: number
   status: string
   verified?: boolean
-  profitMargin?: number
+  commissionRate?: number
   type?: string
   registrationNumber?: string
   reviewCount?: number
   createdAt?: string
   approvedBy?: string
   approvedAt?: string
-  subscriptionPlan?: string
-  staffLimit?: number
-  globalRate?: number
-}
-
-export interface ProviderSubscriptionDto {
-  id: string
-  providerId: string
-  providerName?: string
-  plan: string
-  staffLimit: number
 }
 
 /** POST /providers */
@@ -484,53 +399,9 @@ export interface CreateServiceProviderPayload {
   type?: string
   registrationNumber?: string
   description?: string
-  logoUrl?: string
   managerEmail?: string
   managerPassword?: string
   managerPhone?: string
-  subscriptionPlan?: 'FREE' | 'PRO'
-  globalRate?: number
-}
-
-/** PUT /providers/{id} (company staff); partial updates — include fields to change */
-export type ProviderStatusDto =
-  | 'PENDING_APPROVAL'
-  | 'PENDING_VERIFICATION'
-  | 'ACTIVE'
-  | 'SUSPENDED'
-  | 'INACTIVE'
-  | 'REJECTED'
-  | 'BLOCKED'
-
-export interface UpdateServiceProviderPayload {
-  name?: string
-  phone?: string
-  email?: string
-  address?: string
-  description?: string
-  logoUrl?: string
-  status?: ProviderStatusDto
-  verified?: boolean
-  profitMargin?: number
-  globalRate?: number
-}
-
-export interface ProviderMediaSubmissionDto {
-  id: string
-  providerId: string
-  serviceId?: string
-  imageType: string
-  contextKey?: string
-  fileUrl: string
-  altText?: string
-  primary: boolean
-  status: string
-  submittedBy?: string
-  submittedAt?: string
-  reviewedBy?: string
-  reviewedAt?: string
-  reviewNote?: string
-  createdAt?: string
 }
 
 /** PUT /providers/me (partial update; null/omit = unchanged on server) */
@@ -540,6 +411,7 @@ export interface UpdateProviderMePayload {
   email?: string
   address?: string
   description?: string
+  website?: string
   logoUrl?: string
 }
 
@@ -558,13 +430,6 @@ export interface CreatePortalServicePayload {
   totalRooms?: number
   availableRooms?: number
   starRating?: number
-  checkInTime?: string
-  checkOutTime?: string
-  latitude?: number
-  longitude?: number
-  policies?: string
-  amenities?: Record<string, boolean>
-  attributes?: Record<string, unknown>
 }
 
 export type ServiceStatusDto =
@@ -591,36 +456,6 @@ export interface UpdatePortalServicePayload {
   totalRooms?: number
   availableRooms?: number
   starRating?: number
-  checkInTime?: string
-  checkOutTime?: string
-  latitude?: number
-  longitude?: number
-  policies?: string
-  amenities?: Record<string, boolean>
-  attributes?: Record<string, unknown>
-}
-
-export type DiscountTypeDto = 'PERCENTAGE' | 'FIXED_AMOUNT'
-export type DiscountStatusDto = 'PENDING_APPROVAL' | 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'FULLY_REDEEMED' | 'SCHEDULED'
-
-export interface DiscountBalanceDto {
-  providerId: string
-  currency: string
-  allocatedAmount: number
-  spentAmount: number
-  availableAmount: number
-}
-
-export interface CreatePortalDiscountPayload {
-  code: string
-  type: DiscountTypeDto
-  value: number
-  description?: string
-  endDate: string
-  usageLimit?: number
-  minBookingAmount?: number
-  maxDiscountAmount?: number
-  applicableServiceIds?: string[]
 }
 
 // Bookings
@@ -641,17 +476,7 @@ export interface BookingDto {
   totalAmount?: number
   currency?: string
   status: string
-  paymentMethod?: string
-  paymentStatus?: string
   createdAt?: string
-}
-
-export interface AddPaymentPayload {
-  amount: number
-  currency: string
-  method: 'CASH' | 'BANK_TRANSFER' | 'CHEQUE' | 'OTHER'
-  transactionReference?: string
-  notes?: string
 }
 
 // Payments
@@ -668,27 +493,6 @@ export interface PaymentDto {
   processedAt?: string
   gatewayReference?: string
   threeDsStatus?: string
-  entityType?: string
-  entityId?: string
-  category?: string
-}
-
-// Map
-export interface ProviderMapPinDto {
-  id: string
-  name: string
-  type: string
-  latitude: number
-  longitude: number
-  status?: string
-  thumbnailUrl?: string
-}
-
-export interface DeliveryLocationDto {
-  latitude: number
-  longitude: number
-  status?: string
-  updatedAt?: string
 }
 
 // Tickets
@@ -720,15 +524,10 @@ export interface PortalStaffMemberDto {
 /** GET/POST /portal/support-requests */
 export interface PortalSupportRequestDto {
   id: string
-  providerId?: string | null
-  providerName?: string | null
   subject: string
   body: string
   userId?: string | null
   createdAt?: string
-  staffResponse?: string | null
-  respondedAt?: string | null
-  respondedByUserId?: string | null
 }
 
 export interface ComplaintDto {
@@ -764,10 +563,6 @@ export interface DiscountDto {
   status: string
   /** COMPANY | PROVIDER | BOTH */
   sponsor?: string
-  /** Explicit company-side amount when sponsor = BOTH */
-  companyValue?: number
-  /** Explicit provider-side amount when sponsor = BOTH */
-  providerValue?: number
   createdAt?: string
   updatedAt?: string
   /** Scope: null = any provider */
@@ -790,7 +585,6 @@ export interface NotificationDto {
   sentAt?: string
   readAt?: string | null
   createdAt?: string
-  referenceId?: string
 }
 
 export interface NotificationInboxDto {
@@ -816,7 +610,6 @@ export interface SystemSettingsDto {
   companyDisplayName: string
   defaultCurrency: string
   maintenanceMode: boolean
-  providerMaintenanceMode?: boolean
 }
 
 /** PUT /admin/settings */
@@ -824,7 +617,6 @@ export interface UpdateSystemSettingsPayload {
   companyDisplayName?: string
   defaultCurrency?: string
   maintenanceMode?: boolean
-  providerMaintenanceMode?: boolean
 }
 
 /** GET /admin/feature-flags */
@@ -869,42 +661,10 @@ export interface DeletedItemDto {
   deletedAt?: string
 }
 
-// Webhooks
-export interface WebhookSubscriptionDto {
-  id: string
-  providerId?: string
-  name: string
-  url: string
-  events: string[]
-  active: boolean
-  createdAt: string
-  /** Only returned on creation */
-  secret?: string
-}
-
-export interface WebhookDeliveryDto {
-  id: string
-  subscriptionId: string
-  event: string
-  status: 'PENDING' | 'DELIVERED' | 'FAILED'
-  httpStatus?: number
-  attemptCount: number
-  lastAttemptAt?: string
-  createdAt: string
-}
-
-export interface CreateWebhookSubscriptionPayload {
-  name: string
-  url: string
-  events: string[]
-  providerId?: string
-}
-
 // Audit
 export interface AuditLogDto {
   id: string
   userId?: string
-  userDisplay?: string
   action: string
   entityType?: string
   entityId?: string
@@ -912,107 +672,6 @@ export interface AuditLogDto {
   newValue?: string
   ipAddress?: string
   createdAt: string
-}
-
-// Reviews
-export interface ReviewDto {
-  id: string
-  bookingId?: string
-  userId?: string
-  userName?: string
-  serviceId: string
-  rating: number
-  comment?: string
-  response?: string
-  status?: string
-  createdAt?: string
-}
-
-// Voucher
-export interface VoucherDto {
-  bookingId: string
-  bookingReference: string
-  checkInDate: string
-  checkOutDate: string
-  serviceName: string
-  serviceId: string
-  customerEmail: string
-  customerId: string
-  totalAmount: number
-  currency: string
-}
-
-// Admin Payouts (Finance > Provider Payouts page)
-export type PayoutStatus =
-  | 'PENDING'
-  | 'ON_HOLD'
-  | 'SCHEDULED'
-  | 'PROCESSING'
-  | 'COMPLETED'
-  | 'FAILED'
-  | 'CANCELLED'
-  | 'REJECTED'
-
-export interface AdminPayoutDto {
-  id: string
-  providerId: string
-  providerName?: string
-  providerEmail?: string
-  amount: number
-  currency: string
-  notes?: string
-  status: PayoutStatus
-  requestedAt?: string
-  processedAt?: string
-  processedBy?: string
-  rejectionReason?: string
-  transactionId?: string
-  scheduledAt?: string
-  manual?: boolean
-  statusHistory?: AdminPayoutStatusHistoryEntry[]
-}
-
-export interface AdminPayoutStatusHistoryEntry {
-  fromStatus?: string
-  toStatus: string
-  timestamp: string
-  userId?: string
-  userDisplay?: string
-  notes?: string
-}
-
-export interface AdminPayoutSummaryDto {
-  totalPayable: number
-  pendingCount: number
-  processingCount: number
-  totalCompletedInPeriod: number
-  failedOnHoldCount: number
-  currency: string
-}
-
-export interface AdminPayoutActionPayload {
-  notes?: string
-  reason?: string
-  transactionId?: string
-  scheduledAt?: string
-}
-
-export interface CreateManualPayoutPayload {
-  providerId: string
-  amount: number
-  currency?: string
-  memo?: string
-  executeImmediately?: boolean
-}
-
-export interface BulkPayoutActionPayload {
-  ids: string[]
-  notes?: string
-}
-
-export interface BulkPayoutResultDto {
-  processed: number
-  failed: string[]
 }
 
 // Backend envelope
