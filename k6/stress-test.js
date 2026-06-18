@@ -27,12 +27,18 @@
  *   k6 run --env K6_PROFILE=soak    k6/stress-test.js
  *   k6 run --env K6_PROFILE=extreme k6/stress-test.js
  *
- * Provider portal (requires a real provider account):
+ * Provider portal — 3 real provider accounts are hardcoded (seeded 2026-06-18):
+ *   manager.hotel@grandziyara.com      / Provider@1234  (Grand Ziyara Hotel)
+ *   manager.resort@desertdunes.com     / Provider@1234  (Desert Dunes Resort)
+ *   manager.restaurant@silkroadgroup.com / Provider@1234 (Silk Road Restaurant Group)
+ *
+ * Override all providers:
+ *   k6 run --env K6_PROVIDER_ACCOUNTS="email1:pass1,email2:pass2" k6/stress-test.js
+ *
+ * Override with a single account (legacy):
  *   k6 run --env PROVIDER_EMAIL=provider@example.com \
  *          --env PROVIDER_PASSWORD=Pass@1234 \
  *          k6/stress-test.js
- *
- * Without PROVIDER_EMAIL the portal scenario falls back to admin KPI endpoints.
  *
  * Multi-port (split load across nginx proxy + direct backend):
  *   k6 run --env K6_BASE_URLS="http://localhost:7005/api/v1,http://localhost:7008/api/v1" \
@@ -59,11 +65,9 @@ import { Counter, Trend } from 'k6/metrics';
 const BASE_URL       = __ENV.BASE_URL          || 'http://localhost:7005/api/v1';
 const ADMIN_EMAIL    = __ENV.ADMIN_EMAIL        || 'super_admin@ziyarah.com';
 const ADMIN_PASS     = __ENV.ADMIN_PASSWORD     || 'Admin@1234';
-const PROVIDER_EMAIL = __ENV.PROVIDER_EMAIL     || '';
-const PROVIDER_PASS  = __ENV.PROVIDER_PASSWORD  || '';
 const PROFILE        = __ENV.K6_PROFILE         || 'stress';
 
-// Additional accounts used to build the shared token pool in setup().
+// Additional accounts used to build the shared admin/staff token pool in setup().
 // Spreading logins across multiple accounts keeps each account well under the
 // 40-req/min per-IP login rate limit and produces more realistic JWT diversity.
 //
@@ -85,6 +89,28 @@ const EXTRA_ACCOUNTS = _extraRaw
       { email: 'salesmanager@ziyarah.com',   pass: 'Staff@1234' },
       { email: 'ccmanager@ziyarah.com',      pass: 'Staff@1234' },
     ];
+
+// Provider portal accounts — 3 real providers seeded on 2026-06-18.
+// Each has an active company profile and a PROVIDER_MANAGER login.
+// Override with K6_PROVIDER_ACCOUNTS="email1:pass1,email2:pass2" if needed,
+// or add PROVIDER_EMAIL / PROVIDER_PASSWORD for a single-account override.
+const _provRaw = __ENV.K6_PROVIDER_ACCOUNTS || '';
+const PROVIDER_ACCOUNTS = _provRaw
+  ? _provRaw.split(',').map((s) => {
+      const idx = s.lastIndexOf(':');
+      return { email: s.slice(0, idx).trim(), pass: s.slice(idx + 1).trim() };
+    }).filter((a) => a.email && a.pass)
+  : (__ENV.PROVIDER_EMAIL
+      ? [{ email: __ENV.PROVIDER_EMAIL, pass: __ENV.PROVIDER_PASSWORD || '' }]
+      : [
+          // Grand Ziyara Hotel (id: 3cf88a0f-4aaa-432f-8aef-cd278e604d1e)
+          { email: 'manager.hotel@grandziyara.com',      pass: 'Provider@1234' },
+          // Desert Dunes Resort (id: 9b49c0cb-94de-4b6f-9a7f-ce744de71de8)
+          { email: 'manager.resort@desertdunes.com',     pass: 'Provider@1234' },
+          // Silk Road Restaurant Group (id: 3c5d8d6c-11fe-4b2a-93c7-5a12c501d34f)
+          { email: 'manager.restaurant@silkroadgroup.com', pass: 'Provider@1234' },
+        ]
+    );
 
 // Multi-port: split load across nginx proxy (7005) and direct backend (7008).
 // Override with K6_BASE_URLS env var to use different ports/hosts.
@@ -628,20 +654,20 @@ export function setup() {
     ? (bkgRes.json('data.content') || []).map((b) => b.id).filter(Boolean)
     : [];
 
-  // Provider portal token pool (optional — 10 tokens for extreme, 5 otherwise)
+  // Provider portal token pool — rotate through all 3 provider accounts.
+  // Each account is logged in multiple times so the pool is large enough for
+  // extreme-profile VU counts without hammering a single account's rate limit.
   let providerTokenPool = [];
-  if (PROVIDER_EMAIL && PROVIDER_PASS) {
-    const provTokenCount = PROFILE === 'extreme' ? 10 : 5;
-    sleep(1);
-    const pt = doLogin(PROVIDER_EMAIL, PROVIDER_PASS);
-    if (pt) {
-      providerTokenPool = [pt];
-      for (let i = 1; i < provTokenCount; i++) {
-        sleep(0.7);
-        const t = doLogin(PROVIDER_EMAIL, PROVIDER_PASS);
-        if (t) providerTokenPool.push(t);
-      }
+  if (PROVIDER_ACCOUNTS.length > 0) {
+    const provTokenCount = PROFILE === 'extreme' ? 12 : PROFILE === 'stress' ? 6 : 3;
+    sleep(0.5);
+    for (let i = 0; i < provTokenCount; i++) {
+      sleep(0.4);
+      const acct = PROVIDER_ACCOUNTS[i % PROVIDER_ACCOUNTS.length];
+      const t = doLogin(acct.email, acct.pass);
+      if (t) providerTokenPool.push(t);
     }
+    console.log('[setup] provider accounts used: ' + PROVIDER_ACCOUNTS.map((a) => a.email).join(', '));
   }
 
   console.log(
