@@ -20,6 +20,7 @@ import com.ziyara.backend.domain.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -149,6 +150,7 @@ public class UserCommandHandler {
         return email.trim().toLowerCase(Locale.ROOT);
     }
 
+    @CacheEvict(value = "userProfile", key = "#id")
     @Audited(action = "USER_UPDATE", entityType = "User", entityIdArgIndex = 0)
     @Transactional
     public User update(UUID id, UpdateUserRequest request) {
@@ -206,6 +208,7 @@ public class UserCommandHandler {
         return saved;
     }
 
+    @CacheEvict(value = "userProfile", key = "#id")
     @Audited(action = "USER_DELETE", entityType = "User", entityIdArgIndex = 0)
     @Transactional
     public void softDelete(UUID id) {

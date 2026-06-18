@@ -9,6 +9,7 @@ import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.domain.repository.UserRoleAssignmentRepository;
 import com.ziyara.backend.application.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ public class NavigationService {
     private final UserRoleAssignmentRepository userRoleAssignmentRepository;
     private final RoleRepository roleRepository;
 
+    @Cacheable(value = "userNavigation", key = "#userId")
     @Transactional(readOnly = true)
     public UserNavigationResponse resolveNavigationForUser(UUID userId) {
         User user = userRepository.findById(userId)

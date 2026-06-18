@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.ziyara.backend.domain.common.PageQuery;
 import com.ziyara.backend.infrastructure.persistence.util.PageConverter;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +38,7 @@ public class NotificationService implements NotificationServiceApi {
     private final UserRepository userRepository;
     private final NotificationMapper notificationMapper;
 
+    @CacheEvict(value = "notificationUnread", key = "#request.userId")
     @Transactional
     public NotificationResponse createNotification(CreateNotificationRequest request) {
         log.info("Creating notification for user: {}", request.getUserId());
@@ -60,11 +63,13 @@ public class NotificationService implements NotificationServiceApi {
         return new NotificationInboxResponse(mapped, unread);
     }
 
+    @Cacheable(value = "notificationUnread", key = "#userId")
     @Transactional(readOnly = true)
     public long countUnread(UUID userId) {
         return notificationRepository.countByUserIdAndReadAtIsNull(userId);
     }
 
+    @CacheEvict(value = "notificationUnread", key = "#userId")
     @Transactional
     public void markAsRead(UUID notificationId, UUID userId) {
         var result = new MarkNotificationReadUseCase(notificationRepository)
@@ -74,6 +79,7 @@ public class NotificationService implements NotificationServiceApi {
         }
     }
 
+    @CacheEvict(value = "notificationUnread", key = "#userId")
     @Transactional
     public void markAllAsRead(UUID userId) {
         notificationRepository.markAllReadByUserId(userId);

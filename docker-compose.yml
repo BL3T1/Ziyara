@@ -72,7 +72,7 @@ services:
       resources:
         limits:
           cpus: "1.0"
-          memory: 768m
+          memory: 1024m
     logging:
       driver: json-file
       options:
@@ -109,13 +109,12 @@ services:
       # SESSION mode — required: RlsAwareDataSource sets session-level GUCs
       # (app.current_user_id etc.) that must survive for the connection lifetime.
       PGBOUNCER_POOL_MODE: session
-      PGBOUNCER_MAX_CLIENT_CONN: 100
-      # Sized to match HikariCP maximum-pool-size (15). Session mode is 1-client-to-1-server,
-      # so there is no benefit in reserving more server slots than HikariCP can ever open.
-      PGBOUNCER_DEFAULT_POOL_SIZE: 15
-      # Pre-warm: keep 2 server connections open at all times (matches HikariCP minimum-idle).
-      # Eliminates TCP + auth latency on the first request after a quiet period.
-      PGBOUNCER_MIN_POOL_SIZE: 2
+      PGBOUNCER_MAX_CLIENT_CONN: 400
+      # Session mode is 1-client-to-1-server. Sized to cover HikariCP max-pool-size (80)
+      # plus a buffer for pgbouncer admin, health-check, and burst connections.
+      PGBOUNCER_DEFAULT_POOL_SIZE: 90
+      # Pre-warm: keep 10 server connections open (matches HikariCP minimum-idle).
+      PGBOUNCER_MIN_POOL_SIZE: 10
       # Auth — userlist.txt holds only the pgbouncer admin user's SCRAM hash.
       # App users (ziyarah_user etc.) are authenticated dynamically via auth_query:
       # PgBouncer connects to PostgreSQL as AUTH_USER and calls get_auth($1) to
@@ -283,6 +282,11 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       ZIYARA_RATE_LIMIT_LOGIN_REDIS_ENABLED: "true"
+      # Connection pool — sized for the stress load profile (~5000 peak VUs).
+      # Each HikariCP connection = 1 PgBouncer server slot = 1 Postgres connection.
+      # PgBouncer pool_size=90 and postgres max_connections=110 accommodate this.
+      SPRING_DATASOURCE_HIKARI_MAX_POOL_SIZE: "80"
+      SPRING_DATASOURCE_HIKARI_MIN_IDLE: "10"
       # Set ZIYARA_CORS_ALLOWED_ORIGINS in .env to your real domain(s).
       ZIYARA_CORS_ALLOWED_ORIGINS: ${ZIYARA_CORS_ALLOWED_ORIGINS:-}
       # JWT cookie flags: Secure must be false on plain-HTTP (portmode/LAN).
@@ -293,10 +297,9 @@ services:
       # strategies (Bearer header and HttpOnly cookie) work simultaneously.
       JWT_ALSO_RETURN_TOKEN_IN_BODY: ${JWT_ALSO_RETURN_TOKEN_IN_BODY:-true}
     ports:
-      # Default 127.0.0.1 keeps the API off the public internet when running behind
-      # a reverse proxy (NPM or ipmode gateway). Override to 0.0.0.0 only for
-      # direct-access deployments where no proxy sits in front.
-      - "${BACKEND_BIND_IP:-127.0.0.1}:${BACKEND_PORT:-7005}:8080"
+      # Direct debug access — api-nginx (port 7005) should be the normal entry point.
+      # Use this port only for swagger/debugging when the nginx service is not running.
+      - "${BACKEND_BIND_IP:-127.0.0.1}:${BACKEND_DIRECT_PORT:-7008}:8080"
     volumes:
       - media_data:/data/media
     depends_on:
@@ -318,12 +321,48 @@ services:
       resources:
         limits:
           cpus: "2.0"
-          memory: 1024m
+          memory: 1536m
     logging:
       driver: json-file
       options:
         max-size: "20m"
         max-file: "5"
+
+  # =============================================================================
+  # API NGINX — connection-limiting reverse proxy in front of the backend.
+  # Sits on the public-facing port (7005 default) and sheds overloaded requests
+  # with a fast 503 + Retry-After instead of letting them hang until HikariCP
+  # times out (which caused cascading failures under the k6 stress test).
+  # =============================================================================
+  api-nginx:
+    image: nginx:1.28.2-alpine
+    container_name: ziyarah-api-nginx
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_BIND_IP:-127.0.0.1}:${BACKEND_PORT:-7005}:80"
+    volumes:
+      - ./infra/nginx/api-nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:80/api/v1/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 64m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
 
   # =============================================================================
   # FRONTEND — single bundle (profile: full). Exposed via NPM on internal network.
@@ -918,6 +957,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/rules:/etc/prometheus/rules:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - prometheus_data:/prometheus
     ports:
       - "127.0.0.1:${PROMETHEUS_PORT:-7083}:9090"

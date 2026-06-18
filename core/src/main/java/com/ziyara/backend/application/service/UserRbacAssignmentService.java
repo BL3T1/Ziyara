@@ -6,6 +6,7 @@ import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.domain.repository.UserRoleAssignmentRepository;
 import com.ziyara.backend.application.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +20,7 @@ public class UserRbacAssignmentService {
     private final RoleRepository roleRepository;
     private final UserRoleAssignmentRepository userRoleAssignmentRepository;
 
+    @CacheEvict(value = "userNavigation", key = "#targetUserId")
     @Transactional
     public void assignOrClearPrimaryRbacRole(UUID targetUserId, UUID roleIdOrNull) {
         userRepository.findById(targetUserId)

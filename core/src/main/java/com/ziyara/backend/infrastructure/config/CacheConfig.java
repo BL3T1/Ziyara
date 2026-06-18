@@ -89,6 +89,11 @@ public class CacheConfig {
                     .withCacheConfiguration("dashboardBootstrap",      jsonCache(Duration.ofSeconds(30)))
                     .withCacheConfiguration("dashboardLive",           jsonCache(Duration.ofSeconds(15)))
                     .withCacheConfiguration("serviceDetail",           jsonCache(Duration.ofSeconds(60)))
+                    // Hot authenticated-read caches — eliminates per-request DB hits on the
+                    // most-called endpoints under concurrent load.
+                    .withCacheConfiguration("userProfile",             jsonCache(Duration.ofSeconds(60)))
+                    .withCacheConfiguration("userNavigation",          jsonCache(Duration.ofMinutes(5)))
+                    .withCacheConfiguration("notificationUnread",      jsonCache(Duration.ofSeconds(30)))
                     .transactionAware()
                     .build();
         }
@@ -97,7 +102,8 @@ public class CacheConfig {
                 "rolesCatalogue", "systemSettings", "exchangeRates", "exchangeRatesList",
                 "dashboardKpis", "dashboardActivity", "dashboardServiceHealth",
                 "dashboardCommission", "dashboardPayouts",
-                "dashboardBootstrap", "dashboardLive", "serviceDetail");
+                "dashboardBootstrap", "dashboardLive", "serviceDetail",
+                "userProfile", "userNavigation", "notificationUnread");
     }
 
     /**

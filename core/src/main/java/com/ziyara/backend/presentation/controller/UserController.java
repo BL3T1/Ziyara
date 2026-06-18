@@ -155,9 +155,11 @@ public class UserController {
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
         }
-        return userQueryHandler.findById(userId)
-                .map(u -> ResponseEntity.ok(ApiResponse.success(u)))
-                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("User not found")));
+        UserResponse user = userQueryHandler.findByIdCached(userId);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("User not found"));
+        }
+        return ResponseEntity.ok(ApiResponse.success(user));
     }
 
     @PatchMapping("/me")

@@ -13,11 +13,12 @@ spring:
     password: ${POSTGRES_PASSWORD:ziyarah_password}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAX_POOL_SIZE:15}
-      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MIN_IDLE:2}
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAX_POOL_SIZE:80}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MIN_IDLE:10}
       idle-timeout: 300000
-      connection-timeout: 8000
+      connection-timeout: 20000
       max-lifetime: 1800000
+      keepalive-time: 60000
 
   # ── JPA ─────────────────────────────────────────────────────────────────────
   jpa:
@@ -155,6 +156,11 @@ springdoc:
 
 # ── Application ───────────────────────────────────────────────────────────────────
 app:
+  # Bucket4j distributed rate limiting (Layer 1). Requires Redis.
+  # Set APP_RATE_LIMIT_ENABLED=false only for local dev without Redis.
+  rate-limit:
+    enabled: ${APP_RATE_LIMIT_ENABLED:true}
+
   payment:
     gateway:
       # Cash-first mode: bypass all gateways, accept only CASH (+ optional BANK_TRANSFER).

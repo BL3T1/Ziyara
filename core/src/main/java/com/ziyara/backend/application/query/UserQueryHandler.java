@@ -11,6 +11,7 @@ import org.jooq.DSLContext;
 import org.jooq.Field;
 import org.jooq.Record;
 import org.jooq.impl.DSL;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -96,6 +97,11 @@ public class UserQueryHandler {
                     "User not found for email: " + email);
         }
         return id;
+    }
+
+    @Cacheable(value = "userProfile", key = "#id")
+    public UserResponse findByIdCached(UUID id) {
+        return findById(id).orElse(null);
     }
 
     public Optional<UserResponse> findById(UUID id) {
