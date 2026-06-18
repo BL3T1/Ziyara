@@ -518,36 +518,49 @@ export function setup() {
     }
   }
 
-  // Active services (preferred) — fall back to any status on a fresh DB
-  const svcActiveRes = http.get(`${BASE_URL}/services?page=0&size=100&status=ACTIVE`, {
-    headers: bearer(adminToken),
-    tags: { name: 'setup:services-active' },
-  });
-  let serviceIds = svcActiveRes.status === 200
-    ? (svcActiveRes.json('data.content') || []).map((s) => s.id).filter(Boolean)
-    : [];
+  // Collect ALL service IDs by paginating through every page (cap: 10 pages = 1000 services).
+  // A single page=0 fetch means every scenario always hits the same one service —
+  // pagination here ensures load is spread across the full catalogue.
+  function fetchAllServiceIds(statusFilter) {
+    var ids = [];
+    for (var pg = 0; pg < 10; pg++) {
+      if (pg > 0) sleep(0.3);
+      var url = BASE_URL + '/services?page=' + pg + '&size=100' + (statusFilter ? '&status=' + statusFilter : '');
+      var res = http.get(url, { headers: bearer(adminToken), tags: { name: 'setup:services' } });
+      if (res.status !== 200) break;
+      var content = res.json('data.content') || [];
+      var pageIds = content.map(function(s) { return s.id; }).filter(Boolean);
+      ids = ids.concat(pageIds);
+      var totalPages = res.json('data.totalPages') || 1;
+      if (pg + 1 >= totalPages || pageIds.length < 100) break;
+    }
+    return ids;
+  }
+
+  var serviceIds = fetchAllServiceIds('ACTIVE');
 
   if (serviceIds.length === 0) {
-    const fallRes = http.get(`${BASE_URL}/services?page=0&size=100`, {
-      headers: bearer(adminToken),
-      tags: { name: 'setup:services-fallback' },
-    });
-    if (fallRes.status === 200) {
-      serviceIds = (fallRes.json('data.content') || []).map((s) => s.id).filter(Boolean);
-    }
+    serviceIds = fetchAllServiceIds(null);
     if (serviceIds.length > 0) {
-      console.log(`[setup] No ACTIVE services — using ${serviceIds.length} service(s) of any status`);
+      console.log('[setup] No ACTIVE services — using ' + serviceIds.length + ' service(s) of any status');
     }
   }
 
-  // Provider IDs
-  const provRes = http.get(`${BASE_URL}/providers?page=0&size=50`, {
-    headers: bearer(adminToken),
-    tags: { name: 'setup:providers' },
-  });
-  const providerIds = provRes.status === 200
-    ? (provRes.json('data.content') || []).map((p) => p.id).filter(Boolean)
-    : [];
+  // Provider IDs — paginate to collect all providers, not just the first page
+  var providerIds = [];
+  for (var ppg = 0; ppg < 5; ppg++) {
+    if (ppg > 0) sleep(0.2);
+    var provRes = http.get(BASE_URL + '/providers?page=' + ppg + '&size=100', {
+      headers: bearer(adminToken),
+      tags: { name: 'setup:providers' },
+    });
+    if (provRes.status !== 200) break;
+    var provContent = provRes.json('data.content') || [];
+    var provPageIds = provContent.map(function(p) { return p.id; }).filter(Boolean);
+    providerIds = providerIds.concat(provPageIds);
+    var provTotalPages = provRes.json('data.totalPages') || 1;
+    if (ppg + 1 >= provTotalPages || provPageIds.length < 100) break;
+  }
 
   // Existing booking IDs (for read scenarios that need real IDs)
   const bkgRes = http.get(`${BASE_URL}/bookings/admin?page=0&size=50`, {
