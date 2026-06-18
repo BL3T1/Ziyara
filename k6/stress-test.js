@@ -415,10 +415,10 @@ export const options = {
     // Custom trend thresholds
     'booking_create_ms':  ['p(95)<2500'],
     'auth_login_ms':      ['p(95)<800'],
-    'dashboard_load_ms':  ['p(95)<2000'],
-    'mobile_session_ms':  ['p(95)<1200'],
-    'portal_req_ms':      ['p(95)<1500'],
-    'landing_req_ms':     ['p(95)<600'],
+    'dashboard_load_ms':  ['p(95)<500'],   // bootstrap call only (not whole session)
+    'mobile_session_ms':  ['p(95)<15000'], // whole session incl. sleeps — realistic budget
+    'portal_req_ms':      ['p(95)<500'],   // portal:dashboard call only (not whole session)
+    'landing_req_ms':     ['p(95)<300'],   // service-detail call only (not whole session)
     // Error budget – may be exceeded under extreme load, that's acceptable
     'server_errors':      ['count<50'],
   },
@@ -430,7 +430,8 @@ export const options = {
 
 const CONTENT_SLUGS   = ['about', 'terms', 'privacy', 'faq', 'contact', 'help', 'cookies', 'how-it-works', 'careers', 'blog'];
 const SEARCH_TERMS    = ['hotel', 'resort', 'spa', 'restaurant', 'tour', 'chalet', 'villa', 'apartment', 'beach', 'mountain', 'pool', 'suite', 'boutique', 'camp', 'lodge', 'hostel', 'retreat', 'safari'];
-const CURRENCIES      = ['USD', 'EUR', 'GBP', 'SAR', 'AED', 'TRY', 'EGP', 'JOD'];
+// Only currencies with exchange rates seeded in the DB — others return 404
+const CURRENCIES      = ['USD', 'EUR', 'SAR'];
 const PAYMENT_METHODS = ['CREDIT_CARD', 'DEBIT_CARD', 'CASH'];
 const SERVICE_TYPES   = ['HOTEL', 'RESORT', 'RESTAURANT', 'TAXI', 'TRIP'];
 
@@ -912,7 +913,6 @@ export function mobileApp(data) {
 
 export function landingPages(data) {
   const BASE_URL = _VU_URLS[__VU % _VU_URLS.length];
-  const t0 = Date.now();
 
   group('landing', () => {
     // Static content page (about, terms, FAQ…)
@@ -939,6 +939,7 @@ export function landingPages(data) {
         { tags: { name: 'landing:currency-convert' } },
       ),
       'landing:currency-convert',
+      [200, 404], // 404 is valid — not all rate pairs are guaranteed to exist
     );
     sleep(rnd(0.1, 0.4));
 
@@ -954,13 +955,15 @@ export function landingPages(data) {
       sleep(rnd(0.3, 0.8));
     }
 
-    // Service detail page
+    // Service detail page — landing_req_ms tracks this as the key landing-page latency
     const svcId = pick(data.serviceIds);
     if (svcId) {
+      const _t0 = Date.now();
       assess(
         http.get(`${BASE_URL}/services/${svcId}`, { tags: { name: 'landing:service-detail' } }),
         'landing:service-detail',
       );
+      landingLatency.add(Date.now() - _t0);
       sleep(rnd(0.5, 1.5));
 
       // Images gallery
@@ -1019,7 +1022,6 @@ export function landingPages(data) {
     }
   });
 
-  landingLatency.add(Date.now() - t0);
   landingHits.add(1);
   sleep(rnd(0.5, 2.0));
 }
@@ -1233,14 +1235,16 @@ export function adminDashboard(data) {
   const token = poolToken(data.tokenPool);
   if (!token) { sleep(2); return; }
   const h  = bearer(token);
-  const t0 = Date.now();
 
   group('admin_dashboard', () => {
     // Bootstrap — loads all widgets at once on initial page load (heaviest call)
+    // dashboard_load_ms measures only this call so the threshold reflects actual load time
+    const _t0 = Date.now();
     assess(
       http.get(`${BASE_URL}/dashboard/bootstrap`, { headers: h, tags: { name: 'dash:bootstrap' } }),
       'dash:bootstrap',
     );
+    dashboardLatency.add(Date.now() - _t0);
     sleep(rnd(1.5, 3.0)); // admin reads the dashboard before clicking anything
 
     // KPI cards — re-fetched on manual refresh
@@ -1326,7 +1330,6 @@ export function adminDashboard(data) {
     adminDashHits.add(1);
   });
 
-  dashboardLatency.add(Date.now() - t0);
   sleep(rnd(3.0, 8.0)); // admins read charts for a while before refreshing
 }
 
@@ -1595,12 +1598,13 @@ export function providerPortal(data) {
   const token = poolToken(pool);
   if (!token) { sleep(2); return; }
   const h  = bearer(token);
-  const t0 = Date.now();
 
   group('provider_portal', () => {
-    // Portal dashboard (requires PROVIDER_PORTAL permission)
+    // Portal dashboard — portal_req_ms tracks this as the key portal latency
+    const _t0 = Date.now();
     const dashRes = http.get(`${BASE_URL}/portal/dashboard`, { headers: h, tags: { name: 'portal:dashboard' } });
     assess(dashRes, 'portal:dashboard', [200, 403]);
+    portalLatency.add(Date.now() - _t0);
     sleep(rnd(0.8, 2.0));
 
     if (dashRes.status !== 200) {
@@ -1712,7 +1716,6 @@ export function providerPortal(data) {
     portalHits.add(1);
   });
 
-  portalLatency.add(Date.now() - t0);
   sleep(rnd(1.5, 4.5));
 }
 
