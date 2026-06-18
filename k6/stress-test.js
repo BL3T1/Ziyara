@@ -34,6 +34,14 @@
  *
  * Without PROVIDER_EMAIL the portal scenario falls back to admin KPI endpoints.
  *
+ * Multi-port (split load across nginx proxy + direct backend):
+ *   k6 run --env K6_BASE_URLS="http://localhost:7005/api/v1,http://localhost:7008/api/v1" \
+ *          k6/stress-test.js
+ *
+ * Extra accounts for token pool diversity:
+ *   k6 run --env K6_EXTRA_ACCOUNTS="email1@x.com:Pass@1,email2@x.com:Pass@2" \
+ *          k6/stress-test.js
+ *
  * VU peaks per profile:
  *   smoke:   18 total (2 per scenario)
  *   load:   ~360 total
@@ -69,10 +77,21 @@ const EXTRA_ACCOUNTS = _extraRaw
       return { email: s.slice(0, idx).trim(), pass: s.slice(idx + 1).trim() };
     }).filter((a) => a.email && a.pass)
   : [
-      { email: 'staff1@ziyarah.com',    pass: 'Staff@1234' },
-      { email: 'staff2@ziyarah.com',    pass: 'Staff@1234' },
-      { email: 'manager1@ziyarah.com',  pass: 'Manager@1234' },
+      // Seeded accounts confirmed in the DB — all use Admin@1234
+      { email: 'admin@ziyarah.com',       pass: 'Admin@1234' },
+      { email: 'developer@ziyarah.com',   pass: 'Admin@1234' },
+      // Staff accounts (add more via K6_EXTRA_ACCOUNTS env var if seeded)
+      { email: 'financemanager@ziyarah.com', pass: 'Staff@1234' },
+      { email: 'salesmanager@ziyarah.com',   pass: 'Staff@1234' },
+      { email: 'ccmanager@ziyarah.com',      pass: 'Staff@1234' },
     ];
+
+// Multi-port support: split load across multiple backend URLs.
+// Usage: K6_BASE_URLS="http://localhost:7005/api/v1,http://localhost:7008/api/v1"
+// Defaults to BASE_URL (single-URL mode) when not set.
+// Each VU is pinned to one URL for the whole test (round-robin by VU number).
+const _VU_URLS = (__ENV.K6_BASE_URLS || BASE_URL)
+  .split(',').map(function(s) { return s.trim(); }).filter(Boolean);
 
 // ── Custom metrics ─────────────────────────────────────────────────────────────
 
@@ -518,9 +537,23 @@ export function setup() {
     }
   }
 
-  // Collect ALL service IDs by paginating through every page (cap: 10 pages = 1000 services).
-  // A single page=0 fetch means every scenario always hits the same one service —
-  // pagination here ensures load is spread across the full catalogue.
+  // ── Providers (fetched first — needed for service seeding) ──────────────────
+  var providerIds = [];
+  for (var ppg = 0; ppg < 5; ppg++) {
+    if (ppg > 0) sleep(0.2);
+    var provRes = http.get(BASE_URL + '/providers?page=' + ppg + '&size=100', {
+      headers: bearer(adminToken),
+      tags: { name: 'setup:providers' },
+    });
+    if (provRes.status !== 200) break;
+    var provContent = provRes.json('data.content') || [];
+    var provPageIds = provContent.map(function(p) { return p.id; }).filter(Boolean);
+    providerIds = providerIds.concat(provPageIds);
+    var provTotalPages = provRes.json('data.totalPages') || 1;
+    if (ppg + 1 >= provTotalPages || provPageIds.length < 100) break;
+  }
+
+  // ── Services — paginate all pages ───────────────────────────────────────────
   function fetchAllServiceIds(statusFilter) {
     var ids = [];
     for (var pg = 0; pg < 10; pg++) {
@@ -538,7 +571,6 @@ export function setup() {
   }
 
   var serviceIds = fetchAllServiceIds('ACTIVE');
-
   if (serviceIds.length === 0) {
     serviceIds = fetchAllServiceIds(null);
     if (serviceIds.length > 0) {
@@ -546,20 +578,45 @@ export function setup() {
     }
   }
 
-  // Provider IDs — paginate to collect all providers, not just the first page
-  var providerIds = [];
-  for (var ppg = 0; ppg < 5; ppg++) {
-    if (ppg > 0) sleep(0.2);
-    var provRes = http.get(BASE_URL + '/providers?page=' + ppg + '&size=100', {
-      headers: bearer(adminToken),
-      tags: { name: 'setup:providers' },
-    });
-    if (provRes.status !== 200) break;
-    var provContent = provRes.json('data.content') || [];
-    var provPageIds = provContent.map(function(p) { return p.id; }).filter(Boolean);
-    providerIds = providerIds.concat(provPageIds);
-    var provTotalPages = provRes.json('data.totalPages') || 1;
-    if (ppg + 1 >= provTotalPages || provPageIds.length < 100) break;
+  // ── Auto-seed services when the DB is empty ──────────────────────────────────
+  // Creates 4 services of each type (HOTEL, RESORT, RESTAURANT, TAXI, TRIP) and
+  // approves them so every scenario has real IDs to work with.
+  if (serviceIds.length === 0 && providerIds.length > 0) {
+    console.log('[setup] No services found — auto-seeding 20 test services...');
+    var seedProviderId = providerIds[0];
+    var seedTypes = ['HOTEL', 'RESORT', 'RESTAURANT', 'TAXI', 'TRIP'];
+    var seededIds = [];
+    for (var ti = 0; ti < seedTypes.length; ti++) {
+      for (var si = 1; si <= 4; si++) {
+        sleep(0.3);
+        var createRes = http.post(
+          BASE_URL + '/services',
+          JSON.stringify({
+            name:        seedTypes[ti] + ' Test ' + si,
+            type:        seedTypes[ti],
+            providerId:  seedProviderId,
+            description: 'Auto-seeded service for load testing',
+            address:     si + ' Load Test Street',
+            city:        'Dubai',
+            country:     'AE',
+            basePrice:   50 + si * 25,
+            currency:    'USD',
+          }),
+          { headers: bearer(adminToken), tags: { name: 'setup:seed-service' } },
+        );
+        if (createRes.status === 200 || createRes.status === 201) {
+          var newId = createRes.json('data.id');
+          if (newId) {
+            sleep(0.2);
+            http.post(BASE_URL + '/services/' + newId + '/approve',
+              null, { headers: bearer(adminToken), tags: { name: 'setup:seed-approve' } });
+            seededIds.push(newId);
+          }
+        }
+      }
+    }
+    serviceIds = seededIds;
+    console.log('[setup] Seeded ' + serviceIds.length + ' services');
   }
 
   // Existing booking IDs (for read scenarios that need real IDs)
@@ -591,15 +648,16 @@ export function setup() {
     `[setup] profile=${PROFILE}  adminTokens=${tokenPool.length}` +
     `  providerTokens=${providerTokenPool.length}` +
     `  services=${serviceIds.length}  providers=${providerIds.length}` +
-    `  bookings=${bookingIds.length}  base=${BASE_URL}`,
+    `  bookings=${bookingIds.length}  urls=${_VU_URLS.length}  base=${BASE_URL}`,
   );
 
-  return { tokenPool, providerTokenPool, serviceIds, providerIds, bookingIds };
+  return { tokenPool, providerTokenPool, serviceIds, providerIds, bookingIds, baseUrls: _VU_URLS };
 }
 
 // ── Scenario: Anonymous web browsing ──────────────────────────────────────────
 
-export function browsing() {
+export function browsing(data) {
+  const BASE_URL = _VU_URLS[__VU % _VU_URLS.length];
   group('browsing', () => {
     // Paginated listing — random page so not all VUs hammer page 0
     const listRes = http.get(
@@ -653,6 +711,7 @@ export function browsing() {
 // ── Scenario: Mobile app session ──────────────────────────────────────────────
 
 export function mobileApp(data) {
+  const BASE_URL = _VU_URLS[__VU % _VU_URLS.length];
   const token = poolToken(data.tokenPool);
   if (!token) { sleep(2); return; }
   const h  = mobileBearer(token);
@@ -826,6 +885,7 @@ export function mobileApp(data) {
 // ── Scenario: Public landing and detail pages ──────────────────────────────────
 
 export function landingPages(data) {
+  const BASE_URL = _VU_URLS[__VU % _VU_URLS.length];
   const t0 = Date.now();
 
   group('landing', () => {
@@ -941,6 +1001,7 @@ export function landingPages(data) {
 // ── Scenario: Authenticated web reads ─────────────────────────────────────────
 
 export function authenticatedReads(data) {
+  const BASE_URL = _VU_URLS[__VU % _VU_URLS.length];
   const token = poolToken(data.tokenPool);
   if (!token) { sleep(2); return; }
   const h = bearer(token);
@@ -1031,6 +1092,7 @@ export function authenticatedReads(data) {
 // ── Scenario: Booking writes (checkout funnel) ─────────────────────────────────
 
 export function bookingWrites(data) {
+  const BASE_URL = _VU_URLS[__VU % _VU_URLS.length];
   const token = poolToken(data.tokenPool);
   if (!token) { sleep(2); return; }
 
@@ -1141,6 +1203,7 @@ export function bookingWrites(data) {
 // ── Scenario: Admin company dashboard ─────────────────────────────────────────
 
 export function adminDashboard(data) {
+  const BASE_URL = _VU_URLS[__VU % _VU_URLS.length];
   const token = poolToken(data.tokenPool);
   if (!token) { sleep(2); return; }
   const h  = bearer(token);
@@ -1244,6 +1307,7 @@ export function adminDashboard(data) {
 // ── Scenario: Admin operational work ──────────────────────────────────────────
 
 export function adminOperations(data) {
+  const BASE_URL = _VU_URLS[__VU % _VU_URLS.length];
   const token = poolToken(data.tokenPool);
   if (!token) { sleep(2); return; }
   const h        = bearer(token);
@@ -1498,6 +1562,7 @@ export function adminOperations(data) {
 // ── Scenario: Provider portal ──────────────────────────────────────────────────
 
 export function providerPortal(data) {
+  const BASE_URL = _VU_URLS[__VU % _VU_URLS.length];
   const pool  = data.providerTokenPool && data.providerTokenPool.length > 0
     ? data.providerTokenPool
     : data.tokenPool;
@@ -1628,6 +1693,7 @@ export function providerPortal(data) {
 // ── Scenario: Auth lifecycle ───────────────────────────────────────────────────
 
 export function authFlow() {
+  const BASE_URL = _VU_URLS[__VU % _VU_URLS.length];
   sleep(rnd(0, 6)); // stagger logins so they don't burst simultaneously
 
   group('auth_flow', () => {
