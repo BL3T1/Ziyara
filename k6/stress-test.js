@@ -86,11 +86,11 @@ const EXTRA_ACCOUNTS = _extraRaw
       { email: 'ccmanager@ziyarah.com',      pass: 'Staff@1234' },
     ];
 
-// Multi-port support: split load across multiple backend URLs.
-// Usage: K6_BASE_URLS="http://localhost:7005/api/v1,http://localhost:7008/api/v1"
-// Defaults to BASE_URL (single-URL mode) when not set.
+// Multi-port: split load across nginx proxy (7005) and direct backend (7008).
+// Override with K6_BASE_URLS env var to use different ports/hosts.
 // Each VU is pinned to one URL for the whole test (round-robin by VU number).
-const _VU_URLS = (__ENV.K6_BASE_URLS || BASE_URL)
+const _DEFAULT_URLS = 'http://localhost:7005/api/v1,http://localhost:7008/api/v1';
+const _VU_URLS = (__ENV.K6_BASE_URLS || _DEFAULT_URLS)
   .split(',').map(function(s) { return s.trim(); }).filter(Boolean);
 
 // ── Custom metrics ─────────────────────────────────────────────────────────────
