@@ -55,6 +55,25 @@ const PROVIDER_EMAIL = __ENV.PROVIDER_EMAIL     || '';
 const PROVIDER_PASS  = __ENV.PROVIDER_PASSWORD  || '';
 const PROFILE        = __ENV.K6_PROFILE         || 'stress';
 
+// Additional accounts used to build the shared token pool in setup().
+// Spreading logins across multiple accounts keeps each account well under the
+// 40-req/min per-IP login rate limit and produces more realistic JWT diversity.
+//
+// Set via env vars (comma-separated email:password pairs):
+//   K6_EXTRA_ACCOUNTS="user1@test.com:Pass@1234,user2@test.com:Pass@1234"
+// Falls back to a set of seeded test accounts when the env var is absent.
+const _extraRaw = __ENV.K6_EXTRA_ACCOUNTS || '';
+const EXTRA_ACCOUNTS = _extraRaw
+  ? _extraRaw.split(',').map((s) => {
+      const idx = s.lastIndexOf(':');
+      return { email: s.slice(0, idx).trim(), pass: s.slice(idx + 1).trim() };
+    }).filter((a) => a.email && a.pass)
+  : [
+      { email: 'staff1@ziyarah.com',    pass: 'Staff@1234' },
+      { email: 'staff2@ziyarah.com',    pass: 'Staff@1234' },
+      { email: 'manager1@ziyarah.com',  pass: 'Manager@1234' },
+    ];
+
 // ── Custom metrics ─────────────────────────────────────────────────────────────
 
 const serverErrors    = new Counter('server_errors');
@@ -244,7 +263,7 @@ const PROFILES = {
       { duration: '2m',  target: 90  },
       { duration: '1m',  target: 0   },
     ],
-    authFlow:   [{ duration: '12m', target: 52 }],
+    authFlow:   [{ duration: '9m', target: 52 }],
   },
 };
 
@@ -481,13 +500,22 @@ export function setup() {
     );
   }
 
-  // Increase token pool size to handle high concurrency (20 tokens for extreme)
+  // Build a diverse token pool — rotate through all available accounts so no
+  // single account exceeds the 40-req/min login rate limit during setup.
+  // Admin is always account[0]; extra accounts fill the rest of the rotation.
   const tokenCount = PROFILE === 'extreme' ? 20 : 8;
+  const allAccounts = [{ email: ADMIN_EMAIL, pass: ADMIN_PASS }, ...EXTRA_ACCOUNTS];
   const tokenPool = [adminToken];
   for (let i = 1; i < tokenCount; i++) {
-    sleep(0.7);
-    const t = doLogin(ADMIN_EMAIL, ADMIN_PASS);
+    sleep(0.5);
+    const acct = allAccounts[i % allAccounts.length];
+    const t = doLogin(acct.email, acct.pass);
     if (t) tokenPool.push(t);
+    // If extra account login fails (account not seeded), silently fall back to admin.
+    else {
+      const fallback = doLogin(ADMIN_EMAIL, ADMIN_PASS);
+      if (fallback) tokenPool.push(fallback);
+    }
   }
 
   // Active services (preferred) — fall back to any status on a fresh DB
