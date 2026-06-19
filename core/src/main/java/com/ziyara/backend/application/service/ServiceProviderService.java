@@ -147,6 +147,7 @@ public class ServiceProviderService {
         provider.setRating(BigDecimal.ZERO);
         provider.setReviewCount(0);
         provider.setGlobalRate(request.getGlobalRate());
+        provider.setExpiryDate(request.getExpiryDate());
 
         if (!canApprove) {
             provider.setStatus(ProviderStatus.PENDING_APPROVAL);
@@ -198,6 +199,7 @@ public class ServiceProviderService {
         if (request.getVerified() != null) provider.setVerified(request.getVerified());
         if (request.getProfitMargin() != null) provider.setCommissionRate(request.getProfitMargin());
         if (request.getGlobalRate() != null) provider.setGlobalRate(request.getGlobalRate());
+        if (request.getExpiryDate() != null) provider.setExpiryDate(request.getExpiryDate());
 
         return mapToResponse(serviceProviderRepository.save(provider));
     }
@@ -341,6 +343,8 @@ public class ServiceProviderService {
                 .approvedAt(provider.getApprovedAt())
                 .subscriptionPlan(sub.map(s -> s.getPlan()).orElse("FREE"))
                 .staffLimit(sub.map(s -> s.getStaffLimit()).orElse(10))
+                .expiryDate(provider.getExpiryDate())
+                .expired(provider.isExpired())
                 .build();
     }
 

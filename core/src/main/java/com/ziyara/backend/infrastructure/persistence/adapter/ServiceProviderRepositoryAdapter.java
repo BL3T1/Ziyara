@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -96,6 +97,13 @@ public class ServiceProviderRepositoryAdapter implements ServiceProviderReposito
     @Override
     public PagedResult<ServiceProvider> findByStatusAndProviderType(ProviderStatus status, String providerType, PageQuery pageQuery) {
         return PageConverter.toPagedResult(serviceProviderJpaRepository.findByStatusAndProviderType(status, providerType, PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
+    }
+
+    @Override
+    public List<ServiceProvider> findByExpiryDate(LocalDate date) {
+        return serviceProviderJpaRepository.findByExpiryDateAndNotDeleted(date).stream()
+                .map(serviceProviderMapper::toDomainEntity)
+                .collect(Collectors.toList());
     }
 
     @Override

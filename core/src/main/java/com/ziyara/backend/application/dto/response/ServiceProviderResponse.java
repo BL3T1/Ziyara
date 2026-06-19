@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -79,4 +80,10 @@ public class ServiceProviderResponse {
 
     @Schema(description = "Official classification (e.g. 3.0 = 3-star hotel). 0 = unset")
     private BigDecimal globalRate;
+
+    @Schema(description = "Account expiry date. Null = no expiry enforced (legacy record).")
+    private LocalDate expiryDate;
+
+    @Schema(description = "True if the account expiry date has passed.")
+    private boolean expired;
 }

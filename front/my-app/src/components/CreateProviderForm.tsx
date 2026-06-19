@@ -42,6 +42,7 @@ export function CreateProviderForm({
   const [managerPhone, setManagerPhone] = useState('')
   const [subscriptionPlan, setSubscriptionPlan] = useState<'FREE' | 'PRO'>('FREE')
   const [globalRate, setGlobalRate] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -68,6 +69,16 @@ export function CreateProviderForm({
         setSubmitting(false)
         return
       }
+      if (!expiryDate) {
+        setError(t('createProviderModal.errExpiryDateRequired'))
+        setSubmitting(false)
+        return
+      }
+      if (new Date(expiryDate) <= new Date()) {
+        setError(t('createProviderModal.errExpiryDateFuture'))
+        setSubmitting(false)
+        return
+      }
       const payload: CreateServiceProviderPayload = {
         name: name.trim(),
         phone: phone.trim(),
@@ -81,6 +92,7 @@ export function CreateProviderForm({
         managerPassword: managerPassword,
         subscriptionPlan,
         globalRate: rateVal,
+        expiryDate,
       }
       if (managerPhone.trim()) payload.managerPhone = managerPhone.trim()
       await providersAPI.create(payload)
@@ -224,6 +236,17 @@ export function CreateProviderForm({
             />
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">★</span>
           </div>
+        </FormField>
+
+        <FormField label={t('createProviderModal.labelExpiryDate')} hint={t('createProviderModal.hintExpiryDate')} required>
+          <input
+            required
+            type="date"
+            value={expiryDate}
+            min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+            onChange={(e) => setExpiryDate(e.target.value)}
+            className="modal-input"
+          />
         </FormField>
 
         <FormField label={t('createProviderModal.labelLogoUrl')} hint="https://… or /media/…">

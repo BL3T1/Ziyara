@@ -64,6 +64,7 @@ export function EditProviderPage() {
   const [globalRate, setGlobalRate] = useState('')
   const [verified, setVerified] = useState(false)
   const [status, setStatus] = useState<ProviderStatusDto>('ACTIVE')
+  const [expiryDate, setExpiryDate] = useState('')
   const [resettingPassword, setResettingPassword] = useState(false)
   const [mediaSubs, setMediaSubs] = useState<ProviderMediaSubmissionDto[]>([])
   const [mediaLoading, setMediaLoading] = useState(false)
@@ -96,6 +97,7 @@ export function EditProviderPage() {
         setVerified(!!p.verified)
         const st = (p.status ?? 'ACTIVE').toUpperCase() as ProviderStatusDto
         setStatus(STATUS_OPTIONS.includes(st) ? st : 'ACTIVE')
+        setExpiryDate(p.expiryDate ?? '')
         setReadOnly({ type: p.type, registrationNumber: p.registrationNumber, rating: p.rating, createdAt: p.createdAt })
       })
       .catch((e) => setError(getApiErrorMessage(e)))
@@ -183,6 +185,14 @@ export function EditProviderPage() {
       if (showGovernance) {
         payload.verified = verified
         payload.status = status
+        if (expiryDate) {
+          if (new Date(expiryDate) <= new Date()) {
+            setError(t('providerEditPage.errExpiryDateFuture'))
+            setSaving(false)
+            return
+          }
+          payload.expiryDate = expiryDate
+        }
       }
       const res = await providersAPI.update(id, payload)
       const p = res.data as ServiceProviderDto
@@ -197,6 +207,7 @@ export function EditProviderPage() {
       setVerified(!!p.verified)
       const st = (p?.status ?? status).toUpperCase() as ProviderStatusDto
       if (STATUS_OPTIONS.includes(st)) setStatus(st)
+      if (p?.expiryDate != null) setExpiryDate(p.expiryDate)
       setSuccess(t('providerEditPage.saved'))
     } catch (err) {
       setError(getApiErrorMessage(err))
@@ -420,6 +431,30 @@ export function EditProviderPage() {
                         <option key={s} value={s}>{t(`providerEditPage.status.${s}`)}</option>
                       ))}
                     </select>
+                  </FormField>
+                  <FormField label={t('providerEditPage.labelExpiryDate')} hint={t('providerEditPage.hintExpiryDate')}>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={expiryDate}
+                        min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                        onChange={(e) => setExpiryDate(e.target.value)}
+                        className="modal-input"
+                      />
+                      {expiryDate && new Date(expiryDate) < new Date() && (
+                        <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                          {t('providersPage.expired')}
+                        </span>
+                      )}
+                      {expiryDate && new Date(expiryDate) >= new Date() && (() => {
+                        const daysLeft = Math.floor((new Date(expiryDate).getTime() - Date.now()) / 86400000)
+                        return daysLeft <= 7 ? (
+                          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                            {t('providersPage.expiringSoon')} ({daysLeft}d)
+                          </span>
+                        ) : null
+                      })()}
+                    </div>
                   </FormField>
                 </div>
                 <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-slate-800 dark:text-slate-200">

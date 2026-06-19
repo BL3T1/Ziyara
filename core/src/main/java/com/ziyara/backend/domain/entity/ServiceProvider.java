@@ -2,6 +2,7 @@ package com.ziyara.backend.domain.entity;
 
 import com.ziyara.backend.domain.enums.ProviderStatus;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -40,6 +41,8 @@ public class ServiceProvider {
     private LocalDateTime approvedAt;
     private Double latitude;
     private Double longitude;
+    /** Date when the partner account access expires. Null = no expiry enforced (legacy records). */
+    private LocalDate expiryDate;
 
     // Constructors
     public ServiceProvider() {
@@ -103,4 +106,16 @@ public class ServiceProvider {
     public void setLatitude(Double latitude) { this.latitude = latitude; }
     public Double getLongitude() { return longitude; }
     public void setLongitude(Double longitude) { this.longitude = longitude; }
+    public LocalDate getExpiryDate() { return expiryDate; }
+    public void setExpiryDate(LocalDate expiryDate) { this.expiryDate = expiryDate; }
+
+    public boolean isExpired() {
+        return expiryDate != null && expiryDate.isBefore(LocalDate.now());
+    }
+
+    public boolean isNearExpiry(int warningDays) {
+        if (expiryDate == null) return false;
+        LocalDate today = LocalDate.now();
+        return !expiryDate.isBefore(today) && !expiryDate.isAfter(today.plusDays(warningDays));
+    }
 }

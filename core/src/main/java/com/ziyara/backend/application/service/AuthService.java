@@ -36,6 +36,11 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 /**
@@ -73,6 +78,12 @@ public class AuthService {
     private final JwtTokenBlocklistService jwtTokenBlocklistService;
     private final PasswordPolicyService passwordPolicyService;
     private final AuthEmailNotificationService authEmailNotificationService;
+    private final LoginAuditService loginAuditService;
+
+    // Non-final: requires @Qualifier which is incompatible with @RequiredArgsConstructor.
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("bcryptExecutor")
+    private Executor bcryptExecutor;
 
     @Audited(action = "USER_LOGIN", entityType = "Auth")
     @Transactional
@@ -88,11 +99,16 @@ public class AuthService {
             throw new AuthenticationException("Account is not active. Status: " + user.getStatus());
         }
 
-        // For any user linked to a provider, enforce the provider must be ACTIVE
-        serviceProviderRepository.findByUserId(user.getId()).ifPresent(sp -> {
+        // Fix 5: capture once — reused below for JWT scope to avoid a duplicate DB round-trip.
+        Optional<ServiceProvider> ownedProvider = serviceProviderRepository.findByUserId(user.getId());
+        ownedProvider.ifPresent(sp -> {
             if (sp.getStatus() != ProviderStatus.ACTIVE) {
                 throw new AuthenticationException(
                         "Partner account is not active yet. Provider status: " + sp.getStatus().name());
+            }
+            if (sp.isExpired()) {
+                throw new AuthenticationException(
+                        "Partner account has expired. Please contact your administrator to renew.");
             }
         });
 
@@ -100,7 +116,8 @@ public class AuthService {
             throw new AuthenticationException("Account is temporarily locked. Please try again later.");
         }
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+        // Fix 4: BCrypt runs on a bounded pool so it cannot pin all virtual-thread carrier threads.
+        if (!verifyPassword(request.getPassword(), user.getPasswordHash())) {
             user.incrementFailedLoginAttempts();
             userRepository.save(user);
             throw new AuthenticationException("Invalid credentials");
@@ -130,12 +147,17 @@ public class AuthService {
                     "or contact your administrator.");
         }
 
-        user.recordSuccessfulLogin(ipAddress);
-        userRepository.save(user);
-
-        UUID providerScope = resolveProviderScopeForJwt(user);
+        // Fix 5: reuse the already-fetched provider Optional instead of calling the repo again.
+        UUID providerScope = ownedProvider.map(ServiceProvider::getId).orElseGet(() ->
+                providerStaffRepository.findByUserId(user.getId())
+                        .map(link -> link.getProviderId())
+                        .orElse(null));
         String accessToken = jwtService.generateAccessToken(user, providerScope);
         String refreshToken = jwtService.generateRefreshToken(user);
+
+        // Fix 2: write lastLoginAt / reset failedLoginAttempts after the JWT is ready — client
+        // gets the token immediately without waiting for the users-table row lock.
+        loginAuditService.recordSuccessfulLogin(user.getId(), ipAddress);
 
         log.info("User authenticated successfully: {}", user.getEmail());
 
@@ -420,6 +442,7 @@ public class AuthService {
 
     /**
      * Primary provider id for portal users (owner via userId link, else first staff assignment).
+     * Used by refreshToken() where no pre-fetched Optional is available.
      */
     private UUID resolveProviderScopeForJwt(User user) {
         Optional<ServiceProvider> owned = serviceProviderRepository.findByUserId(user.getId());
@@ -429,5 +452,23 @@ public class AuthService {
         return providerStaffRepository.findByUserId(user.getId())
                 .map(link -> link.getProviderId())
                 .orElse(null);
+    }
+
+    /**
+     * Runs BCrypt on a bounded executor so it cannot monopolise all JVM carrier threads.
+     * The calling virtual thread suspends (yielding its carrier) until the result is ready.
+     */
+    private boolean verifyPassword(String raw, String hash) {
+        try {
+            return CompletableFuture
+                    .supplyAsync(() -> passwordEncoder.matches(raw, hash), bcryptExecutor)
+                    .get(15, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (ExecutionException | TimeoutException e) {
+            log.warn("BCrypt verification timed out or failed: {}", e.getMessage());
+            return false;
+        }
     }
 }

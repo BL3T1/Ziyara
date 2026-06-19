@@ -476,6 +476,8 @@ export interface ServiceProviderDto {
   subscriptionPlan?: string
   staffLimit?: number
   globalRate?: number
+  expiryDate?: string
+  expired?: boolean
 }
 
 export interface ProviderSubscriptionDto {
@@ -501,6 +503,7 @@ export interface CreateServiceProviderPayload {
   managerPhone?: string
   subscriptionPlan?: 'FREE' | 'PRO'
   globalRate?: number
+  expiryDate?: string
 }
 
 /** PUT /providers/{id} (company staff); partial updates — include fields to change */
@@ -524,6 +527,7 @@ export interface UpdateServiceProviderPayload {
   verified?: boolean
   profitMargin?: number
   globalRate?: number
+  expiryDate?: string
 }
 
 export interface ProviderMediaSubmissionDto {

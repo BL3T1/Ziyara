@@ -41,6 +41,7 @@ public class ServiceProviderMapper {
         provider.setUpdatedAt(entity.getUpdatedAt());
         provider.setApprovedBy(entity.getApprovedBy());
         provider.setApprovedAt(entity.getApprovedAt());
+        provider.setExpiryDate(entity.getExpiryDate());
 
         return provider;
     }
@@ -74,6 +75,7 @@ public class ServiceProviderMapper {
                 .approvedAt(provider.getApprovedAt())
                 .createdAt(provider.getCreatedAt())
                 .updatedAt(provider.getUpdatedAt())
+                .expiryDate(provider.getExpiryDate())
                 .build();
     }
 }

@@ -45,8 +45,18 @@ RUN chmod +x /docker-entrypoint.sh && chown -R ziyarah:ziyarah /app
 # Expose application port
 EXPOSE 8080
 
-# JVM options for containerized environment (overridable)
-ENV JAVA_OPTS="-Xms256m -Xmx560m -XX:MaxMetaspaceSize=160m -XX:+UseContainerSupport -XX:+ExitOnOutOfMemoryError"
+# JVM options for containerized environment (overridable).
+# Memory budget (1024m container limit):
+#   heap 480m + Metaspace 256m + CompressedClassSpace 64m + CodeCache 128m + threads/internal ~96m ≈ 1024m
+ENV JAVA_OPTS="-Xms256m -Xmx480m \
+    -XX:MaxMetaspaceSize=256m \
+    -XX:CompressedClassSpaceSize=64m \
+    -XX:ReservedCodeCacheSize=128m \
+    -XX:G1HeapRegionSize=4m \
+    -XX:+UseContainerSupport \
+    -XX:+ExitOnOutOfMemoryError \
+    -XX:+HeapDumpOnOutOfMemoryError \
+    -XX:HeapDumpPath=/tmp/heapdump.hprof"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \

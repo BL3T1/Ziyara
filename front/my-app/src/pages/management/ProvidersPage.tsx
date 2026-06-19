@@ -304,6 +304,20 @@ export function ProvidersPage() {
                     <Link to={`/management/providers/${p.id}`} className="text-primary hover:underline">
                       {p.name}
                     </Link>
+                    {p.expiryDate && (() => {
+                      const daysLeft = Math.floor((new Date(p.expiryDate).getTime() - Date.now()) / 86400000)
+                      if (daysLeft < 0) return (
+                        <span className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                          {t('providersPage.expired')}
+                        </span>
+                      )
+                      if (daysLeft <= 7) return (
+                        <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                          {t('providersPage.expiringSoon')}
+                        </span>
+                      )
+                      return null
+                    })()}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{p.type ?? t('ui.emDash')}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{statusLabel(t, p.status)}</td>

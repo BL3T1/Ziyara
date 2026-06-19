@@ -4,6 +4,7 @@ import com.ziyara.backend.domain.enums.ProviderStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -102,6 +103,9 @@ public class ServiceProviderJpaEntity {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    @Column(name = "expiry_date")
+    private LocalDate expiryDate;
 
     @PrePersist
     protected void onCreate() {

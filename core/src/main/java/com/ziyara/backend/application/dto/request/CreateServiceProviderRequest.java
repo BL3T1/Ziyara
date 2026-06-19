@@ -4,10 +4,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -70,4 +72,9 @@ public class CreateServiceProviderRequest {
     @DecimalMax(value = "5.0", message = "Global rate must be at most 5.0")
     @Schema(description = "Official classification (e.g. 3.0 = 3-star, 4.5 = 4.5-star). Range 1.0–5.0")
     private BigDecimal globalRate;
+
+    @NotNull(message = "Expiry date is required")
+    @Future(message = "Expiry date must be in the future")
+    @Schema(description = "Date when this partner account expires (YYYY-MM-DD). Must be a future date.")
+    private LocalDate expiryDate;
 }
