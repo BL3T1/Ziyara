@@ -255,6 +255,12 @@ export function DashboardHeader({
 
             {userMenuOpen && (
               <div className="absolute end-0 top-full z-50 mt-1.5 min-w-[10rem] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60 dark:border-white/[0.08] dark:bg-[#0d1219] dark:shadow-black/40">
+                <div className="px-3.5 py-2.5 border-b border-slate-100 dark:border-white/[0.06]">
+                  <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    {user?.name ?? t('common.accountMenu')}
+                  </p>
+                  <p className="truncate text-xs text-slate-400 dark:text-slate-500">{roleLabel}</p>
+                </div>
                 <div className="py-1">
                   <button
                     type="button"

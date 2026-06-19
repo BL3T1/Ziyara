@@ -97,9 +97,9 @@ export function LandingShell() {
                     aria-haspopup="menu"
                   >
                     <span className="lp-user-menu__avatar" aria-hidden>
-                      {(user.name || user.email).charAt(0).toUpperCase()}
+                      {(user.name || '?').charAt(0).toUpperCase()}
                     </span>
-                    <span className="lp-user-menu__name truncate">{user.name || user.email}</span>
+                    <span className="lp-user-menu__name truncate">{user.name || t('common.accountMenu')}</span>
                     <svg className="lp-user-menu__chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
                       <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
