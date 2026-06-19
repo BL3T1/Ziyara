@@ -168,6 +168,7 @@ public class AuthService {
                 .expiresIn(jwtService.getExpirationTime())
                 .userId(user.getId())
                 .email(user.getEmail())
+                .fullName(buildFullName(user))
                 .role(user.getRole())
                 .mustChangePassword(user.isMustChangePassword())
                 .hasPortalAccess(providerScope != null)
@@ -245,6 +246,7 @@ public class AuthService {
                 .expiresIn(jwtService.getExpirationTime())
                 .userId(user.getId())
                 .email(user.getEmail())
+                .fullName(buildFullName(user))
                 .role(user.getRole())
                 .mustChangePassword(user.isMustChangePassword())
                 .hasPortalAccess(providerScope != null)
@@ -435,9 +437,17 @@ public class AuthService {
                 .expiresIn(jwtService.getExpirationTime())
                 .userId(manager.getId())
                 .email(manager.getEmail())
+                .fullName(buildFullName(manager))
                 .role(manager.getRole())
                 .hasPortalAccess(true)
                 .build();
+    }
+
+    private static String buildFullName(User user) {
+        String first = user.getFirstName() != null ? user.getFirstName().trim() : "";
+        String last  = user.getLastName()  != null ? user.getLastName().trim()  : "";
+        String full  = (first + " " + last).trim();
+        return full.isEmpty() ? null : full;
     }
 
     /**

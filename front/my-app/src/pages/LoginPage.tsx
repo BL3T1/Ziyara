@@ -78,7 +78,7 @@ export function LoginPage() {
         setUser({
           id: String(me.id ?? ''),
           email: me.email ?? '',
-          name: [me.firstName, me.lastName].filter(Boolean).join(' ') || me.email || '',
+          name: [me.firstName, me.lastName].filter(Boolean).join(' ') || '',
           role,
           mustChangePassword: false,
         })
@@ -143,7 +143,7 @@ export function LoginPage() {
       setUser({
         id: String(data.userId),
         email: data.email,
-        name: data.fullName || data.email,
+        name: data.fullName || '',
         role,
         mustChangePassword,
       })

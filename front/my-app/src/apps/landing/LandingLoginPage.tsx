@@ -92,7 +92,7 @@ export function LandingLoginPage() {
       setUser({
         id: String(data.userId),
         email: data.email,
-        name: data.fullName || data.email,
+        name: data.fullName || '',
         role,
       })
       const next = safeRedirect(searchParams.get('next'), '/services')
