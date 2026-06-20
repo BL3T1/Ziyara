@@ -229,7 +229,7 @@
       "gridPos": { "h": 6, "w": 8, "x": 16, "y": 7 },
       "targets": [
         {
-          "expr": "sum(jvm_memory_used_bytes{job=\"ziyara-backend\",area=\"nonheap\"}) / sum(jvm_memory_committed_bytes{job=\"ziyara-backend\",area=\"nonheap\"}) * 100",
+          "expr": "sum(jvm_memory_used_bytes{job=\"ziyara-backend\",area=\"nonheap\"}) / sum(jvm_memory_max_bytes{job=\"ziyara-backend\",area=\"nonheap\"} > 0) * 100",
           "legendFormat": "Non-Heap %",
           "refId": "A"
         }
