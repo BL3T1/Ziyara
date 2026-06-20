@@ -48,6 +48,8 @@ public class ServiceProviderService {
 
     private static final BigDecimal DEFAULT_COMMISSION_RATE = new BigDecimal("10");
 
+    private static final String PROVIDER_MANAGER_ROLE_CODE = "PROVIDER_MANAGER";
+
     private final ServiceProviderRepository serviceProviderRepository;
     private final UserRepository userRepository;
     private final ProviderSubscriptionRepository providerSubscriptionRepository;
@@ -57,6 +59,7 @@ public class ServiceProviderService {
     private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
     private final UserPasswordService userPasswordService;
     private final AuthEmailNotificationService authEmailNotificationService;
+    private final UserRbacAssignmentService userRbacAssignmentService;
 
     /**
      * Creates a provider; activation vs pending depends on whether the creator
@@ -127,6 +130,10 @@ public class ServiceProviderService {
             managerUser.setStatus(canApprove ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION);
             userRepository.save(managerUser);
         }
+
+        // Assign PROVIDER_MANAGER portal role so the manager has portal:access + portal:manage permissions.
+        // Without this, sys_user_roles has no row for the user and every portal endpoint returns 403.
+        userRbacAssignmentService.assignPrimaryRoleByCode(managerUser.getId(), PROVIDER_MANAGER_ROLE_CODE);
 
         ServiceProvider provider = new ServiceProvider();
         provider.setUserId(managerUser.getId());
@@ -274,6 +281,9 @@ public class ServiceProviderService {
             userRepository.findById(saved.getUserId()).ifPresent(u -> {
                 u.setStatus(UserStatus.ACTIVE);
                 userRepository.save(u);
+                // Ensure PROVIDER_MANAGER role is assigned (idempotent — covers providers
+                // created before the createProvider fix was applied).
+                userRbacAssignmentService.assignPrimaryRoleByCode(u.getId(), PROVIDER_MANAGER_ROLE_CODE);
                 providerWorkflowEmailService.notifyActivated(saved, u.getEmail());
             });
         }

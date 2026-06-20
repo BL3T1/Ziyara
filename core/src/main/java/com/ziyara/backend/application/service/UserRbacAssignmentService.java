@@ -65,4 +65,15 @@ public class UserRbacAssignmentService {
         }
         userRoleAssignmentRepository.setPrimaryRoleForUser(userId, rbacRoleId);
     }
+
+    /**
+     * Sets primary {@code sys_user_roles} row by looking up a {@code sys_roles.code} value.
+     * No-op if the role code does not exist in the DB (avoids hard dependency on seed data order).
+     * Used for portal roles (e.g. PROVIDER_MANAGER) which have no matching {@code UserRole} enum value.
+     */
+    @Transactional
+    public void assignPrimaryRoleByCode(UUID userId, String roleCode) {
+        roleRepository.findByCode(roleCode)
+                .ifPresent(role -> userRoleAssignmentRepository.setPrimaryRoleForUser(userId, role.getId()));
+    }
 }
