@@ -11,6 +11,7 @@ import com.ziyara.backend.application.query.DashboardQueryHandler;
 import com.ziyara.backend.infrastructure.config.DashboardExecutorConfig;
 import com.ziyara.backend.modules.sys.api.DashboardServiceApi;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -37,6 +38,7 @@ public class DashboardBootstrapService implements DashboardServiceApi {
         this.dashboardExecutor = dashboardExecutor;
     }
 
+    @Cacheable(value = "dashboardBootstrap", key = "#start + ':' + #end + ':' + #activityLimit")
     public DashboardBootstrapResponse load(LocalDate start, LocalDate end, int activityLimit) {
         return loadAsync(start, end, activityLimit).join();
     }
@@ -65,6 +67,7 @@ public class DashboardBootstrapService implements DashboardServiceApi {
                         .build());
     }
 
+    @Cacheable(value = "dashboardLive", key = "#start + ':' + #end + ':' + #activityLimit")
     public DashboardLiveResponse loadLive(LocalDate start, LocalDate end, int activityLimit) {
         return loadLiveAsync(start, end, activityLimit).join();
     }

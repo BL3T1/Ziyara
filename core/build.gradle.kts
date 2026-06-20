@@ -5,6 +5,11 @@ plugins {
 	id("nu.studer.jooq") version "9.0"
 }
 
+// SpringBootAotPlugin is no longer auto-applied by the main Spring Boot plugin (3.4+).
+// Applying it explicitly registers the processAot / processTestAot tasks and wires
+// the generated bean-factory classes into bootJar's classpath automatically.
+apply(plugin = "org.springframework.boot.aot")
+
 group = "com.ziyara"
 version = "1.0.0"
 description = "Demo project for Spring Boot"
@@ -105,8 +110,13 @@ dependencies {
 	implementation("commons-codec:commons-codec:1.17.1")
 	// Optional strength scoring (0–4); disabled when ziyara.password-policy.min-zxcvbn-score is 0.
 	implementation("com.nulab-inc:zxcvbn:1.9.0")
-	// Rate limiting: Bucket4j (in-memory token bucket; drop-in replacement for hand-rolled AOP)
+	// Rate limiting: Bucket4j core + Redis-backed distributed proxy manager (Lettuce)
 	implementation("com.bucket4j:bucket4j-core:8.10.1")
+	implementation("com.bucket4j:bucket4j-redis:8.10.1")
+	// Caffeine bounded cache (used in Bucket4jRateLimitAspect and CacheConfig.localCacheManager).
+	// spring-boot-starter-cache provides CaffeineCacheManager from spring-context-support but
+	// does NOT transitively include the Caffeine library itself — it must be declared explicitly.
+	implementation("com.github.ben-manes.caffeine:caffeine")
 
 	testCompileOnly("org.projectlombok:lombok:1.18.38")
 	testAnnotationProcessor("org.projectlombok:lombok:1.18.38")
@@ -118,6 +128,10 @@ dependencies {
 	testImplementation("org.testcontainers:postgresql:1.19.8")
 	testImplementation("org.testcontainers:kafka:1.19.8")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+	// H2 is only used during AOT build-time processing (processAot forks a JVM with an in-process DB).
+	// It is present in the final jar but never activated in production — no H2 URL is configured there.
+	runtimeOnly("com.h2database:h2")
 }
 
 tasks.withType<Test> {
@@ -213,4 +227,52 @@ tasks.check { dependsOn(tasks.jacocoTestCoverageVerification) }
 
 springBoot {
 	mainClass.set("com.ziyara.backend.ZiyarahApplication")
+}
+
+// ─── AOT (JVM mode) ───────────────────────────────────────────────────────────
+// processAot starts a forked Spring context to discover beans. External services
+// are replaced with in-process stubs so the build succeeds without Docker.
+// Runtime activation: -Dspring.aot.enabled=true is set in Dockerfile JAVA_OPTS.
+tasks.withType<org.springframework.boot.gradle.tasks.aot.ProcessAot>().configureEach {
+	environment(mapOf(
+		// No prod profile — skips PiiEncryptionStartupGuard (@Profile("prod"))
+		"SPRING_PROFILES_ACTIVE"                  to "default",
+		// JwtService @PostConstruct requires a non-blank secret of ≥32 bytes
+		"JWT_SECRET"                              to "aot-build-placeholder-not-used-at-runtime!!",
+		// PiiCryptoService optional key (empty default, but provide a valid base64 for safety)
+		"ZIYARA_PII_ENCRYPTION_KEY_BASE64"        to "dGVzdHRlc3R0ZXN0dGVzdHRlc3R0ZXN0dGVzdHRlc3Q=",
+		// SuperAdminSeeder / DemoDataSeeder need this; ApplicationRunners run after context
+		// refresh, not during processAot, so any non-blank value works
+		"APP_DEMO_PASSWORD"                       to "AotBuild1!",
+		// Replace PostgreSQL/PgBouncer with H2 in-process — no network needed
+		"SPRING_DATASOURCE_URL"                   to "jdbc:h2:mem:aotdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
+		"SPRING_DATASOURCE_DRIVER_CLASS_NAME"     to "org.h2.Driver",
+		"SPRING_DATASOURCE_USERNAME"              to "sa",
+		"SPRING_DATASOURCE_PASSWORD"              to "",
+		"SPRING_JPA_DATABASE_PLATFORM"            to "org.hibernate.dialect.H2Dialect",
+		// Skip Flyway — H2 has no migrations; Hibernate create-drop builds the schema instead
+		"SPRING_FLYWAY_ENABLED"                   to "false",
+		"SPRING_JPA_HIBERNATE_DDL_AUTO"           to "create-drop",
+		// Disable Kafka consumer/producer beans — nothing to connect to in a Docker build layer
+		"ZIYARA_NOTIFICATIONS_KAFKA_ENABLED"      to "false",
+		// Redis connection factory starts lazily enough not to fail, but disable rate-limit
+		// Redis to avoid any eager connection attempt in the auth filter chain
+		"ZIYARA_RATE_LIMIT_LOGIN_REDIS_ENABLED"   to "false",
+		// Bucket4j aspect casts LettuceConnectionFactory → RedisClient in @PostConstruct;
+		// that fails in the H2-backed AOT build context — disable the bean entirely
+		"APP_RATE_LIMIT_ENABLED"                  to "false",
+		// RLS requires PostgreSQL session vars — disable so H2 DataSource is used plainly
+		"ZIYARA_RLS_ENABLED"                      to "false",
+		// Suppress CORS validation that requires at least one allowed origin
+		"ZIYARA_CORS_ALLOW_ALL"                   to "true"
+	))
+}
+
+// Wire AOT processing into the normal bootJar lifecycle.
+// processAot runs before bootJar so the generated bean-factory classes are
+// compiled and included in the fat jar. The runtime flag in JAVA_OPTS
+// (-Dspring.aot.enabled=true) tells Spring to use them instead of rediscovering
+// beans via reflection on every startup.
+tasks.named("bootJar") {
+	dependsOn("processAot")
 }

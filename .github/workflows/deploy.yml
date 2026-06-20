@@ -85,11 +85,47 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ─────────────────────────────────────────────
+  # Deploy — DISABLED — no deploy host yet.
+  # Uncomment when DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY / GHCR_TOKEN
+  # secrets are added in repo Settings → Secrets → Actions,
+  # and DEPLOY_BASE_URL is added under Settings → Variables → Actions.
+  # ─────────────────────────────────────────────
+  #deploy:
+  #  name: Deploy to VPS
+  #  needs: build-push
+  #  runs-on: ubuntu-latest
+  #  timeout-minutes: 15
+  #  environment: ${{ github.event.inputs.environment || 'staging' }}
+  #
+  #  steps:
+  #    - name: Deploy via SSH
+  #      uses: appleboy/ssh-action@v1.0.3
+  #      with:
+  #        host: ${{ secrets.DEPLOY_HOST }}
+  #        username: ${{ secrets.DEPLOY_USER }}
+  #        key: ${{ secrets.DEPLOY_SSH_KEY }}
+  #        port: ${{ secrets.DEPLOY_PORT || 22 }}
+  #        script: |
+  #          set -e
+  #          cd /opt/ziyara
+  #          echo "==> Pulling latest code"
+  #          git pull origin master
+  #          echo "==> Logging in to GHCR"
+  #          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+  #          sed -i '/^BACKEND_IMAGE=/d' .env
+  #          echo "BACKEND_IMAGE=ghcr.io/${{ github.repository }}/backend:${{ needs.build-push.outputs.backend-tag }}" >> .env
+  #          docker compose pull backend
+  #          docker compose --profile ipmode up -d --no-deps --remove-orphans backend
+  #          docker image prune -f
+  #          echo "==> Deploy complete"
+  #          docker compose ps
+
+  # ─────────────────────────────────────────────
   # Smoke test — verify the deployment is live
   # ─────────────────────────────────────────────
   smoke-test:
     name: Post-deploy smoke test
-    needs: build-push
+    needs: build-push  # change to [build-push, deploy] when the deploy job is re-enabled
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: ${{ github.event.inputs.environment || 'staging' }}
@@ -118,26 +154,3 @@ jobs:
             exit 1
           fi
           echo "✓ OpenAPI locked ($STATUS)"
-
-# ──────────────────────────────────────────────────────────────────────────────
-# TODO: add a "deploy" job wired to your hosting provider between build-push and
-# smoke-test. Examples:
-#
-#   SSH + docker compose:
-#     - uses: appleboy/ssh-action@v1
-#       with:
-#         host: ${{ secrets.DEPLOY_HOST }}
-#         username: deploy
-#         key: ${{ secrets.DEPLOY_SSH_KEY }}
-#         script: |
-#           cd /srv/ziyara
-#           echo "BACKEND_IMAGE=ghcr.io/.../backend:${{ needs.build-push.outputs.backend-tag }}" >> .env
-#           docker compose pull backend
-#           docker compose up -d --no-deps backend
-#
-#   ECS:
-#     - uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-#
-#   Fly.io:
-#     - run: flyctl deploy --image ghcr.io/.../backend:${{ needs.build-push.outputs.backend-tag }}
-# ──────────────────────────────────────────────────────────────────────────────

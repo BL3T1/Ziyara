@@ -17,6 +17,7 @@ import com.ziyara.backend.infrastructure.config.DashboardExecutorConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.annotation.Cacheable;
 import com.ziyara.backend.domain.common.PageQuery;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -72,6 +73,7 @@ public class DashboardService {
         this.dashboardExecutor = dashboardExecutor;
     }
 
+    @Cacheable(value = "dashboardKpis", key = "#start + ':' + #end")
     @Transactional(propagation = Propagation.NOT_SUPPORTED, readOnly = true)
     public DashboardKpiResponse getKpis(LocalDate start, LocalDate end) {
         try {
@@ -166,6 +168,7 @@ public class DashboardService {
         }
     }
 
+    @Cacheable(value = "dashboardActivity", key = "#limit")
     @Transactional(readOnly = true)
     public List<ActivityFeedItemResponse> getActivityFeed(int limit) {
         try {

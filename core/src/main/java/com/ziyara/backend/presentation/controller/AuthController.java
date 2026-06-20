@@ -5,6 +5,7 @@ import com.ziyara.backend.application.dto.AuthRequest;
 import com.ziyara.backend.application.dto.AuthResponse;
 import com.ziyara.backend.application.dto.request.*;
 import com.ziyara.backend.application.annotation.RateLimit;
+import com.ziyara.backend.application.exception.RateLimitedException;
 import com.ziyara.backend.application.service.AuthService;
 import com.ziyara.backend.application.service.LoginRateLimitService;
 import com.ziyara.backend.application.service.SecurityAlertService;
@@ -93,8 +94,7 @@ public class AuthController {
     ) {
         String ipAddress = getClientIp(httpRequest);
         if (!loginRateLimitService.allow(ipAddress, "POST:/auth/login")) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(ApiResponse.error("Too many login attempts from this network. Please try again shortly."));
+            throw new RateLimitedException("Too many login attempts from this network. Please try again shortly.");
         }
         try {
             AuthResponse response = authService.authenticate(request, ipAddress);

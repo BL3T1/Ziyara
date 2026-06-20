@@ -9,6 +9,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import org.springframework.scheduling.annotation.Scheduled;
+
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
@@ -29,7 +31,7 @@ public class LoginRateLimitService {
     @Value("${ziyara.rate-limit.login.enabled:true}")
     private boolean enabled;
 
-    @Value("${ziyara.rate-limit.login.redis-enabled:false}")
+    @Value("${ziyara.rate-limit.login.redis-enabled}")
     private boolean redisEnabled;
 
     @Value("${ziyara.rate-limit.login.max-per-minute-per-ip:40}")
@@ -65,29 +67,37 @@ public class LoginRateLimitService {
 
     private boolean allowPostgres(String clientIp, String endpointKey) {
         try {
-            jdbcTemplate.update("DELETE FROM sys_rate_limit_counters WHERE window_end < NOW() - INTERVAL '2 days'");
             Instant windowStart = Instant.now().truncatedTo(ChronoUnit.MINUTES);
             Instant windowEnd = windowStart.plus(1, ChronoUnit.MINUTES);
             String identifier = "ip:" + clientIp;
-            jdbcTemplate.update("""
-                            INSERT INTO sys_rate_limit_counters (id, identifier, identifier_type, endpoint, request_count, window_start, window_end)
-                            VALUES (gen_random_uuid(), ?, 'IP', ?, 1, ?, ?)
-                            ON CONFLICT (identifier, identifier_type, endpoint, window_start)
-                            DO UPDATE SET request_count = sys_rate_limit_counters.request_count + 1
-                            """,
-                    identifier, endpointKey, Timestamp.from(windowStart), Timestamp.from(windowEnd));
+            // Single UPSERT+RETURNING replaces the previous DELETE + INSERT + SELECT (3 round-trips).
             Integer cnt = jdbcTemplate.queryForObject(
                     """
-                            SELECT request_count FROM sys_rate_limit_counters
-                            WHERE identifier = ? AND identifier_type = 'IP' AND endpoint = ? AND window_start = ?
-                            """,
+                    INSERT INTO sys_rate_limit_counters
+                      (id, identifier, identifier_type, endpoint, request_count, window_start, window_end)
+                    VALUES (gen_random_uuid(), ?, 'IP', ?, 1, ?, ?)
+                    ON CONFLICT (identifier, identifier_type, endpoint, window_start)
+                    DO UPDATE SET request_count = sys_rate_limit_counters.request_count + 1
+                    RETURNING request_count
+                    """,
                     Integer.class,
-                    identifier, endpointKey, Timestamp.from(windowStart));
+                    identifier, endpointKey, Timestamp.from(windowStart), Timestamp.from(windowEnd));
             return cnt == null || cnt <= maxPerMinutePerIp;
         } catch (DataAccessException e) {
             // Fail open: older DBs without sys_rate_limit_counters (033) must not block login entirely.
             log.warn("Login rate limit DB check skipped (allowing request): {}", e.getMessage());
             return true;
+        }
+    }
+
+    // Cleanup moved out of the hot path — runs every 10 minutes in the background.
+    @Scheduled(fixedDelay = 600_000)
+    public void cleanupExpiredCounters() {
+        try {
+            jdbcTemplate.update(
+                    "DELETE FROM sys_rate_limit_counters WHERE window_end < NOW() - INTERVAL '2 days'");
+        } catch (DataAccessException e) {
+            log.warn("Rate limit counter cleanup failed: {}", e.getMessage());
         }
     }
 }

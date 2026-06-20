@@ -17,9 +17,12 @@ public class DashboardExecutorConfig {
     @Bean(name = DASHBOARD_EXECUTOR)
     public Executor dashboardExecutor() {
         ThreadPoolTaskExecutor ex = new ThreadPoolTaskExecutor();
-        ex.setCorePoolSize(2);
-        ex.setMaxPoolSize(6);
-        ex.setQueueCapacity(50);
+        // Under stress load 30 VUs × 5 futures = 150 concurrent tasks.
+        // With Redis caching, cached futures complete in ~1ms, so 20 threads clears
+        // the burst quickly. Queue=200 prevents RejectedExecutionException overflow.
+        ex.setCorePoolSize(4);
+        ex.setMaxPoolSize(20);
+        ex.setQueueCapacity(200);
         ex.setThreadNamePrefix("dashboard-");
         ex.initialize();
         return ex;

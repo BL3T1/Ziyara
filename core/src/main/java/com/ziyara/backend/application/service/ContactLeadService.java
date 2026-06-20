@@ -21,8 +21,16 @@ public class ContactLeadService {
     @Transactional
     public void submit(PublicContactRequest request, String clientIp) {
         String email = request.getEmail().trim();
+        String ip = truncateIp(clientIp);
         Instant since = Instant.now().minusSeconds(COOLDOWN_SECONDS);
-        if (repository.countByEmailSince(email, since) > 0) {
+
+        // Prefer the combined email+IP check to block per-device; fall back to email-only
+        // when IP is unavailable (e.g. internal tooling, unit tests with null IP).
+        long recentCount = (ip != null)
+                ? repository.countByEmailAndIpSince(email, ip, since)
+                : repository.countByEmailSince(email, since);
+
+        if (recentCount > 0) {
             throw new RateLimitedException("Please wait before submitting again with the same email.");
         }
         ContactLead lead = new ContactLead();
@@ -30,7 +38,7 @@ public class ContactLeadService {
         lead.setEmail(email);
         lead.setCompany(request.getCompany() != null ? request.getCompany().trim() : null);
         lead.setMessage(request.getMessage().trim());
-        lead.setClientIp(truncateIp(clientIp));
+        lead.setIpAddress(ip);
         lead.setCreatedAt(Instant.now());
         repository.save(lead);
     }
@@ -39,6 +47,6 @@ public class ContactLeadService {
         if (raw == null || raw.isBlank()) {
             return null;
         }
-        return raw.length() > 64 ? raw.substring(0, 64) : raw;
+        return raw.length() > 45 ? raw.substring(0, 45) : raw;
     }
 }

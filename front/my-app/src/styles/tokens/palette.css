@@ -1,0 +1,80 @@
+/*
+ * Raw palette tokens — "Desert Horizon" brand palette.
+ * This file is the single source of truth for raw color values.
+ * Components must NEVER import from here directly; use theme.css semantic tokens instead.
+ *
+ * Tailwind v4: @theme registers these as design tokens so bg-primary-500,
+ * text-primary-500, border-secondary-300, etc. are all available as utilities.
+ */
+@theme {
+  /* ── Primary: Amber Gold ─────────────────────────────────────────────── */
+  --color-primary-50:  #FDF6E8;
+  --color-primary-100: #F8EAC8;
+  --color-primary-200: #F0D09A;
+  --color-primary-300: #E8B870;
+  --color-primary-400: #D9A055;
+  --color-primary-500: #C8893A;
+  --color-primary-600: #B8742C;
+  --color-primary-700: #A35F20;
+  --color-primary-800: #8C4A18;
+  --color-primary-900: #6B3510;
+  --color-primary-950: #3D200A;
+
+  /* ── Secondary: Deep Teal ────────────────────────────────────────────── */
+  --color-secondary-50:  #EAF7FA;
+  --color-secondary-100: #C8EDF4;
+  --color-secondary-200: #90D5E2;
+  --color-secondary-300: #52B8CC;
+  --color-secondary-400: #2B9AAF;
+  --color-secondary-500: #1A7A8F;
+  --color-secondary-600: #176878;
+  --color-secondary-700: #125162;
+  --color-secondary-800: #0D3A48;
+  --color-secondary-900: #07232D;
+  --color-secondary-950: #031318;
+
+  /* ── Accent: Terracotta ──────────────────────────────────────────────── */
+  --color-accent-100: #FAE5E0;
+  --color-accent-300: #E58F80;
+  --color-accent-400: #D9614E;
+  --color-accent-500: #C8432C;
+  --color-accent-600: #B43520;
+  --color-accent-700: #932A12;
+
+  /* ── Neutrals: Warm (slight golden bias) ─────────────────────────────── */
+  --color-warm-50:  #F8F5EE;
+  --color-warm-100: #EDE9E0;
+  --color-warm-200: #D8D2C4;
+  --color-warm-300: #BFB8A8;
+  --color-warm-400: #A09790;
+  --color-warm-500: #8A8070;
+  --color-warm-600: #6B6250;
+  --color-warm-700: #4F4835;
+  --color-warm-800: #38311F;
+  --color-warm-900: #252015;
+  --color-warm-950: #18130C;
+
+  /* ── Data Visualization (Wong's color-blind-safe palette) ────────────── */
+  --color-chart-1: #0072B2;
+  --color-chart-2: #E69F00;
+  --color-chart-3: #009E73;
+  --color-chart-4: #D55E00;
+  --color-chart-5: #56B4E9;
+  --color-chart-6: #66BB6A;
+  --color-chart-7: #CC79A7;
+  --color-chart-8: #F0E442;
+
+  /* ── Semantic status ──────────────────────────────────────────────────── */
+  --color-success-50:  #D6F0E5;
+  --color-success-500: #268A5E;
+  --color-success-700: #1A6647;
+  --color-info-50:     #D0E8F8;
+  --color-info-500:    #1E7DC0;
+  --color-info-700:    #155A8F;
+  --color-warning-50:  #FFF0CC;
+  --color-warning-500: #C87A00;
+  --color-warning-700: #8C5500;
+  --color-danger-50:   #FADDDA;
+  --color-danger-500:  #C0281A;
+  --color-danger-700:  #8C1A0F;
+}

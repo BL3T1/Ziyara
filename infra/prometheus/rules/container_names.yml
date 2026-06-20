@@ -1,0 +1,9 @@
+groups:
+  - name: container_names
+    interval: 30s
+    rules:
+      # Converts the up{job="docker-container-names"} series (value 0 = scrape failed,
+      # which is expected) into a permanent value-1 info metric.
+      # Usage in queries:  * on(container) group_left(name) container_name_info
+      - record: container_name_info
+        expr: 'up{job="docker-container-names"} * 0 + 1'

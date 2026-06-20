@@ -10,7 +10,7 @@ public class ContactLead {
     private String email;
     private String company;
     private String message;
-    private String clientIp;
+    private String ipAddress;
     private Instant createdAt;
 
     public ContactLead() {}
@@ -30,8 +30,8 @@ public class ContactLead {
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
 
-    public String getClientIp() { return clientIp; }
-    public void setClientIp(String clientIp) { this.clientIp = clientIp; }
+    public String getIpAddress() { return ipAddress; }
+    public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

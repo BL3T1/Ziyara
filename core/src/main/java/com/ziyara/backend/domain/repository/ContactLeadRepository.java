@@ -14,5 +14,7 @@ public interface ContactLeadRepository {
 
     long countByEmailSince(String email, Instant since);
 
+    long countByEmailAndIpSince(String email, String ip, Instant since);
+
     void deleteById(UUID id);
 }

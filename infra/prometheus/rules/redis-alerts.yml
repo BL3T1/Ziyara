@@ -1,0 +1,31 @@
+groups:
+  - name: redis
+    rules:
+      # Fire when Redis memory exceeds 80% of its configured maxmemory limit.
+      # With noeviction policy this means OOM errors are approaching — investigate
+      # before Redis starts rejecting writes (which will break login rate-limiting).
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory above 80% on {{ $labels.instance }}"
+          description: >
+            Redis is using {{ $value | humanizePercentage }} of its maxmemory limit.
+            With noeviction policy, writes will start failing when this reaches 100%.
+            Consider increasing maxmemory in docker-compose.yml or investigating
+            key growth (e.g., JWT blocklist not expiring, rate-limit bucket leak).
+
+      # Redis is completely unreachable — JWT blocklist and rate-limiting are down.
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down on {{ $labels.instance }}"
+          description: >
+            The Redis exporter cannot reach Redis. JWT blocklist lookups will fall
+            back to in-memory (safe but local to one pod). Login rate-limiting via
+            Redis is disabled.

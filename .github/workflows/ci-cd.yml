@@ -67,7 +67,41 @@ jobs:
           path: core/build/reports/tests/
 
 # ─────────────────────────────────────────────────────────────────
-# JOB 2 — Frontend: TypeScript build (all 3 surfaces)
+# JOB 2 — Backend integration tests (Testcontainers — Docker required)
+#          Only runs on push (not PRs) to save runner minutes.
+# ─────────────────────────────────────────────────────────────────
+  backend-integration:
+    name: Backend Integration Tests
+    runs-on: ubuntu-latest
+    needs: backend
+    if: github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x core/gradlew
+
+      - name: Run integration tests
+        working-directory: core
+        run: ./gradlew test -PrunDockerTests --no-daemon
+
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-report
+          path: core/build/reports/tests/
+
+# ─────────────────────────────────────────────────────────────────
+# JOB 3 — Frontend: TypeScript build (all 3 surfaces)
 # ─────────────────────────────────────────────────────────────────
   frontend:
     name: Frontend (Node ${{ env.NODE_VERSION }})
@@ -109,7 +143,7 @@ jobs:
           VITE_API_URL: /api/v1
 
 # ─────────────────────────────────────────────────────────────────
-# JOB 3 — Mobile: Flutter + Android release APK
+# JOB 4 — Mobile: Flutter + Android release APK
 # ─────────────────────────────────────────────────────────────────
   mobile:
     name: Mobile (Flutter Android)
@@ -153,35 +187,32 @@ jobs:
           retention-days: 30
 
 # ─────────────────────────────────────────────────────────────────
-# JOB 4 — Deploy: SSH to VPS and restart Docker Compose stack
-#          Runs only on push to master (not on PRs)
+# JOB 5 — Deploy: SSH to VPS (DISABLED — no deploy host yet)
+#          Uncomment when DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY
+#          secrets are added in repo Settings → Secrets → Actions.
 # ─────────────────────────────────────────────────────────────────
-  deploy:
-    name: Deploy to VPS
-    needs: [backend, frontend]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-
-    steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          script: |
-            set -e
-            cd /opt/ziyara
-
-            echo "==> Pulling latest code"
-            git pull origin master
-
-            echo "==> Rebuilding and restarting containers (portmode)"
-            docker compose --profile portmode up -d --build --remove-orphans
-
-            echo "==> Pruning dangling images"
-            docker image prune -f
-
-            echo "==> Deploy complete"
-            docker compose ps
+#  deploy:
+#    name: Deploy to VPS
+#    needs: [backend, frontend]
+#    runs-on: ubuntu-latest
+#    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+#
+#    steps:
+#      - name: Deploy via SSH
+#        uses: appleboy/ssh-action@v1.0.3
+#        with:
+#          host: ${{ secrets.DEPLOY_HOST }}
+#          username: ${{ secrets.DEPLOY_USER }}
+#          key: ${{ secrets.DEPLOY_SSH_KEY }}
+#          port: ${{ secrets.DEPLOY_PORT || 22 }}
+#          script: |
+#            set -e
+#            cd /opt/ziyara
+#            echo "==> Pulling latest code"
+#            git pull origin master
+#            echo "==> Rebuilding and restarting containers"
+#            docker compose --profile portmode up -d --build --remove-orphans
+#            echo "==> Pruning dangling images"
+#            docker image prune -f
+#            echo "==> Deploy complete"
+#            docker compose ps

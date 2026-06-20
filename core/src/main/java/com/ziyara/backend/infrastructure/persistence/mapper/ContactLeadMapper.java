@@ -15,7 +15,7 @@ public class ContactLeadMapper {
         lead.setEmail(entity.getEmail());
         lead.setCompany(entity.getCompany());
         lead.setMessage(entity.getMessage());
-        lead.setClientIp(entity.getClientIp());
+        lead.setIpAddress(entity.getIpAddress());
         lead.setCreatedAt(entity.getCreatedAt());
         return lead;
     }
@@ -28,7 +28,7 @@ public class ContactLeadMapper {
                 .email(lead.getEmail())
                 .company(lead.getCompany())
                 .message(lead.getMessage())
-                .clientIp(lead.getClientIp())
+                .ipAddress(lead.getIpAddress())
                 .createdAt(lead.getCreatedAt())
                 .build();
     }

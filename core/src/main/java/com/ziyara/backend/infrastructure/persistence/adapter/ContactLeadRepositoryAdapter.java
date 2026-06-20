@@ -34,6 +34,11 @@ public class ContactLeadRepositoryAdapter implements ContactLeadRepository {
     }
 
     @Override
+    public long countByEmailAndIpSince(String email, String ip, Instant since) {
+        return jpaRepository.countByEmailIgnoreCaseAndIpAddressAndCreatedAtAfter(email, ip, since);
+    }
+
+    @Override
     public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
     }

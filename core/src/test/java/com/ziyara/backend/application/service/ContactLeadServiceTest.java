@@ -29,7 +29,8 @@ class ContactLeadServiceTest {
 
     @Test
     void submit_persistsWhenUnderRateLimit() {
-        when(repository.countByEmailSince(eq("a@b.com"), any())).thenReturn(0L);
+        // Non-null IP → combined email+IP check is used
+        when(repository.countByEmailAndIpSince(eq("a@b.com"), eq("203.0.113.1"), any())).thenReturn(0L);
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         PublicContactRequest req = PublicContactRequest.builder()
@@ -44,11 +45,28 @@ class ContactLeadServiceTest {
         ArgumentCaptor<ContactLead> cap = ArgumentCaptor.forClass(ContactLead.class);
         verify(repository).save(cap.capture());
         assertThat(cap.getValue().getEmail()).isEqualTo("a@b.com");
-        assertThat(cap.getValue().getClientIp()).isEqualTo("203.0.113.1");
+        assertThat(cap.getValue().getIpAddress()).isEqualTo("203.0.113.1");
     }
 
     @Test
-    void submit_throwsWhenSameEmailWithinCooldown() {
+    void submit_throwsWhenSameEmailAndIpWithinCooldown() {
+        // Non-null IP → combined check returns > 0 → rate limited
+        when(repository.countByEmailAndIpSince(eq("a@b.com"), eq("203.0.113.1"), any())).thenReturn(1L);
+
+        PublicContactRequest req = PublicContactRequest.builder()
+                .name("Alice")
+                .email("a@b.com")
+                .message("Hello there this is long enough")
+                .build();
+
+        assertThatThrownBy(() -> service.submit(req, "203.0.113.1"))
+                .isInstanceOf(RateLimitedException.class)
+                .hasMessageContaining("wait");
+    }
+
+    @Test
+    void submit_fallsBackToEmailOnlyWhenIpIsNull() {
+        // Null IP → falls back to email-only check
         when(repository.countByEmailSince(eq("a@b.com"), any())).thenReturn(1L);
 
         PublicContactRequest req = PublicContactRequest.builder()
