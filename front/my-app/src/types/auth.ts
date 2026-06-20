@@ -50,9 +50,9 @@ export function isCompanyStaffRole(role: Role): boolean {
   return role !== 'provider' && role !== 'user'
 }
 
-/** Provider partner portal (hotels, taxis, etc.). */
+/** Provider partner portal (hotels, taxis, etc.). Super admin may also browse via admin-view mode. */
 export function isProviderPortalRole(role: Role): boolean {
-  return role === 'provider'
+  return role === 'provider' || role === 'super_admin'
 }
 
 /** True if the raw role string is super admin (handles legacy / mismatched casing in storage). */

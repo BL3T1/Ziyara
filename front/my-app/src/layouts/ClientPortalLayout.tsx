@@ -1,14 +1,44 @@
 import { Suspense } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
-import { NavLink } from 'react-router-dom'
+import { Outlet, useLocation, Link, NavLink } from 'react-router-dom'
 import { useLayout } from '../context/LayoutContext'
 import { useLanguage } from '../context/LanguageContext'
+import { useAuth } from '../context/AuthContext'
 import { PORTAL_SIDEBAR_SECTIONS } from '../config/sidebar'
 import type { SidebarItem } from '../config/sidebar'
 import { getPageTitleKeyForPath } from '../config/routes'
 import { Logo } from '../components/Logo'
 import { DashboardHeader, RoutePageFallback } from '../components'
 import { SidebarIcons, type SidebarIconId } from '../components/SidebarIcons'
+import { VITE_COMPANY_APP_URL } from '../config/appSurface'
+
+function AdminModeBanner() {
+  const companyBase = (VITE_COMPANY_APP_URL || '').replace(/\/$/, '')
+  return (
+    <div className="flex items-center justify-between gap-4 bg-amber-500/10 border-b border-amber-400/30 px-4 py-2 text-xs font-medium text-amber-700 dark:bg-amber-500/[0.08] dark:text-amber-300">
+      <span>
+        <span className="mr-1.5 inline-block rounded bg-amber-500/20 px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+          Admin View
+        </span>
+        You are browsing this provider portal as Super Admin. Data is scoped to this provider.
+      </span>
+      {companyBase ? (
+        <a
+          href={`${companyBase}/dashboard`}
+          className="shrink-0 rounded-md bg-amber-600 px-3 py-1 text-white hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-400"
+        >
+          Back to Dashboard
+        </a>
+      ) : (
+        <Link
+          to="/dashboard"
+          className="shrink-0 rounded-md bg-amber-600 px-3 py-1 text-white hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-400"
+        >
+          Back to Dashboard
+        </Link>
+      )}
+    </div>
+  )
+}
 
 const PORTAL_ITEM_ICON: Partial<Record<string, SidebarIconId>> = {
   overview: 'dashboard',
@@ -175,7 +205,9 @@ function ClientPortalLayoutInner() {
   const { pathname } = useLocation()
   const { sidebarCollapsed } = useLayout()
   const { t, locale } = useLanguage()
+  const { user } = useAuth()
   const isRtl = locale === 'ar'
+  const isAdminView = user?.role === 'super_admin'
   const contentPadding = sidebarCollapsed ? 'pl-[3.75rem]' : 'pl-60'
   const contentPaddingRtl = sidebarCollapsed ? 'pr-[3.75rem]' : 'pr-60'
   const pageTitle = t(getPageTitleKeyForPath(pathname))
@@ -186,6 +218,7 @@ function ClientPortalLayoutInner() {
       <div
         className={`flex flex-1 flex-col transition-[padding] duration-200 ${isRtl ? contentPaddingRtl : contentPadding}`}
       >
+        {isAdminView && <AdminModeBanner />}
         <DashboardHeader
           roleLabel={t('role.provider')}
           pageTitle={pageTitle}

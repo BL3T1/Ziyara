@@ -214,8 +214,12 @@ public class ServiceProviderController {
     @PostMapping("/{id}/admin-token")
     @PreAuthorize(PROVIDER_SUBMIT)
     @Operation(summary = "Generate admin access token for provider portal",
-               description = "Issues a JWT for the provider's manager account without password/MFA and without notifying the provider.")
-    public ResponseEntity<ApiResponse<AuthResponse>> getAdminProviderToken(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(authService.generateAdminProviderToken(id)));
+               description = "Issues a provider-scoped JWT for the calling admin without password/MFA. The admin retains their own identity and permissions.")
+    public ResponseEntity<ApiResponse<AuthResponse>> getAdminProviderToken(
+            @PathVariable UUID id, Authentication authentication) {
+        com.ziyara.backend.infrastructure.security.UserPrincipal principal =
+                (com.ziyara.backend.infrastructure.security.UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success(
+                authService.generateAdminProviderToken(id, principal.getId())));
     }
 }
