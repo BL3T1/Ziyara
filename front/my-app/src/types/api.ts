@@ -501,6 +501,7 @@ export interface CreateServiceProviderPayload {
   managerEmail?: string
   managerPassword?: string
   managerPhone?: string
+  managerRole?: string
   subscriptionPlan?: 'FREE' | 'PRO'
   globalRate?: number
   expiryDate?: string

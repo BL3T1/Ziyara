@@ -131,9 +131,9 @@ public class ServiceProviderService {
             userRepository.save(managerUser);
         }
 
-        // Assign PROVIDER_MANAGER portal role so the manager has portal:access + portal:manage permissions.
-        // Without this, sys_user_roles has no row for the user and every portal endpoint returns 403.
-        userRbacAssignmentService.assignPrimaryRoleByCode(managerUser.getId(), PROVIDER_MANAGER_ROLE_CODE);
+        // Assign portal role so the manager has portal:access permissions.
+        String roleCode = resolveManagerRoleCode(request.getManagerRole());
+        userRbacAssignmentService.assignPrimaryRoleByCode(managerUser.getId(), roleCode);
 
         ServiceProvider provider = new ServiceProvider();
         provider.setUserId(managerUser.getId());
@@ -359,7 +359,7 @@ public class ServiceProviderService {
     }
 
     @Transactional
-    public void resetProviderManagerPassword(UUID providerId, UUID actorUserId) {
+    public void resetProviderManagerPassword(UUID providerId, String newPassword, UUID actorUserId) {
         ServiceProvider provider = serviceProviderRepository.findById(providerId)
                 .orElseThrow(() -> new IllegalArgumentException("Service provider not found"));
         if (provider.getUserId() == null) {
@@ -367,20 +367,23 @@ public class ServiceProviderService {
         }
         User managerUser = userRepository.findById(provider.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("Provider manager user not found"));
-        String tempPassword = generateTempPassword();
-        userPasswordService.resetPassword(managerUser.getId(), tempPassword);
-        authEmailNotificationService.sendTempPasswordReset(managerUser.getEmail(), tempPassword);
+        userPasswordService.resetPassword(managerUser.getId(), newPassword);
         auditLogService.logAction("PROVIDER_PASSWORD_RESET", "ServiceProvider", providerId.toString(), actorUserId,
                 null, "manager=" + managerUser.getEmail(), null, null);
         log.info("Password reset for provider manager {} by actor {}", managerUser.getEmail(), actorUserId);
     }
 
-    private static String generateTempPassword() {
-        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#";
-        java.security.SecureRandom rng = new java.security.SecureRandom();
-        StringBuilder sb = new StringBuilder(12);
-        for (int i = 0; i < 12; i++) sb.append(chars.charAt(rng.nextInt(chars.length())));
-        return sb.toString();
+    private static final java.util.Set<String> ALLOWED_MANAGER_ROLES = java.util.Set.of(
+            "PROVIDER_MANAGER", "PROVIDER_FINANCE", "PROVIDER_STAFF", "TAXI_OPERATOR");
+
+    private static String resolveManagerRoleCode(String requested) {
+        if (requested == null || requested.isBlank()) return PROVIDER_MANAGER_ROLE_CODE;
+        String code = requested.trim().toUpperCase();
+        if (!ALLOWED_MANAGER_ROLES.contains(code)) {
+            throw new IllegalArgumentException("Invalid manager role: " + requested +
+                    ". Allowed: " + ALLOWED_MANAGER_ROLES);
+        }
+        return code;
     }
 
     private void ensureSubscription(UUID providerId, String requestedPlan, Integer requestedLimit) {
