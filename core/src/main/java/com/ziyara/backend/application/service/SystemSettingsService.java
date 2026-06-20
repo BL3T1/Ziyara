@@ -5,11 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import com.ziyara.backend.application.annotation.Audited;
 import com.ziyara.backend.application.dto.request.UpdateSystemSettingsRequest;
 import com.ziyara.backend.application.dto.response.SystemSettingsResponse;
-import com.ziyara.backend.infrastructure.persistence.entity.SystemSettingJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.repository.SystemSettingJpaRepository;
+import com.ziyara.backend.domain.entity.SystemSetting;
+import com.ziyara.backend.domain.repository.SystemSettingRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,22 +26,27 @@ public class SystemSettingsService {
     public static final String KEY_COMPANY_DISPLAY_NAME = "company.display_name";
     public static final String KEY_DEFAULT_CURRENCY = "platform.default_currency";
     public static final String KEY_MAINTENANCE_MODE = "platform.maintenance_mode";
+    public static final String KEY_PROVIDER_MAINTENANCE_MODE = "platform.provider_maintenance_mode";
 
     private static final String DEFAULT_COMPANY = "Ziyara";
     private static final String DEFAULT_CURRENCY = "USD";
 
-    private final SystemSettingJpaRepository repository;
+    private final SystemSettingRepository repository;
     private final ObjectMapper objectMapper;
 
+    @Cacheable("systemSettings")
     @Transactional(readOnly = true)
     public SystemSettingsResponse getSettings() {
         return SystemSettingsResponse.builder()
                 .companyDisplayName(readString(KEY_COMPANY_DISPLAY_NAME, DEFAULT_COMPANY))
                 .defaultCurrency(readString(KEY_DEFAULT_CURRENCY, DEFAULT_CURRENCY).toUpperCase())
                 .maintenanceMode(readBoolean(KEY_MAINTENANCE_MODE))
+                .providerMaintenanceMode(readBoolean(KEY_PROVIDER_MAINTENANCE_MODE))
                 .build();
     }
 
+    @Audited(action = "SETTINGS_UPDATE", entityType = "SystemSettings")
+    @CacheEvict(value = "systemSettings", allEntries = true)
     @Transactional
     public SystemSettingsResponse update(UpdateSystemSettingsRequest request, UUID updatedBy) {
         Instant now = Instant.now();
@@ -51,6 +59,9 @@ public class SystemSettingsService {
         if (request.getMaintenanceMode() != null) {
             upsert(KEY_MAINTENANCE_MODE, BooleanNode.valueOf(request.getMaintenanceMode()), updatedBy, now);
         }
+        if (request.getProviderMaintenanceMode() != null) {
+            upsert(KEY_PROVIDER_MAINTENANCE_MODE, BooleanNode.valueOf(request.getProviderMaintenanceMode()), updatedBy, now);
+        }
         return getSettings();
     }
 
@@ -58,24 +69,28 @@ public class SystemSettingsService {
         ObjectNode wrapper = objectMapper.createObjectNode();
         wrapper.set("v", value);
         String json = wrapper.toString();
-        SystemSettingJpaEntity row = repository.findBySettingKey(key)
-                .orElse(SystemSettingJpaEntity.builder().settingKey(key).build());
-        row.setValueJson(json);
-        row.setUpdatedAt(now);
-        row.setUpdatedBy(updatedBy);
-        repository.save(row);
+        SystemSetting setting = repository.findByKey(key)
+                .orElseGet(() -> {
+                    SystemSetting s = new SystemSetting();
+                    s.setSettingKey(key);
+                    return s;
+                });
+        setting.setValueJson(json);
+        setting.setUpdatedAt(now);
+        setting.setUpdatedBy(updatedBy);
+        repository.save(setting);
     }
 
     private String readString(String key, String defaultValue) {
-        return repository.findBySettingKey(key)
-                .map(SystemSettingJpaEntity::getValueJson)
+        return repository.findByKey(key)
+                .map(SystemSetting::getValueJson)
                 .map(json -> parseVAsString(json, defaultValue))
                 .orElse(defaultValue);
     }
 
     private boolean readBoolean(String key) {
-        return repository.findBySettingKey(key)
-                .map(SystemSettingJpaEntity::getValueJson)
+        return repository.findByKey(key)
+                .map(SystemSetting::getValueJson)
                 .map(this::parseVAsBoolean)
                 .orElse(false);
     }

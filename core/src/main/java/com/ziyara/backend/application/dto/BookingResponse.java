@@ -1,6 +1,7 @@
 package com.ziyara.backend.application.dto;
 
 import com.ziyara.backend.domain.enums.BookingStatus;
+import com.ziyara.backend.domain.enums.PaymentMethod;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -88,7 +89,16 @@ public class BookingResponse {
     
     @Schema(description = "Cancellation reason")
     private String cancellationReason;
-    
+
+    @Schema(description = "Rejection reason (provider-supplied)")
+    private String rejectionReason;
+
+    @Schema(description = "Delay reason")
+    private String delayReason;
+
+    @Schema(description = "Internal staff notes")
+    private String internalNotes;
+
     @Schema(description = "Created at")
     private LocalDateTime createdAt;
     
@@ -97,6 +107,12 @@ public class BookingResponse {
     
     @Schema(description = "Can be modified")
     private Boolean canBeModified;
+
+    @Schema(description = "Payment method")
+    private PaymentMethod paymentMethod;
+
+    @Schema(description = "Payment status (UNPAID, PARTIALLY_PAID, PAID)")
+    private String paymentStatus;
 
     public static BookingResponseBuilder builder() {
         return new BookingResponseBuilder();
@@ -125,9 +141,14 @@ public class BookingResponse {
         private LocalDateTime confirmedAt;
         private LocalDateTime cancelledAt;
         private String cancellationReason;
+        private String rejectionReason;
+        private String delayReason;
+        private String internalNotes;
         private LocalDateTime createdAt;
         private Boolean canBeCancelled;
         private Boolean canBeModified;
+        private PaymentMethod paymentMethod;
+        private String paymentStatus;
 
         public BookingResponseBuilder id(UUID id) { this.id = id; return this; }
         public BookingResponseBuilder bookingReference(String v) { this.bookingReference = v; return this; }
@@ -151,9 +172,14 @@ public class BookingResponse {
         public BookingResponseBuilder confirmedAt(LocalDateTime v) { this.confirmedAt = v; return this; }
         public BookingResponseBuilder cancelledAt(LocalDateTime v) { this.cancelledAt = v; return this; }
         public BookingResponseBuilder cancellationReason(String v) { this.cancellationReason = v; return this; }
+        public BookingResponseBuilder rejectionReason(String v) { this.rejectionReason = v; return this; }
+        public BookingResponseBuilder delayReason(String v) { this.delayReason = v; return this; }
+        public BookingResponseBuilder internalNotes(String v) { this.internalNotes = v; return this; }
         public BookingResponseBuilder createdAt(LocalDateTime v) { this.createdAt = v; return this; }
         public BookingResponseBuilder canBeCancelled(Boolean v) { this.canBeCancelled = v; return this; }
         public BookingResponseBuilder canBeModified(Boolean v) { this.canBeModified = v; return this; }
+        public BookingResponseBuilder paymentMethod(PaymentMethod v) { this.paymentMethod = v; return this; }
+        public BookingResponseBuilder paymentStatus(String v) { this.paymentStatus = v; return this; }
         public BookingResponse build() {
             BookingResponse r = new BookingResponse();
             r.setId(id); r.setBookingReference(bookingReference); r.setCustomerId(customerId);
@@ -163,7 +189,9 @@ public class BookingResponse {
             r.setCommissionAmount(commissionAmount); r.setTotalAmount(totalAmount); r.setCurrency(currency);
             r.setStatus(status); r.setSpecialRequests(specialRequests); r.setIdDocumentVerified(idDocumentVerified);
             r.setConfirmedAt(confirmedAt); r.setCancelledAt(cancelledAt); r.setCancellationReason(cancellationReason);
+            r.setRejectionReason(rejectionReason); r.setDelayReason(delayReason); r.setInternalNotes(internalNotes);
             r.setCreatedAt(createdAt); r.setCanBeCancelled(canBeCancelled); r.setCanBeModified(canBeModified);
+            r.setPaymentMethod(paymentMethod); r.setPaymentStatus(paymentStatus);
             return r;
         }
     }

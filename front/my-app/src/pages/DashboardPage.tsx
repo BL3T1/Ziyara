@@ -5,6 +5,8 @@ import { useDisplayCurrency } from '../context/DisplayCurrencyContext'
 import { useLanguage } from '../context/LanguageContext'
 import { Card, StatCard, StatCardIcons } from '../components'
 import { dashboardAPI } from '../services/api'
+import { actionLabel } from '../i18n/enumLabels'
+import { formatDateTime } from '../utils/formatDate'
 import type {
   DashboardBootstrapDto,
   DashboardLiveDto,
@@ -14,6 +16,7 @@ import type {
   CommissionAnalysisDto,
   PayoutsResponseDto,
 } from '../types/api'
+import { useDashboardWebSocket } from '../hooks/useDashboardWebSocket'
 
 function defaultDateRange(): { start: string; end: string } {
   const end = new Date()
@@ -67,8 +70,9 @@ export function DashboardPage() {
     [dateRange.start, dateRange.end],
   )
   const queryClient = useQueryClient()
-  const { t } = useLanguage()
+  const { t, locale } = useLanguage()
   const { displayInDefault, defaultCurrency } = useDisplayCurrency()
+  const wsConnected = useDashboardWebSocket(bootstrapQueryKey)
 
   const bootstrapQuery = useQuery({
     queryKey: bootstrapQueryKey,
@@ -103,7 +107,7 @@ export function DashboardPage() {
       })
       return live
     },
-    enabled: bootstrapQuery.isSuccess,
+    enabled: bootstrapQuery.isSuccess && !wsConnected,
     staleTime: 60_000,
     refetchInterval: () =>
       typeof document !== 'undefined' && document.visibilityState === 'hidden' ? false : DASHBOARD_LIVE_POLL_MS,
@@ -111,6 +115,7 @@ export function DashboardPage() {
 
   const data = bootstrapQuery.data
   const isPending = bootstrapQuery.isPending
+  const isAccessDenied = (bootstrapQuery.error as { response?: { status?: number } } | null)?.response?.status === 403
 
   const kpis: DashboardKpiDto | null = data?.kpis ?? null
   const activity: ActivityFeedItemDto[] = data?.activity ?? []
@@ -159,8 +164,14 @@ export function DashboardPage() {
         <h1 className="app-page-title">{t('home.welcomeTitle')}</h1>
       </header>
 
+      {isAccessDenied && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+          {t('ui.accessDenied')}
+        </div>
+      )}
+
       <div
-        className="grid grid-cols-1 gap-5 sm:gap-6 sm:grid-cols-[repeat(auto-fit,minmax(min(100%,13.5rem),1fr))] [&>*]:min-w-0"
+        className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-[repeat(auto-fit,minmax(min(100%,13.5rem),1fr))] [&>*]:min-w-0"
         aria-busy={sectionPending}
       >
         {sectionPending
@@ -179,7 +190,15 @@ export function DashboardPage() {
 
       <div className="grid gap-5 lg:grid-cols-2 lg:gap-6">
         <Card className="!p-5">
-          <h2 className="dashboard-card-title">{t('home.activityFeed')}</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="dashboard-card-title">{t('home.activityFeed')}</h2>
+            <Link
+              to="/admin/logs"
+              className="text-xs font-medium text-primary hover:underline dark:text-secondary"
+            >
+              {t('ui.viewAll')} →
+            </Link>
+          </div>
           <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto">
             {sectionPending ? (
               <>
@@ -203,12 +222,12 @@ export function DashboardPage() {
                 >
                   <span className="text-slate-700 dark:text-slate-200">
                     {item.title ??
-                      item.action ??
-                      item.entityType ??
-                      item.type ??
+                      actionLabel(t, item.action ?? item.entityType ?? item.type) ??
                       t('home.activityFallback')}
                   </span>
-                  <span className="shrink-0 text-slate-500 dark:text-slate-400">{item.timestamp ?? ''}</span>
+                  <span className="shrink-0 text-slate-500 dark:text-slate-400">
+                    {item.timestamp ? formatDateTime(item.timestamp, locale) : ''}
+                  </span>
                 </li>
               ))
             )}

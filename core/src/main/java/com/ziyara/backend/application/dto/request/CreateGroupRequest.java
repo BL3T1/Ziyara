@@ -19,7 +19,7 @@ public class CreateGroupRequest {
     private String nameAr;
 
     @Size(max = 20)
-    @Schema(description = "Unique code (letters, digits, underscore); leave empty to auto-assign next G{n}", example = "G8")
+    @Schema(description = "Unique code (letters, digits, underscore); leave empty to auto-assign next C{n}. Z+digits reserved for platform.", example = "C8")
     private String code;
 
     @Schema(description = "Description (English)")

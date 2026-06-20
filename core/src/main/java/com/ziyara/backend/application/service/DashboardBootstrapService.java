@@ -9,7 +9,9 @@ import com.ziyara.backend.application.dto.response.PayoutSummaryResponse;
 import com.ziyara.backend.application.dto.response.ServiceHealthResponse;
 import com.ziyara.backend.application.query.DashboardQueryHandler;
 import com.ziyara.backend.infrastructure.config.DashboardExecutorConfig;
+import com.ziyara.backend.modules.sys.api.DashboardServiceApi;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -21,7 +23,7 @@ import java.util.concurrent.Executor;
  * Loads all dashboard sections in parallel on the server for {@code GET /dashboard/bootstrap}.
  */
 @Service
-public class DashboardBootstrapService {
+public class DashboardBootstrapService implements DashboardServiceApi {
 
     private final DashboardService dashboardService;
     private final DashboardQueryHandler dashboardQueryHandler;
@@ -36,7 +38,12 @@ public class DashboardBootstrapService {
         this.dashboardExecutor = dashboardExecutor;
     }
 
+    @Cacheable(value = "dashboardBootstrap", key = "#start + ':' + #end + ':' + #activityLimit")
     public DashboardBootstrapResponse load(LocalDate start, LocalDate end, int activityLimit) {
+        return loadAsync(start, end, activityLimit).join();
+    }
+
+    public CompletableFuture<DashboardBootstrapResponse> loadAsync(LocalDate start, LocalDate end, int activityLimit) {
         int lim = Math.min(Math.max(activityLimit, 1), 50);
 
         CompletableFuture<DashboardKpiResponse> kpisF = CompletableFuture.supplyAsync(
@@ -50,21 +57,22 @@ public class DashboardBootstrapService {
         CompletableFuture<PayoutSummaryResponse> payoutsF = CompletableFuture.supplyAsync(
                 () -> dashboardQueryHandler.getPayouts(start, end), dashboardExecutor);
 
-        CompletableFuture.allOf(kpisF, activityF, healthF, commissionF, payoutsF).join();
-
-        return DashboardBootstrapResponse.builder()
-                .kpis(kpisF.join())
-                .activity(activityF.join())
-                .serviceHealth(healthF.join())
-                .commissionAnalysis(commissionF.join())
-                .payouts(payoutsF.join())
-                .build();
+        return CompletableFuture.allOf(kpisF, activityF, healthF, commissionF, payoutsF)
+                .thenApply(v -> DashboardBootstrapResponse.builder()
+                        .kpis(kpisF.join())
+                        .activity(activityF.join())
+                        .serviceHealth(healthF.join())
+                        .commissionAnalysis(commissionF.join())
+                        .payouts(payoutsF.join())
+                        .build());
     }
 
-    /**
-     * KPIs, activity, and service health only — for periodic refresh without recomputing commission/payouts.
-     */
+    @Cacheable(value = "dashboardLive", key = "#start + ':' + #end + ':' + #activityLimit")
     public DashboardLiveResponse loadLive(LocalDate start, LocalDate end, int activityLimit) {
+        return loadLiveAsync(start, end, activityLimit).join();
+    }
+
+    public CompletableFuture<DashboardLiveResponse> loadLiveAsync(LocalDate start, LocalDate end, int activityLimit) {
         int lim = Math.min(Math.max(activityLimit, 1), 50);
 
         CompletableFuture<DashboardKpiResponse> kpisF = CompletableFuture.supplyAsync(
@@ -74,12 +82,11 @@ public class DashboardBootstrapService {
         CompletableFuture<ServiceHealthResponse> healthF = CompletableFuture.supplyAsync(
                 dashboardQueryHandler::getServiceHealth, dashboardExecutor);
 
-        CompletableFuture.allOf(kpisF, activityF, healthF).join();
-
-        return DashboardLiveResponse.builder()
-                .kpis(kpisF.join())
-                .activity(activityF.join())
-                .serviceHealth(healthF.join())
-                .build();
+        return CompletableFuture.allOf(kpisF, activityF, healthF)
+                .thenApply(v -> DashboardLiveResponse.builder()
+                        .kpis(kpisF.join())
+                        .activity(activityF.join())
+                        .serviceHealth(healthF.join())
+                        .build());
     }
 }

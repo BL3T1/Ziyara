@@ -1,0 +1,2195 @@
+--- FILE: lib/core/utils/assets_manager.dart ---
+class AssetsManager {
+  static const String imagePath = 'assets/images';
+  
+  static const String logo = '$imagePath/logo.png';
+  static const String patternBg = '$imagePath/pattern_bg.png';
+  static const String banner1 = '$imagePath/banner1.jpg';
+  
+  // يمكن إضافة المزيد هنا
+}
+
+
+--- FILE: lib/core/utils/biometric_helper.dart ---
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // استيراد للتأكد هل نحن ويب أم لا
+import 'package:local_auth/local_auth.dart';
+import 'package:local_auth_android/local_auth_android.dart';
+import 'package:local_auth_ios/local_auth_ios.dart';
+
+class BiometricHelper {
+  static final LocalAuthentication _auth = LocalAuthentication();
+
+  static Future<bool> hasBiometrics() async {
+    // إذا كنا على الويب، نعيد false فوراً (لا يوجد بصمة)
+    if (kIsWeb) return false;
+
+    try {
+      final bool canAuthenticateWithBiometrics = await _auth.canCheckBiometrics;
+      final bool canAuthenticate = canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
+      return canAuthenticate;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  static Future<bool> authenticate() async {
+    // إذا كنا على الويب، نعتبر المصادقة ناجحة فوراً (أو نعيد false حسب رغبتك)
+    if (kIsWeb) return true;
+
+    try {
+      return await _auth.authenticate(
+        localizedReason: 'يرجى المصادقة للدخول إلى التطبيق',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+        authMessages: const <AuthMessages>[
+          AndroidAuthMessages(
+            signInTitle: 'تسجيل الدخول بالبصمة',
+            cancelButton: 'إلغاء',
+          ),
+          IOSAuthMessages(
+            cancelButton: 'إلغاء',
+          ),
+        ],
+      );
+    } on PlatformException {
+      return false;
+    }
+  }
+}
+
+
+--- FILE: lib/core/utils/dummy_image_manager.dart ---
+class DummyImageManager {
+  // ================== الفنادق (روابط جديدة ومجربة) ==================
+  // فندق فخم (بديل الشيراتون) - صورة بهو فندق
+  static const String hotelSheraton = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=800&auto=format&fit=crop';
+  
+  // منتجع بحري (بديل لاميرا) - صورة مسبح وبحر
+  static const String hotelLamera = 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=80&w=800&auto=format&fit=crop';
+  
+  // فندق مدينة (بديل داما روز) - صورة غرفة فخمة
+  static const String hotelDamaRose = 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?q=80&w=800&auto=format&fit=crop';
+  
+  // فندق ساحلي (بديل شاهين) - صورة شرفة مطلة
+  static const String hotelShaheen = 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=800&auto=format&fit=crop';
+  
+  // فندق تراثي (بديل بيت الوالي) - صورة فناء عربي قديم (تم إصلاح الرابط المعطوب)
+  static const String hotelBeitWali = 'https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?q=80&w=800&auto=format&fit=crop';
+
+  // ================== المطاعم ==================
+  // مطعم شرقي (نارنج) - صورة مأكولات
+  static const String restaurantNaranj = 'https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80&w=800&auto=format&fit=crop';
+  
+  // كافيه مع إطلالة (فيو)
+  static const String restaurantView = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=800&auto=format&fit=crop';
+  
+  // مشاوي (الونيش)
+  static const String restaurantWanish = 'https://images.unsplash.com/photo-1529042410759-befb720a2c48?q=80&w=800&auto=format&fit=crop';
+  
+  // بار/سهرة (سكاي بار)
+  static const String restaurantSkyBar = 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?q=80&w=800&auto=format&fit=crop';
+
+  // ================== الرحلات ==================
+  // قلعة الحصن (صورة قلعة)
+  static const String tourKrak = 'https://images.unsplash.com/photo-1585543805890-6051f7829f98?q=80&w=800&auto=format&fit=crop';
+  
+  // طبيعة جبلية (كسب)
+  static const String tourKassab = 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=800&auto=format&fit=crop';
+  
+  // آثار (تدمر)
+  static const String tourPalmyra = 'https://images.unsplash.com/photo-1564507592333-c60657eea523?q=80&w=800&auto=format&fit=crop';
+
+  // ================== السلايدر الرئيسي ==================
+  static const String bannerDamascus = 'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?q=80&w=800&auto=format&fit=crop';
+  static const String bannerResort = 'https://images.unsplash.com/photo-1540541338287-41700207dee6?q=80&w=800&auto=format&fit=crop';
+  static const String bannerCastle = 'https://images.unsplash.com/photo-1564507592333-c60657eea523?q=80&w=800&auto=format&fit=crop';
+}
+
+
+--- FILE: lib/core/utils/launcher_helper.dart ---
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
+
+class LauncherHelper {
+  // فتح واتساب
+  static Future<void> openWhatsApp(BuildContext context, String phone) async {
+    final Uri url = Uri.parse("whatsapp://send?phone=$phone");
+    if (!await launchUrl(url)) {
+      _showError(context, 'لا يوجد تطبيق واتساب مثبت');
+    }
+  }
+
+  // إجراء اتصال هاتفي
+  static Future<void> makeCall(BuildContext context, String phone) async {
+    final Uri url = Uri.parse("tel:$phone");
+    if (!await launchUrl(url)) {
+      _showError(context, 'تعذر إجراء الاتصال');
+    }
+  }
+
+  // فتح رابط ويب (للشروط والأحكام مثلاً)
+  static Future<void> openUrl(BuildContext context, String urlString) async {
+    final Uri url = Uri.parse(urlString);
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      _showError(context, 'تعذر فتح الرابط');
+    }
+  }
+
+  static void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: AppColors.error),
+    );
+  }
+}
+
+
+--- FILE: lib/core/utils/pdf_generator.dart ---
+import 'dart:typed_data';
+import 'package:flutter/services.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+
+class PdfGenerator {
+  static Future<void> generateTicket({
+    required String title,
+    required String price,
+    required String date,
+    required String userName,
+    required String bookingId,
+  }) async {
+    // تحميل الخط العربي (كايرو) ليعمل داخل الـ PDF
+    // سنستخدم الخط الافتراضي للنظام إذا لم نتمكن من تحميل الخط المخصص
+    final font = await PdfGoogleFonts.cairoRegular();
+    final fontBold = await PdfGoogleFonts.cairoBold();
+    
+    // تحميل الشعار
+    final logoImage = await imageFromAssetBundle('assets/images/logo.png');
+
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        theme: pw.ThemeData.withFont(
+          base: font,
+          bold: fontBold,
+        ),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              // الهيدر: الشعار واسم التطبيق
+              pw.Header(
+                level: 0,
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('ZIYARA | زيارة', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+                    pw.Image(logoImage, width: 50, height: 50),
+                  ],
+                ),
+              ),
+              
+              pw.SizedBox(height: 40),
+              
+              // عنوان التذكرة
+              pw.Text(
+                'تذكرة حجز إلكترونية',
+                style: pw.TextStyle(fontSize: 28, fontWeight: pw.FontWeight.bold, color: PdfColors.amber700),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Text('يرجى إبراز هذه التذكرة عند الوصول', style: const pw.TextStyle(fontSize: 14, color: PdfColors.grey)),
+              
+              pw.SizedBox(height: 40),
+              
+              // تفاصيل الحجز داخل جدول
+              pw.Container(
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey300),
+                  borderRadius: pw.BorderRadius.circular(10),
+                ),
+                padding: const pw.EdgeInsets.all(20),
+                child: pw.Column(
+                  children: [
+                    _buildRow('رقم الحجز', bookingId, fontBold),
+                    pw.Divider(),
+                    _buildRow('اسم العميل', userName, fontBold),
+                    pw.Divider(),
+                    _buildRow('الخدمة المحجوزة', title, fontBold),
+                    pw.Divider(),
+                    _buildRow('تاريخ الحجز', date, fontBold),
+                    pw.Divider(),
+                    _buildRow('المبلغ المدفوع', '$price ل.س', fontBold, isPrice: true),
+                  ],
+                ),
+              ),
+              
+              pw.Spacer(),
+              
+              // QR Code (وهمي للتجربة)
+              pw.BarcodeWidget(
+                barcode: pw.Barcode.qrCode(),
+                data: bookingId,
+                width: 100,
+                height: 100,
+              ),
+              pw.SizedBox(height: 10),
+              pw.Text('امسح الرمز للتأكد من الحجز', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
+              
+              pw.SizedBox(height: 20),
+              pw.Footer(
+                leading: pw.Text('2025 © ZIYARA App'),
+                trailing: pw.Text('دعم العملاء: +963991155614'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    // عرض ملف الـ PDF للمستخدم ليقوم بطباعته أو مشاركته
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Booking_$bookingId.pdf',
+    );
+  }
+
+  static pw.Widget _buildRow(String label, String value, pw.Font fontBold, {bool isPrice = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 8),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(value, style: pw.TextStyle(font: fontBold, fontSize: isPrice ? 18 : 14, color: isPrice ? PdfColors.blue900 : PdfColors.black), textDirection: pw.TextDirection.rtl),
+          pw.Text(label, style: const pw.TextStyle(fontSize: 14, color: PdfColors.grey700), textDirection: pw.TextDirection.rtl),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/core/widgets/selection/visual_selector_grid.dart ---
+import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
+
+class VisualSelectorGrid extends StatefulWidget {
+  final int totalItems;
+  final List<int> bookedItems;
+  final String itemLabel;
+  final Function(int) onSelected;
+
+  const VisualSelectorGrid({super.key, required this.totalItems, required this.bookedItems, required this.itemLabel, required this.onSelected});
+
+  @override
+  State<VisualSelectorGrid> createState() => _VisualSelectorGridState();
+}
+
+class _VisualSelectorGridState extends State<VisualSelectorGrid> {
+  int? _selectedItem;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildLegendItem(AppColors.success, 'متاح'),
+            const SizedBox(width: 15),
+            _buildLegendItem(AppColors.error, 'محجوز'),
+            const SizedBox(width: 15),
+            _buildLegendItem(AppColors.cyan, 'اختيارك'), // اللون السماوي
+          ],
+        ),
+        const SizedBox(height: 16),
+        
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, crossAxisSpacing: 10, mainAxisSpacing: 10),
+          itemCount: widget.totalItems,
+          itemBuilder: (context, index) {
+            final itemNumber = index + 1;
+            final isBooked = widget.bookedItems.contains(itemNumber);
+            final isSelected = _selectedItem == itemNumber;
+
+            return GestureDetector(
+              onTap: isBooked ? null : () { setState(() => _selectedItem = itemNumber); widget.onSelected(itemNumber); },
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.cyan : Colors.white, // التحديد سماوي، العادي أبيض
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: isBooked ? Colors.grey[300]! : (isSelected ? AppColors.cyan : Colors.grey.shade300), width: 2),
+                ),
+                child: Stack(
+                  children: [
+                    Center(child: Text('$itemNumber', style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold))),
+                    // النقطة الصغيرة في الزاوية
+                    Positioned(
+                      top: 4, right: 4,
+                      child: Container(
+                        width: 8, height: 8,
+                        decoration: BoxDecoration(
+                          color: isBooked ? AppColors.error : AppColors.success, // أحمر للمحجوز، أخضر للمتاح
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        if (_selectedItem != null)
+          Text('تم اختيار ${widget.itemLabel} رقم $_selectedItem', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.cyan)),
+      ],
+    );
+  }
+
+  Widget _buildLegendItem(Color color, String label) {
+    return Row(children: [Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)), const SizedBox(width: 5), Text(label, style: const TextStyle(fontSize: 12))]);
+  }
+}
+
+
+--- FILE: lib/core/widgets/shimmer/hotel_card_shimmer.dart ---
+import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
+
+class HotelCardShimmer extends StatelessWidget {
+  const HotelCardShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // الألوان المستخدمة للوميض
+    final baseColor = Colors.grey[300]!;
+    final highlightColor = Colors.grey[100]!;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Shimmer.fromColors(
+        baseColor: baseColor,
+        highlightColor: highlightColor,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // محاكاة الصورة (مربع رمادي كبير)
+            Container(
+              height: 150,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+            ),
+            
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // محاكاة العنوان والتقييم
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // خط العنوان
+                      Container(height: 16, width: 150, color: Colors.white),
+                      // مربع التقييم
+                      Container(height: 20, width: 40, color: Colors.white),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // محاكاة الموقع
+                  Container(height: 12, width: 100, color: Colors.white),
+                  const SizedBox(height: 12),
+                  
+                  // محاكاة السعر والزر
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(height: 10, width: 50, color: Colors.white),
+                          const SizedBox(height: 4),
+                          Container(height: 16, width: 80, color: Colors.white),
+                        ],
+                      ),
+                      // محاكاة زر الحجز
+                      Container(
+                        height: 36,
+                        width: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/core/widgets/shimmer/restaurant_card_shimmer.dart ---
+import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
+
+class RestaurantCardShimmer extends StatelessWidget {
+  const RestaurantCardShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = Colors.grey[300]!;
+    final highlightColor = Colors.grey[100]!;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Shimmer.fromColors(
+        baseColor: baseColor,
+        highlightColor: highlightColor,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // الصورة
+            Container(
+              height: 160,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // الاسم
+                      Container(height: 16, width: 120, color: Colors.white),
+                      // التقييم
+                      Container(height: 16, width: 40, color: Colors.white),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // الوصف والموقع
+                  Container(height: 12, width: 180, color: Colors.white),
+                  const SizedBox(height: 12),
+                  // الوجبات (Chips)
+                  Row(
+                    children: [
+                      Container(height: 24, width: 60, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12))),
+                      const SizedBox(width: 8),
+                      Container(height: 24, width: 60, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12))),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/core/widgets/shimmer/tour_card_shimmer.dart ---
+import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
+
+class TourCardShimmer extends StatelessWidget {
+  const TourCardShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = Colors.grey[300]!;
+    final highlightColor = Colors.grey[100]!;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Shimmer.fromColors(
+        baseColor: baseColor,
+        highlightColor: highlightColor,
+        child: Column(
+          children: [
+            // الصورة الكبيرة
+            Container(
+              height: 180,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // العنوان
+                      Container(height: 18, width: 200, color: Colors.white),
+                      // التقييم
+                      Container(height: 18, width: 40, color: Colors.white),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(height: 14, width: 80, color: Colors.white),
+                      const SizedBox(width: 16),
+                      Container(height: 14, width: 60, color: Colors.white),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/core/widgets/ziyara_logo_painter.dart ---
+import 'package:flutter/material.dart';
+
+class ZiyaraLogoPainter extends CustomPainter {
+  final Color color;
+  ZiyaraLogoPainter({this.color = Colors.white});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.03
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    // رسم جسم الحقيبة
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(size.width / 2, size.height * 0.6), width: size.width * 0.9, height: size.height * 0.55),
+      Radius.circular(size.width * 0.1),
+    );
+    canvas.drawRRect(rect, paint);
+
+    // رسم المقبض
+    final handlePath = Path();
+    handlePath.moveTo(size.width * 0.35, size.height * 0.32);
+    handlePath.quadraticBezierTo(size.width * 0.35, size.height * 0.15, size.width * 0.5, size.height * 0.15);
+    handlePath.quadraticBezierTo(size.width * 0.65, size.height * 0.15, size.width * 0.65, size.height * 0.32);
+    canvas.drawPath(handlePath, paint);
+
+    // رسم الزخرفة
+    final wavePath = Path();
+    wavePath.moveTo(size.width * 0.2, size.height * 0.75);
+    wavePath.quadraticBezierTo(size.width * 0.4, size.height * 0.65, size.width * 0.6, size.height * 0.75);
+    wavePath.quadraticBezierTo(size.width * 0.8, size.height * 0.85, size.width * 0.8, size.height * 0.75);
+    
+    final wavePaint = Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = size.width * 0.015..strokeCap = StrokeCap.round;
+    canvas.drawPath(wavePath, wavePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+
+--- FILE: lib/features/auth/presentation/pages/forgot_password_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class ForgotPasswordPage extends StatelessWidget {
+  const ForgotPasswordPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final emailController = TextEditingController();
+    return Scaffold(
+      appBar: AppBar(title: const Text('استعادة كلمة المرور')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            const Text(
+              'أدخل بريدك الإلكتروني وسنرسل لك رمزاً لإعادة تعيين كلمة المرور.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: AppColors.textGrey),
+            ),
+            const SizedBox(height: 30),
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: 'البريد الإلكتروني',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+            ),
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  if (emailController.text.isNotEmpty) {
+                    // الانتقال لصفحة OTP (نستخدم نفس الصفحة الموجودة)
+                    context.push('/otp_verify'); 
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إرسال الرمز')));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryDark,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text('إرسال الرمز'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/auth/presentation/pages/login_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/biometric_helper.dart';
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  // مفاتيح التحكم بالنصوص والتحقق
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  
+  // متغيرات الحالة
+  bool _isPasswordVisible = false;
+  bool _canCheckBiometrics = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometrics(); // التحقق من دعم البصمة عند البدء
+  }
+
+  Future<void> _checkBiometrics() async {
+    bool canCheck = await BiometricHelper.hasBiometrics();
+    setState(() => _canCheckBiometrics = canCheck);
+  }
+
+  Future<void> _loginWithBiometrics() async {
+    bool authenticated = await BiometricHelper.authenticate();
+    if (authenticated && mounted) {
+      context.go('/home'); // الانتقال للرئيسية عند النجاح
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 40),
+                const _LoginHeaderLogo(), // 1. ويدجت الشعار المفصول
+                const SizedBox(height: 60),
+                _buildEmailField(),       // 2. حقل الإيميل
+                const SizedBox(height: 20),
+                _buildPasswordField(),    // 3. حقل كلمة المرور
+                _buildForgotPassword(),   // 4. زر نسيت كلمة المرور
+                const SizedBox(height: 30),
+                _buildLoginButton(),      // 5. زر الدخول الرئيسي
+                const SizedBox(height: 20),
+                if (_canCheckBiometrics) _buildBiometricButton(), // 6. زر البصمة
+                _buildSignupLink(),       // 7. رابط إنشاء حساب
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- الويدجتات المقسمة (Extracted Widgets) ---
+
+  Widget _buildEmailField() {
+    return TextFormField(
+      controller: _emailController,
+      keyboardType: TextInputType.emailAddress,
+      decoration: const InputDecoration(
+        labelText: 'البريد الإلكتروني',
+        prefixIcon: Icon(Icons.email_outlined),
+        filled: true, fillColor: Colors.white,
+      ),
+      validator: (v) => v!.isEmpty ? 'يرجى إدخال البريد الإلكتروني' : null,
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return TextFormField(
+      controller: _passwordController,
+      obscureText: !_isPasswordVisible,
+      decoration: InputDecoration(
+        labelText: 'كلمة المرور',
+        prefixIcon: const Icon(Icons.lock_outline),
+        filled: true, fillColor: Colors.white,
+        suffixIcon: IconButton(
+          icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off),
+          onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+        ),
+      ),
+      validator: (v) => v!.isEmpty ? 'يرجى إدخال كلمة المرور' : null,
+    );
+  }
+
+  Widget _buildForgotPassword() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton(
+        onPressed: () => context.push('/forgot_password'),
+        child: const Text('نسيت كلمة المرور؟', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _buildLoginButton() {
+    return ElevatedButton(
+      onPressed: () {
+        if (_formKey.currentState!.validate()) {
+          context.go('/home');
+        }
+      },
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        backgroundColor: AppColors.primaryDark,
+      ),
+      child: const Text('تسجيل الدخول', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildBiometricButton() {
+    return Column(
+      children: [
+        const Row(children: [Expanded(child: Divider()), Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('أو')), Expanded(child: Divider())]),
+        const SizedBox(height: 20),
+        InkWell(
+          onTap: _loginWithBiometrics,
+          borderRadius: BorderRadius.circular(50),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.gold, width: 2)),
+            child: const Icon(Icons.fingerprint, size: 40, color: AppColors.primaryDark),
+          ),
+        ),
+        const SizedBox(height: 30),
+      ],
+    );
+  }
+
+  Widget _buildSignupLink() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text('ليس لديك حساب؟'),
+        TextButton(
+          onPressed: () => context.push('/signup'),
+          child: const Text('إنشاء حساب جديد', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.gold)),
+        ),
+      ],
+    );
+  }
+}
+
+// ويدجت الشعار منفصل تماماً لإعادة الاستخدام والنظافة
+class _LoginHeaderLogo extends StatelessWidget {
+  const _LoginHeaderLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        height: 150, width: 150,
+        decoration: BoxDecoration(
+          color: AppColors.primaryBlue,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [BoxShadow(color: AppColors.primaryBlue.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Image.asset('assets/images/logo.png', fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.travel_explore, size: 60, color: Colors.white)),
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/auth/presentation/pages/otp_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class OtpPage extends StatelessWidget {
+  const OtpPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final otpController = TextEditingController();
+    return Scaffold(
+      appBar: AppBar(title: const Text('التحقق')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            const Text(
+              'أدخل الرمز الذي تم إرساله إلى بريدك الإلكتروني',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 20),
+            TextFormField(
+              controller: otpController,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 24, letterSpacing: 4),
+              decoration: const InputDecoration(
+                hintText: '000000',
+              ),
+            ),
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  // التحقق من الرمز
+                  // إذا نجح:
+                  context.go('/login'); // العودة لتسجيل الدخول كما طلبت
+                },
+                child: const Text('تحقق'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/auth/presentation/pages/signup_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class SignupPage extends StatefulWidget {
+  const SignupPage({super.key});
+
+  @override
+  State<SignupPage> createState() => _SignupPageState();
+}
+
+class _SignupPageState extends State<SignupPage> {
+  final _formKey = GlobalKey<FormState>();
+  // استخدام Controllers للتحكم بالبيانات
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _dobController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('إنشاء حساب جديد')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              const Text('أدخل بياناتك للانضمام إلينا', style: TextStyle(color: AppColors.textGrey, fontSize: 16)),
+              const SizedBox(height: 30),
+              
+              // الحقول
+              _buildTextField(_nameController, 'الاسم الكامل', Icons.person, true),
+              const SizedBox(height: 16),
+              _buildTextField(_emailController, 'البريد الإلكتروني', Icons.email, true, type: TextInputType.emailAddress),
+              const SizedBox(height: 16),
+              _buildTextField(_phoneController, 'رقم الهاتف', Icons.phone, false, type: TextInputType.phone),
+              const SizedBox(height: 16),
+              _buildDatePickerField(), // حقل التاريخ المنفصل
+              
+              const SizedBox(height: 40),
+              
+              // زر الإرسال
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (_formKey.currentState!.validate()) {
+                      context.push('/otp_verify');
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), backgroundColor: AppColors.primaryDark),
+                  child: const Text('إرسال رمز التحقق OTP', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // دالة مساعدة لبناء الحقول النصية لتقليل التكرار
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, bool isRequired, {TextInputType type = TextInputType.text}) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: type,
+      decoration: InputDecoration(
+        labelText: isRequired ? '$label (إجباري)' : '$label (اختياري)',
+        prefixIcon: Icon(icon),
+        filled: true, fillColor: Colors.white,
+      ),
+      validator: isRequired ? (v) => v!.isEmpty ? 'مطلوب' : null : null,
+    );
+  }
+
+  // ويدجت اختيار التاريخ
+  Widget _buildDatePickerField() {
+    return TextFormField(
+      controller: _dobController,
+      readOnly: true,
+      decoration: const InputDecoration(labelText: 'تاريخ الميلاد', prefixIcon: Icon(Icons.calendar_today), filled: true, fillColor: Colors.white),
+      onTap: () async {
+        DateTime? picked = await showDatePicker(
+          context: context,
+          initialDate: DateTime(2000),
+          firstDate: DateTime(1900),
+          lastDate: DateTime.now(),
+        );
+        if (picked != null) {
+          _dobController.text = "${picked.year}-${picked.month}-${picked.day}";
+        }
+      },
+    );
+  }
+}
+
+
+--- FILE: lib/features/bookings/presentation/pages/favorites_page.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/services/favorites_service.dart';
+import '../../../hotels/data/models/hotel_model.dart'; // نحتاج المودل لجلب البيانات
+import '../../../hotels/presentation/widgets/hotel_card.dart'; // لعرض الكرت
+import '../../../hotels/presentation/pages/hotel_details_page.dart';
+
+class FavoritesPage extends StatelessWidget {
+  const FavoritesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('المفضلة'), backgroundColor: AppColors.background),
+      // نستمع للتغييرات في قائمة المفضلة
+      body: ValueListenableBuilder<List<String>>(
+        valueListenable: FavoritesService.favoritesNotifier,
+        builder: (context, favIds, child) {
+          if (favIds.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.favorite_border, size: 80, color: Colors.grey.shade300),
+                  const SizedBox(height: 16),
+                  const Text('لم تضف شيئاً للمفضلة بعد', style: TextStyle(color: AppColors.textGrey)),
+                ],
+              ),
+            );
+          }
+
+          // تصفية الفنادق لعرض المفضل منها فقط
+          // ملاحظة: في التطبيق الحقيقي نجلب هذه البيانات من السيرفر بناءً على IDs
+          final favoriteHotels = HotelModel.dummyHotels.where((h) => favIds.contains(h.id)).toList();
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: favoriteHotels.length,
+            itemBuilder: (context, index) {
+              final hotel = favoriteHotels[index];
+              return Dismissible( // ميزة السحب للحذف
+                key: Key(hotel.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.only(left: 20),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(16)),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                onDismissed: (direction) {
+                  FavoritesService.toggleFavorite(hotel.id);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الحذف من المفضلة')));
+                },
+                child: HotelCard(
+                  hotel: hotel,
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => HotelDetailsPage(hotel: hotel)));
+                  },
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/bookings/presentation/pages/my_bookings_page.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../widgets/booking_card_item.dart'; // استيراد الكرت
+
+class MyBookingsPage extends StatelessWidget {
+  const MyBookingsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('حجوزاتي'),
+          backgroundColor: AppColors.background,
+          bottom: const TabBar(
+            labelColor: AppColors.primaryBlue,
+            unselectedLabelColor: AppColors.textGrey,
+            indicatorColor: AppColors.gold,
+            tabs: [Tab(text: 'الحالية'), Tab(text: 'المنتهية')],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            // الحجوزات الحالية
+            ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                BookingCardItem(
+                  title: 'فندق شيراتون دمشق',
+                  date: '25 آب 2025',
+                  status: 'قيد الانتظار',
+                  price: 450000,
+                  canCancel: true,
+                  onCancel: () => _showCancelDialog(context, 450000),
+                ),
+                BookingCardItem(
+                  title: 'توصيل VIP',
+                  date: 'اليوم 05:00 م',
+                  status: 'مؤكد',
+                  price: 25000,
+                  canCancel: true,
+                  onCancel: () => _showCancelDialog(context, 25000),
+                ),
+              ],
+            ),
+            // الحجوزات المنتهية
+            ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const BookingCardItem(
+                  title: 'مطعم القصر',
+                  date: '10 تموز 2025',
+                  status: 'مكتمل',
+                  price: 0,
+                  canCancel: false,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCancelDialog(BuildContext context, double price) {
+    final penalty = price * 0.03;
+    final refund = price - penalty;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تأكيد الإلغاء'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('هل أنت متأكد من الإلغاء؟'),
+            const SizedBox(height: 10),
+            Text('سيتم خصم ${penalty.toInt()} ل.س (3%)', style: const TextStyle(color: AppColors.error)),
+            const Divider(),
+            Text('المبلغ المسترد: ${refund.toInt()} ل.س', style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('تراجع')),
+          ElevatedButton(
+            onPressed: () { Navigator.pop(ctx); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الإلغاء بنجاح'))); },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('نعم، إلغاء'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/bookings/presentation/widgets/booking_card_item.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class BookingCardItem extends StatelessWidget {
+  final String title;
+  final String date;
+  final String status;
+  final double price;
+  final bool canCancel;
+  final VoidCallback? onCancel;
+
+  const BookingCardItem({
+    super.key,
+    required this.title,
+    required this.date,
+    required this.status,
+    required this.price,
+    required this.canCancel,
+    this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: AppColors.primaryBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.confirmation_number, color: AppColors.primaryBlue),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 4),
+                    Text(date, style: const TextStyle(color: AppColors.textGrey, fontSize: 13)),
+                  ],
+                ),
+              ),
+              if (canCancel)
+                TextButton(
+                  onPressed: onCancel,
+                  child: const Text('إلغاء', style: TextStyle(color: AppColors.error)),
+                ),
+            ],
+          ),
+          if (!canCancel) 
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4)),
+                child: Text(status, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/home/presentation/pages/home_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../widgets/home_body.dart';
+import '../../../bookings/presentation/pages/my_bookings_page.dart';
+import '../../../bookings/presentation/pages/favorites_page.dart';
+import '../../../profile/presentation/pages/profile_page.dart';
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() =>
+      _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _bottomNavIndex = 0;
+  final List<Widget> _pages = [
+    const HomeBody(),
+    const MyBookingsPage(),
+    const FavoritesPage(),
+    const ProfilePage(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark =
+        Theme.of(context).brightness ==
+        Brightness.dark;
+
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            if (_bottomNavIndex == 0)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(
+                      horizontal: 20.0,
+                      vertical: 16.0,
+                    ),
+                child: Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment
+                          .spaceBetween,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.center,
+                  children: [
+                    Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment
+                              .start,
+                      children: [
+                        Text(
+                          'ZIYARA',
+                          style: TextStyle(
+                            fontFamily: 'Serif',
+                            fontSize: 28,
+                            fontWeight:
+                                FontWeight.bold,
+                            color: isDark
+                                ? Colors.white
+                                : AppColors
+                                      .primaryBlue,
+                            letterSpacing: 2.0,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        // --- التعديل هنا: زيادة العرض من 40 إلى 100 ---
+                        Container(
+                          height: 3,
+                          width: 120,
+                          color: AppColors.cyan,
+                        ),
+                      ],
+                    ),
+
+                    Stack(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white
+                                      .withOpacity(
+                                        0.1,
+                                      )
+                                : Colors.white,
+                            shape:
+                                BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey
+                                    .withOpacity(
+                                      0.1,
+                                    ),
+                                blurRadius: 10,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: IconButton(
+                            icon: Icon(
+                              Icons
+                                  .notifications_none,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppColors
+                                        .primaryDark,
+                              size: 28,
+                            ),
+                            onPressed: () =>
+                                context.push(
+                                  '/notifications',
+                                ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 10,
+                          right: 12,
+                          child: Container(
+                            padding:
+                                const EdgeInsets.all(
+                                  4,
+                                ),
+                            decoration:
+                                const BoxDecoration(
+                                  color:
+                                      Colors.red,
+                                  shape: BoxShape
+                                      .circle,
+                                ),
+                            child: const Text(
+                              '3',
+                              style: TextStyle(
+                                color:
+                                    Colors.white,
+                                fontSize: 10,
+                                fontWeight:
+                                    FontWeight
+                                        .bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: IndexedStack(
+                index: _bottomNavIndex,
+                children: _pages,
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _buildBottomNav(
+        isDark,
+      ),
+    );
+  }
+
+  Widget _buildBottomNav(bool isDark) {
+    return Container(
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _bottomNavIndex,
+          onTap: (index) => setState(
+            () => _bottomNavIndex = index,
+          ),
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: isDark
+              ? const Color(0xFF1E1E1E)
+              : AppColors.primaryDark,
+          selectedItemColor: AppColors.cyan,
+          unselectedItemColor: Colors.white70,
+          showSelectedLabels: true,
+          showUnselectedLabels: true,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_filled),
+              label: 'الرئيسية',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(
+                Icons
+                    .confirmation_number_outlined,
+              ),
+              label: 'حجوزاتي',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.favorite_border),
+              label: 'المفضلة',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings_outlined),
+              label: 'الإعدادات',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/home/presentation/widgets/currency_exchange_sheet.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class CurrencyExchangeSheet extends StatelessWidget {
+  const CurrencyExchangeSheet({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // استخدام DraggableScrollableSheet يجعل القائمة مرنة جداً
+    return DraggableScrollableSheet(
+      initialChildSize: 0.5, // تبدأ بنصف الشاشة
+      minChildSize: 0.3,
+      maxChildSize: 0.85,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 15),
+              // مقبض السحب
+              Container(
+                width: 50, height: 5,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+              ),
+              const SizedBox(height: 20),
+              const Text('أسعار الصرف المباشرة', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryBlue)),
+              const SizedBox(height: 10),
+              const Divider(),
+
+              // القائمة
+              Expanded(
+                child: ListView(
+                  controller: scrollController, // ربط السكرول
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    _buildRow('💲', 'دولار أمريكي', '14,500'),
+                    _buildRow('💶', 'يورو', '15,800'),
+                    _buildRow('💵', 'درهم إماراتي', '3,950'),
+                    _buildRow('💰', 'ريال سعودي', '3,860'),
+                    _buildRow('💰', 'دينار أردني', '20,400'),
+                    _buildRow('💰', 'جنيه إسترليني', '18,200'),
+                    _buildRow('💰', 'ليرة تركية', '450'),
+                    _buildRow('💰', 'دينار كويتي', '47,100'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRow(String flag, String name, String price) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 15),
+      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(children: [
+            Text(flag, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 15),
+            Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ]),
+          Text('$price ل.س', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primaryBlue)),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/home/presentation/widgets/exchange_rate_bar.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class ExchangeRateBar extends StatelessWidget {
+  const ExchangeRateBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.primaryBlue,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          // الأيقونة والعنوان الثابت
+          const Icon(Icons.currency_exchange, color: AppColors.gold, size: 20),
+          const SizedBox(width: 8),
+          const Text(
+            'الصرف', // اختصرنا النص قليلاً لتوفير مساحة
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          
+          const Spacer(), // يدفع العناصر للأطراف
+          
+          // السعر (محمي من الخطأ)
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Flexible(
+                  child: Text(
+                    '1 USD = 14,500', 
+                    style: const TextStyle(
+                      color: AppColors.gold, 
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis, // يضع (...) إذا لم يتسع المكان
+                    maxLines: 1,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.arrow_drop_down, color: Colors.red[300], size: 20),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/home/presentation/widgets/home_banner_slider.dart ---
+import 'package:carousel_slider/carousel_slider.dart';
+import 'package:flutter/material.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/dummy_image_manager.dart'; // استيراد الملف الجديد
+
+class HomeBannerSlider extends StatefulWidget {
+  const HomeBannerSlider({super.key});
+
+  @override
+  State<HomeBannerSlider> createState() => _HomeBannerSliderState();
+}
+
+class _HomeBannerSliderState extends State<HomeBannerSlider> {
+  int _currentIndex = 0;
+  
+  final List<Map<String, String>> _banners = [
+    {
+      'image': DummyImageManager.bannerDamascus, // استخدام المتغير
+      'title': 'سحر دمشق القديمة',
+      'subtitle': 'عبق التاريخ في أقدم عاصمة مأهولة'
+    },
+    {
+      'image': DummyImageManager.bannerResort,
+      'title': 'رفاهية لا تنتهي',
+      'subtitle': 'أفضل المنتجعات في الساحل السوري'
+    },
+    {
+      'image': DummyImageManager.bannerCastle,
+      'title': 'قلاع وحصون',
+      'subtitle': 'اكتشف عظمة العمارة التاريخية'
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        CarouselSlider(
+          options: CarouselOptions(
+            height: 200.0,
+            autoPlay: true,
+            enlargeCenterPage: true,
+            aspectRatio: 16 / 9,
+            viewportFraction: 0.90,
+            onPageChanged: (index, reason) => setState(() => _currentIndex = index),
+          ),
+          items: _banners.map((banner) {
+            return Builder(
+              builder: (BuildContext context) {
+                return Container(
+                  width: MediaQuery.of(context).size.width,
+                  margin: const EdgeInsets.symmetric(horizontal: 5.0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Stack(
+                      children: [
+                        CachedNetworkImage(
+                          imageUrl: banner['image']!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          placeholder: (context, url) => Container(color: Colors.grey[300]),
+                          errorWidget: (context, url, error) => const Icon(Icons.error),
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 16, right: 16, left: 16,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(banner['title']!, style: const TextStyle(color: AppColors.gold, fontSize: 18, fontWeight: FontWeight.bold)),
+                              Text(banner['subtitle']!, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+        AnimatedSmoothIndicator(
+          activeIndex: _currentIndex,
+          count: _banners.length,
+          effect: const ExpandingDotsEffect(activeDotColor: AppColors.cyan, dotColor: Color(0xFFD1D5DB), dotHeight: 6, dotWidth: 6),
+        ),
+      ],
+    );
+  }
+}
+
+
+--- FILE: lib/features/home/presentation/widgets/home_body.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+import 'home_banner_slider.dart';
+import 'service_card.dart';
+import 'exchange_rate_bar.dart';
+import 'currency_exchange_sheet.dart' ; // <--- هذا هو السطر الذي كان ينقصك
+
+class HomeBody extends StatelessWidget {
+  const HomeBody({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isTablet = width > 600;
+    final crossAxisCount = isTablet ? 4 : 2;
+    final childAspectRatio = isTablet ? 1.1 : 1.3;
+
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      children: [
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (c) => const CurrencyExchangeSheet(),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      ),
+                    );
+                  },
+                  child: const ExchangeRateBar(),
+                ),
+                const SizedBox(height: 10),
+                const HomeBannerSlider(),
+              ],
+            ),
+          ),
+        ),
+
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 24, 16, 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('الخدمات الرقمية', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+              Text('عرض الكل', style: TextStyle(fontSize: 14, color: AppColors.gold, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: childAspectRatio,
+            children: [
+              ServiceCard(title: 'الفنادق والمنتجعات', icon: Icons.hotel_outlined, isHighlighted: true, onTap: () => context.push('/hotels')),
+              ServiceCard(title: 'المطاعم والكافيهات', icon: Icons.restaurant_menu_outlined, onTap: () => context.push('/restaurants')),
+              ServiceCard(title: 'الرحلات السياحية', icon: Icons.landscape_outlined, onTap: () => context.push('/tours')),
+              ServiceCard(title: 'خدمة التوصيل', icon: Icons.directions_car_filled_outlined, onTap: () => context.push('/transport')),
+            ],
+          ),
+        ),
+        const SizedBox(height: 30),
+      ],
+    );
+  }
+}
+
+
+--- FILE: lib/features/home/presentation/widgets/service_card.dart ---
+import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+
+class ServiceCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isHighlighted;
+
+  const ServiceCard({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.onTap,
+    this.isHighlighted = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          // ظل خفيف جداً ليعطي عمقاً (Elevation)
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // الأيقونة بدون دائرة خلفية، بل لون متدرج أو صريح
+            Icon(
+              icon,
+              size: 38,
+              // اللون الذهبي في الوضع العادي، أو الأبيض في المظلم
+              color: isHighlighted ? AppColors.gold : (isDark ? Colors.white70 : AppColors.textGrey),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.textMain,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+--- FILE: lib/features/hotels/data/models/hotel_model.dart ---
+import '../../../../core/utils/dummy_image_manager.dart';
+
+class HotelModel {
+  final String id;
+  final String name;
+  final String location;
+  final String address;
+  final double rating;
+  final int stars;
+  final double pricePerNight;
+  final String imageUrl;
+  final List<String> facilities;
+
+  HotelModel({required this.id, required this.name, required this.location, required this.address, required this.rating, required this.stars, required this.pricePerNight, required this.imageUrl, required this.facilities});
+  
+  static List<HotelModel> get dummyHotels => [
+    HotelModel(id: '1', name: 'فندق شيراتون دمشق', location: 'دمشق', address: 'ساحة الأمويين', rating: 4.8, stars: 5, pricePerNight: 2500000, 
+      imageUrl: DummyImageManager.hotelSheraton, // استخدام المتغير
+      facilities: ['مسبح خارجي', 'نادي رياضي', 'إنترنت سريع', 'مطعم شرقي']),
+    HotelModel(id: '2', name: 'منتجع لاميرا (الميريديان)', location: 'اللاذقية', address: 'الكورنيش الغربي', rating: 4.6, stars: 5, pricePerNight: 1800000, 
+      imageUrl: DummyImageManager.hotelLamera,
+      facilities: ['شاطئ خاص', 'إطلالة بحرية', 'ملاعب تنس', 'تراس صيفي']),
+    HotelModel(id: '3', name: 'فندق الداما روز', location: 'دمشق', address: 'شارع شكري القوتلي', rating: 4.7, stars: 5, pricePerNight: 2200000, 
+      imageUrl: DummyImageManager.hotelDamaRose,
+      facilities: ['قاعات مؤتمرات', 'سبا ومساج', 'بار', 'خدمة رجال أعمال']),
+    HotelModel(id: '4', name: 'فندق شاهين تاور', location: 'طرطوس', address: 'الكورنيش البحري', rating: 4.3, stars: 4, pricePerNight: 950000, 
+      imageUrl: DummyImageManager.hotelShaheen,
+      facilities: ['إفطار مجاني', 'مواقف سيارات', 'إطلالة بانورامية']),
+    HotelModel(id: '5', name: 'بيت الوالي', location: 'دمشق القديمة', address: 'باب توما', rating: 4.9, stars: 4, pricePerNight: 1200000, 
+      imageUrl: DummyImageManager.hotelBeitWali,
+      facilities: ['أجواء تراثية', 'فطور دمشقي', 'ساحة سماوية']),
+  ];
+}
+
+
+--- FILE: lib/features/hotels/data/repositories/fake_hotels_repository.dart ---
+import '../../domain/repositories/hotels_repository.dart';
+import '../models/hotel_model.dart';
+
+class FakeHotelsRepository implements HotelsRepository {
+  @override
+  Future<List<HotelModel>> getHotels() async {
+    // محاكاة تأخير الشبكة (2 ثانية) لكي نرى تأثير الـ Shimmer
+    await Future.delayed(const Duration(seconds: 2));
+    
+    // إرجاع البيانات الوهمية الموجودة في المودل
+    return HotelModel.dummyHotels;
+  }
+
+  @override
+  Future<HotelModel?> getHotelById(String id) async {
+    await Future.delayed(const Duration(seconds: 1));
+    return HotelModel.dummyHotels.firstWhere((e) => e.id == id);
+  }
+}
+
+
+--- FILE: lib/features/hotels/domain/repositories/hotels_repository.dart ---
+import '../../data/models/hotel_model.dart';
+
+abstract class HotelsRepository {
+  // دالة لجلب كل الفنادق
+  Future<List<HotelModel>> getHotels();
+  
+  // دالة لجلب تفاصيل فندق محدد (للمستقبل)
+  Future<HotelModel?> getHotelById(String id);
+}
+
+
+--- FILE: lib/features/hotels/presentation/pages/hotels_page.dart ---
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../data/models/hotel_model.dart';
+import '../../data/repositories/fake_hotels_repository.dart';
+import '../../../../core/widgets/shimmer/hotel_card_shimmer.dart';
+import '../../../../core/services/search_history_service.dart'; // استيراد الخدمة
+import '../widgets/hotel_card.dart';
+import 'hotel_details_page.dart';
+
+class HotelsPage extends StatefulWidget {
+  const HotelsPage({super.key});
+
+  @override
+  State<HotelsPage> createState() => _HotelsPageState();
+}
+
+class _HotelsPageState extends State<HotelsPage> {
+  final _repository = FakeHotelsRepository();
+  bool _isLoading = true;
+  List<HotelModel> _allHotels = [];
+  List<HotelModel> _filteredHotels = [];
+  
+  final List<String> _cities = ['الكل', 'دمشق', 'اللاذقية', 'طرطوس', 'حلب', 'حمص'];
+  String _selectedCity = 'الكل';
+  final TextEditingController _searchController = TextEditingController();
+  
+  // للتحكم في ظهور سجل البحث
+  bool _showHistory = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchHotels();
+    // الاستماع للتركيز على حقل البحث
+    _searchController.addListener(() {
+      if (_searchController.text.isEmpty) {
+        setState(() => _showHistory = true);
+      } else {
+        setState(() => _showHistory = false);
+      }
+    });
+  }
+
+  Future<void> _fetchHotels() async {
+    setState(() => _isLoading = true);
+    try {
+      final hotels = await _repository.getHotels();
+      if (mounted) {
+        setState(() {
+          _allHotels = hotels;
+          _filteredHotels = hotels;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _filterHotels() {
+    final query = _searchController.text.toLowerCase();
+    
+    // حفظ الكلمة في السجل إذا ضغط المستخدم "تم" (أو هنا بشكل فوري للتجربة)
+    if (query.isNotEmpty) {
+      SearchHistoryService.addSearchTerm(query);
+    }
+
+    setState(() {
+      _filteredHotels = _allHotels.where((hotel) {
+        final matchesCity = _selectedCity == 'الكل' || hotel.location == _selectedCity;
+        final matchesSearch = hotel.name.toLowerCase().contains(query) || hotel.location.toLowerCase().contains(query);
+        return matchesCity && matchesSearch;
+      }).toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('الفنادق والمنتجعات'),
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchHotels)],
+      ),
+      body: Column(
+        children: [
+          // شريط البحث
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Focus(
+              onFocusChange: (hasFocus) {
+                setState(() => _showHistory = hasFocus && _searchController.text.isEmpty);
+              },
+              child: TextField(
+                controller: _searchController,
+                onChanged: (_) => _filterHotels(),
+                onSubmitted: (val) {
+                  SearchHistoryService.addSearchTerm(val); // حفظ عند الضغط على Enter
+                },
+                decoration: InputDecoration(
+                  hintText: 'ابحث عن فندق...',
+                  prefixIcon: const Icon(Icons.search),
+                  fillColor: Colors.white,
+                  filled: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  suffixIcon: _searchController.text.isNotEmpty 
+                    ? IconButton(
+                        icon: const Icon(Icons.clear), 
+                        onPressed: () {
+                          _searchController.clear();
+                          _filterHotels();
+                          setState(() => _showHistory = true);
+                        }
+                      ) 
+                    : null,
+                ),
+              ),
+            ),
+          ),
+
+          // --- قسم سجل البحث (يظهر فقط عند الحاجة) ---
+          ValueListenableBuilder<List<String>>(
+            valueListenable: SearchHistoryService.historyNotifier,
+            builder: (context, history, child) {
+              if (!_showHistory || history.isEmpty) return const SizedBox.shrink();
+              
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('عمليات البحث الأخيرة', style: TextStyle(fontSize: 12, color: AppColors.textGrey, fontWeight: FontWeight.bold)),
+                        InkWell(
+                          onTap: () => SearchHistoryService.clearHistory(),
+                          child: const Text('مسح', style: TextStyle(fontSize: 12, color: AppColors.error)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: history.map((term) => ActionChip(
+                        label: Text(term),
+                        backgroundColor: AppColors.background,
+                        onPressed: () {
+                          _searchController.text = term;
+                          _filterHotels();
+                          setState(() => _showHistory = false);
+                          FocusScope.of(context).unfocus(); // إخفاء الكيبورد
+                        },
+                      )).toList(),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          // فلتر المحافظات
+          SizedBox(
+            height: 50,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _cities.length,
+              itemBuilder: (context, index) {
+                final city = _cities[index];
+                final isSelected = _selectedCity == city;
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: ChoiceChip(
+                    label: Text(city),
+                    selected: isSelected,
+                    selectedColor: AppColors.primaryDark,
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : AppColors.textMain,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    backgroundColor: Colors.white,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          _selectedCity = city;
+                          _filterHotels();
+                        });
+                      }
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+          
+          const SizedBox(height: 10),
+
+          // القائمة
+          Expanded(
+            child: _isLoading
+                ? ListView.builder(padding: const EdgeInsets.all(16), itemCount: 4, itemBuilder: (context, index) => const HotelCardShimmer())
+                : _filteredHotels.isEmpty
+                    ? const Center(child: Text('لا توجد نتائج مطابقة للبحث'))
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _filteredHotels.length,
+                        itemBuilder: (context, index) {
+                          final hotel = _filteredHotels[index];
+                          return HotelCard(
+                            hotel: hotel,
+                            onTap: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => HotelDetailsPage(hotel: hotel)));
+                            },
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+

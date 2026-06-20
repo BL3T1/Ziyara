@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network Security Configuration for Ziyara.
+  - Release: HTTPS only — no cleartext traffic.
+  - LAN/ipmode: trusts the Ziyara local CA for 10.45.30.145 (self-signed cert).
+  - Debug: allows cleartext so the emulator can reach http://10.0.2.2:8080 (local backend).
+
+  To use with ipmode deployment:
+    1. Run infra/certs/generate.sh to create ca.crt
+    2. Copy ca.crt → android/app/src/main/res/raw/ziyara_ca.crt
+    3. Build: flutter build apk -dart-define=ZIYARA_API_URL=https://10.45.30.145:9000/api/v1
+-->
+<network-security-config>
+
+    <!-- Production: enforce HTTPS, trust system CAs only -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+
+    <!-- Debug overrides: allow cleartext to the Android emulator localhost alias -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+        <base-config cleartextTrafficPermitted="true"/>
+    </debug-overrides>
+
+</network-security-config>

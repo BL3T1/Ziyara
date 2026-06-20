@@ -6,6 +6,7 @@ import com.ziyara.backend.application.dto.response.ServiceHealthResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
+import org.springframework.cache.annotation.Cacheable;
 import org.jooq.Field;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Component;
@@ -29,6 +30,7 @@ public class DashboardQueryHandler {
 
     private final DSLContext dsl;
 
+    @Cacheable(value = "dashboardServiceHealth")
     public ServiceHealthResponse getServiceHealth() {
         try {
             return getServiceHealthInternal();
@@ -89,6 +91,7 @@ public class DashboardQueryHandler {
                 .build();
     }
 
+    @Cacheable(value = "dashboardCommission", key = "#start + ':' + #end")
     public CommissionAnalysisResponse getCommissionAnalysis(LocalDate start, LocalDate end) {
         try {
             return getCommissionAnalysisInternal(start, end);
@@ -137,6 +140,7 @@ public class DashboardQueryHandler {
                 .build();
     }
 
+    @Cacheable(value = "dashboardPayouts", key = "#start + ':' + #end")
     public PayoutSummaryResponse getPayouts(LocalDate start, LocalDate end) {
         try {
             return getPayoutsInternal(start, end);

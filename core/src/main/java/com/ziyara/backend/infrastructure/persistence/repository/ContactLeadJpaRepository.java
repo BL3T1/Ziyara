@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface ContactLeadJpaRepository extends JpaRepository<ContactLeadJpaEntity, UUID> {
     long countByEmailIgnoreCaseAndCreatedAtAfter(String email, Instant after);
+
+    long countByEmailIgnoreCaseAndIpAddressAndCreatedAtAfter(String email, String ipAddress, Instant after);
 }

@@ -2,6 +2,7 @@ package com.ziyara.backend.infrastructure.persistence.entity;
 
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
+import com.ziyara.backend.infrastructure.persistence.converter.UserRoleAttributeConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;
@@ -47,14 +48,23 @@ public class UserJpaEntity implements Persistable<UUID> {
     
     @Column(name = "email", nullable = false, unique = true)
     private String email;
-    
+
+    @Column(name = "username", unique = true)
+    private String username;
+
+    @Column(name = "first_name", length = 100)
+    private String firstName;
+
+    @Column(name = "last_name", length = 100)
+    private String lastName;
+
     @Column(name = "phone", unique = true)
     private String phone;
     
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
     
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = UserRoleAttributeConverter.class)
     @Column(name = "role", nullable = false)
     private UserRole role;
     
@@ -88,7 +98,55 @@ public class UserJpaEntity implements Persistable<UUID> {
     
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
-    
+
+    @Column(name = "token_version", nullable = false)
+    private Integer tokenVersion = 0;
+
+    @Column(name = "last_password_change")
+    private LocalDateTime lastPasswordChange;
+
+    @Column(name = "password_expires_at")
+    private LocalDateTime passwordExpiresAt;
+
+    @Column(name = "mfa_enabled", nullable = false)
+    private Boolean mfaEnabled = false;
+
+    @Column(name = "mfa_type", length = 20)
+    private String mfaType;
+
+    @Column(name = "mfa_secret_cipher", columnDefinition = "TEXT")
+    private String mfaSecretCipher;
+
+    @Column(name = "mfa_backup_codes_cipher", columnDefinition = "TEXT")
+    private String mfaBackupCodesCipher;
+
+    @Column(name = "mfa_last_used_at")
+    private LocalDateTime mfaLastUsedAt;
+
+    @Column(name = "mfa_enrolled_at")
+    private LocalDateTime mfaEnrolledAt;
+
+    @Column(name = "gdpr_consent_given", nullable = false)
+    private Boolean gdprConsentGiven = false;
+
+    @Column(name = "gdpr_consent_date")
+    private LocalDateTime gdprConsentDate;
+
+    @Column(name = "marketing_opt_in", nullable = false)
+    private Boolean marketingOptIn = false;
+
+    @Column(name = "right_to_erasure_requested", nullable = false)
+    private Boolean rightToErasureRequested = false;
+
+    @Column(name = "right_to_erasure_completed_at")
+    private LocalDateTime rightToErasureCompletedAt;
+
+    @Column(name = "must_change_password", nullable = false)
+    private Boolean mustChangePassword = false;
+
+    @Column(name = "fcm_token", length = 512)
+    private String fcmToken;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

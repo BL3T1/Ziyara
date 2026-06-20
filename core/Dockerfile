@@ -4,7 +4,7 @@
 # =============================================================================
 # Build Stage
 # =============================================================================
-FROM gradle:8.7-jdk17 AS build
+FROM gradle:8.12-jdk21 AS build
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/home/gradle/.gradle/caches,uid=1000,gid=1000 \
 # =============================================================================
 # Runtime Stage
 # =============================================================================
-FROM eclipse-temurin:17-jre-alpine-3.23
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
@@ -33,8 +33,10 @@ RUN apk add --no-cache curl su-exec
 # Create non-root user for security
 RUN addgroup -S ziyarah && adduser -S ziyarah -G ziyarah
 
-# Copy boot jar from build stage (exclude *-plain.jar)
-COPY --from=build /app/build/libs/*-SNAPSHOT.jar app.jar
+# Copy boot jar from build stage.
+# Matches both versioned releases (core-1.0.0.jar) and snapshots (core-1.0.0-SNAPSHOT.jar).
+# The plain jar produced by the standard 'jar' task is excluded because its name never matches core-*.jar alone.
+COPY --from=build /app/build/libs/core-*.jar app.jar
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh && chown -R ziyarah:ziyarah /app
@@ -43,11 +45,21 @@ RUN chmod +x /docker-entrypoint.sh && chown -R ziyarah:ziyarah /app
 # Expose application port
 EXPOSE 8080
 
-# JVM options for containerized environment (overridable)
-ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+# JVM options for containerized environment (overridable).
+# Memory budget (1024m container limit):
+#   heap 480m + Metaspace 256m + CompressedClassSpace 64m + CodeCache 128m + threads/internal ~96m ≈ 1024m
+ENV JAVA_OPTS="-Xms256m -Xmx480m \
+    -XX:MaxMetaspaceSize=256m \
+    -XX:CompressedClassSpaceSize=64m \
+    -XX:ReservedCodeCacheSize=128m \
+    -XX:G1HeapRegionSize=4m \
+    -XX:+UseContainerSupport \
+    -XX:+ExitOnOutOfMemoryError \
+    -XX:+HeapDumpOnOutOfMemoryError \
+    -XX:HeapDumpPath=/tmp/heapdump.hprof"
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:8080/api/v1/actuator/health || exit 1
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

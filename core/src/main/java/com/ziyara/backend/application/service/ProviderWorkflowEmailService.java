@@ -4,7 +4,6 @@ import com.ziyara.backend.domain.entity.ServiceProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
@@ -19,18 +18,18 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ProviderWorkflowEmailService {
 
-    private final JavaMailSender mailSender;
+    private final MailDispatchService mailDispatchService;
     private final boolean enabled;
     private final String fromAddress;
     private final List<String> approverRecipients;
 
     public ProviderWorkflowEmailService(
-            JavaMailSender mailSender,
+            MailDispatchService mailDispatchService,
             @Value("${app.notifications.email.enabled:false}") boolean enabled,
             @Value("${app.notifications.email.from:no-reply@ziyara.local}") String fromAddress,
             @Value("${app.notifications.email.provider-approver-recipients:}") String approverRecipientsCsv
     ) {
-        this.mailSender = mailSender;
+        this.mailDispatchService = mailDispatchService;
         this.enabled = enabled;
         this.fromAddress = fromAddress;
         this.approverRecipients = Arrays.stream(approverRecipientsCsv.split(","))
@@ -66,6 +65,26 @@ public class ProviderWorkflowEmailService {
                         + "You can now use the provider portal.");
     }
 
+    public void notifyExpiryWarningToAdmins(ServiceProvider provider) {
+        if (approverRecipients.isEmpty()) return;
+        send(approverRecipients.toArray(String[]::new),
+                "Partner account expiring in 7 days: " + provider.getName(),
+                "The following partner account will expire in 7 days and the manager will lose portal access.\n\n"
+                        + "Partner: " + provider.getName() + "\n"
+                        + "Expiry date: " + provider.getExpiryDate() + "\n"
+                        + "Please renew by updating the expiry date in Management → Providers.");
+    }
+
+    public void notifyExpiredToAdmins(ServiceProvider provider) {
+        if (approverRecipients.isEmpty()) return;
+        send(approverRecipients.toArray(String[]::new),
+                "Partner account has expired: " + provider.getName(),
+                "The following partner account has expired and the manager can no longer log in.\n\n"
+                        + "Partner: " + provider.getName() + "\n"
+                        + "Expired on: " + provider.getExpiryDate() + "\n"
+                        + "Please renew by updating the expiry date in Management → Providers.");
+    }
+
     public void notifyRejected(ServiceProvider provider, String managerEmail, String reason) {
         String details = (reason == null || reason.isBlank()) ? "" : ("\nReason: " + reason.trim());
         send(managerEmail,
@@ -94,8 +113,8 @@ public class ProviderWorkflowEmailService {
             message.setTo(to);
             message.setSubject(subject);
             message.setText(body);
-            mailSender.send(message);
-            log.info("Email sent subject='{}' recipients={}", subject, Arrays.toString(to));
+            mailDispatchService.send(message);
+            log.info("Email queued subject='{}' recipients={}", subject, Arrays.toString(to));
         } catch (Exception ex) {
             log.warn("Failed to send email subject='{}' recipients={} error={}",
                     subject, Arrays.toString(to), ex.getMessage());

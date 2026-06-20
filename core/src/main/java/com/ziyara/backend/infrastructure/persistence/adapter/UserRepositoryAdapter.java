@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -62,6 +63,15 @@ public class UserRepositoryAdapter implements UserRepository {
                 .map(userMapper::toDomainEntity);
     }
     
+    @Override
+    public Optional<User> findByUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return Optional.empty();
+        }
+        return userJpaRepository.findByUsername(username.trim())
+                .map(userMapper::toDomainEntity);
+    }
+
     @Override
     public Optional<User> findByPhone(String phone) {
         return userJpaRepository.findByPhone(phone)
@@ -117,6 +127,12 @@ public class UserRepositoryAdapter implements UserRepository {
     }
     
     @Override
+    public boolean existsByUsername(String username) {
+        if (username == null || username.isBlank()) return false;
+        return userJpaRepository.existsByUsername(username.trim());
+    }
+
+    @Override
     public boolean existsByPhone(String phone) {
         return userJpaRepository.existsByPhone(phone);
     }
@@ -151,5 +167,14 @@ public class UserRepositoryAdapter implements UserRepository {
     @Override
     public long countByRole(UserRole role) {
         return userJpaRepository.countByRole(role);
+    }
+
+    @Override
+    public List<UUID> findActiveDirectoryUserIdsByRoles(Collection<UserRole> roles, UserStatus status) {
+        if (roles == null || roles.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> ids = userJpaRepository.findDistinctIdsByRoleInAndStatus(roles, status);
+        return ids != null ? ids : Collections.emptyList();
     }
 }

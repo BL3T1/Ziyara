@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { isCompanySurface, isProviderSurface } from '../config/appSurface'
 import { isCompanyStaffRole, isProviderPortalRole } from '../types/auth'
@@ -16,8 +16,11 @@ export type PortalLoginError =
  */
 export function HomeRedirect() {
   const { user, clearAuth } = useAuth()
+  const location = useLocation()
   if (!user) {
-    return <Navigate to="/login" replace />
+    // Preserve the deep-link destination so RequireAuth's `from` state reaches LoginPage
+    const from = (location.state as { from?: { pathname: string } } | null)?.from
+    return <Navigate to="/login" replace state={from ? { from } : undefined} />
   }
 
   if (isCompanySurface) {

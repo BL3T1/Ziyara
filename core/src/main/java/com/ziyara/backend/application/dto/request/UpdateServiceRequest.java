@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalTime;
 import java.util.Map;
 
 @Getter
@@ -54,4 +55,19 @@ public class UpdateServiceRequest {
 
     @Schema(description = "Amenities")
     private Map<String, Object> amenities;
+
+    @Schema(description = "Check-in time (e.g. 14:00)")
+    private LocalTime checkInTime;
+
+    @Schema(description = "Check-out time (e.g. 11:00)")
+    private LocalTime checkOutTime;
+
+    @Schema(description = "Latitude")
+    private BigDecimal latitude;
+
+    @Schema(description = "Longitude")
+    private BigDecimal longitude;
+
+    @Schema(description = "Cancellation and house policies")
+    private String policies;
 }

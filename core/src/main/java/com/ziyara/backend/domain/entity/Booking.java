@@ -1,6 +1,8 @@
 package com.ziyara.backend.domain.entity;
 
+import com.ziyara.backend.domain.enums.BookingPaymentStatus;
 import com.ziyara.backend.domain.enums.BookingStatus;
+import com.ziyara.backend.domain.enums.PaymentMethod;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,12 +39,19 @@ public class Booking {
     private LocalDateTime cancelledAt;
     private String cancellationReason;
     private UUID cancelledBy;
+    private String rejectionReason;
+    private String delayReason;
+    private String internalNotes;
+    private LocalDateTime rejectedAt;
+    private UUID rejectedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     /** Snapshot for discount scope when applying codes (restaurant / room-type). */
     private List<UUID> discountContextMenuItemIds;
     private List<UUID> discountContextMenuSectionIds;
     private UUID discountContextRoomTypeId;
+    private PaymentMethod paymentMethod;
+    private BookingPaymentStatus paymentStatus = BookingPaymentStatus.UNPAID;
 
     // Domain behavior methods
     public boolean canBeCancelled() {
@@ -103,6 +112,13 @@ public class Booking {
         }
     }
 
+    public void reject(UUID rejectedBy, String reason) {
+        this.status = BookingStatus.CANCELLED;
+        this.rejectionReason = reason;
+        this.rejectedBy = rejectedBy;
+        this.rejectedAt = LocalDateTime.now();
+    }
+
     public BigDecimal calculateRefundAmount() {
         if (!canBeCancelled()) {
             return BigDecimal.ZERO;
@@ -127,6 +143,21 @@ public class Booking {
     public BigDecimal calculatePenaltyAmount() {
         BigDecimal refundAmount = calculateRefundAmount();
         return totalAmount.subtract(refundAmount);
+    }
+
+    public void markPaid() {
+        this.paymentStatus = BookingPaymentStatus.PAID;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void markPartiallyPaid() {
+        this.paymentStatus = BookingPaymentStatus.PARTIALLY_PAID;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public boolean isPaymentPending() {
+        return paymentStatus == BookingPaymentStatus.UNPAID
+                || paymentStatus == BookingPaymentStatus.PARTIALLY_PAID;
     }
 
     public void applyDiscount(BigDecimal discountAmount) {
@@ -337,6 +368,21 @@ public class Booking {
         this.cancelledBy = cancelledBy;
     }
 
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+
+    public String getDelayReason() { return delayReason; }
+    public void setDelayReason(String delayReason) { this.delayReason = delayReason; }
+
+    public String getInternalNotes() { return internalNotes; }
+    public void setInternalNotes(String internalNotes) { this.internalNotes = internalNotes; }
+
+    public LocalDateTime getRejectedAt() { return rejectedAt; }
+    public void setRejectedAt(LocalDateTime rejectedAt) { this.rejectedAt = rejectedAt; }
+
+    public UUID getRejectedBy() { return rejectedBy; }
+    public void setRejectedBy(UUID rejectedBy) { this.rejectedBy = rejectedBy; }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -375,5 +421,21 @@ public class Booking {
 
     public void setDiscountContextRoomTypeId(UUID discountContextRoomTypeId) {
         this.discountContextRoomTypeId = discountContextRoomTypeId;
+    }
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(PaymentMethod paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public BookingPaymentStatus getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(BookingPaymentStatus paymentStatus) {
+        this.paymentStatus = paymentStatus;
     }
 }

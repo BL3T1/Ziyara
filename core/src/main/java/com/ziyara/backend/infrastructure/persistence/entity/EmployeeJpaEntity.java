@@ -41,9 +41,18 @@ public class EmployeeJpaEntity {
     
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
-    
+
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "offboarded_at")
+    private LocalDateTime offboardedAt;
+
+    @Column(name = "offboarded_by")
+    private UUID offboardedBy;
+
+    @Column(name = "offboard_reason", length = 500)
+    private String offboardReason;
 
     @PrePersist
     protected void onCreate() {

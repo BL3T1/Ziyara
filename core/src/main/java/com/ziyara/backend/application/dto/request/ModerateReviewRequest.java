@@ -14,4 +14,7 @@ public class ModerateReviewRequest {
 
     @Schema(description = "New status: PUBLISHED, REJECTED, or HIDDEN")
     private ReviewStatus status;
+
+    @Schema(description = "Reason for rejection")
+    private String rejectionReason;
 }

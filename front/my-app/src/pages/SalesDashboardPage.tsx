@@ -1,5 +1,4 @@
-import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
 import {
   BarChart,
   Bar,
@@ -15,6 +14,9 @@ import {
 import { Card, StatCard } from '../components'
 import { useLayout } from '../context/LayoutContext'
 import { useLanguage } from '../context/LanguageContext'
+import { dashboardAPI, bookingsAPI, getApiErrorMessage } from '../services/api'
+import type { DashboardBootstrapDto, BookingDto } from '../types/api'
+import { useDisplayCurrency } from '../context/DisplayCurrencyContext'
 
 const DollarIcon = () => (
   <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -38,9 +40,9 @@ const UsersIcon = () => (
     <path d="M16 3.13a4 4 0 0 1 0 7.75" />
   </svg>
 )
-const StarIcon = () => (
+const TicketIcon = () => (
   <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="12 2 15 8.5 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 9 8.5 12 2" />
+    <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 0 0 4v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4a2 2 0 0 0 0-4V7z" />
   </svg>
 )
 const SearchIcon = () => (
@@ -49,97 +51,121 @@ const SearchIcon = () => (
     <path d="m21 21-4.3-4.3" />
   </svg>
 )
-const FilterIcon = () => (
-  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-  </svg>
-)
-const ExportIcon = () => (
-  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="7 10 12 15 17 10" />
-    <line x1="12" x2="12" y1="15" y2="3" />
-  </svg>
-)
 
-const REVENUE_META = [
-  { nameKey: 'salesDemo.pieHotels' as const, value: 45, color: '#1e4d6b' },
-  { nameKey: 'salesDemo.pieRestaurants' as const, value: 25, color: '#ac9e78' },
-  { nameKey: 'salesDemo.pieTaxis' as const, value: 18, color: '#3b82f6' },
-  { nameKey: 'salesDemo.pieTrips' as const, value: 12, color: '#10b981' },
-]
+const SERVICE_TYPE_COLORS: Record<string, string> = {
+  HOTEL: '#1e4d6b',
+  RESORT: '#2e6b8f',
+  RESTAURANT: '#ac9e78',
+  TAXI: '#3b82f6',
+  TRIP: '#10b981',
+}
 
-const BOOKINGS_BY_REGION_KEYS = [
-  { nameKey: 'salesDemo.regionSaudi' as const, bookings: 1200 },
-  { nameKey: 'salesDemo.regionUae' as const, bookings: 950 },
-  { nameKey: 'salesDemo.regionQatar' as const, bookings: 620 },
-  { nameKey: 'salesDemo.regionKuwait' as const, bookings: 480 },
-  { nameKey: 'salesDemo.regionBahrain' as const, bookings: 310 },
-]
-
-const RECENT_BOOKINGS = [
-  { reference: 'BK-2845', customer: 'Ahmed Al-Sayed', service: 'Luxury Hotel', date: '2026-02-17', amount: '$850', status: 'Completed' },
-  { reference: 'BK-2844', customer: 'Fatima Hassan', service: 'Restaurant Booking', date: '2026-02-17', amount: '$120', status: 'Active' },
-  { reference: 'BK-2843', customer: 'Omar Ibrahim', service: 'City Tour', date: '2026-02-16', amount: '$450', status: 'Pending' },
-  { reference: 'BK-2842', customer: 'Layla Mohammed', service: 'Taxi Service', date: '2026-02-16', amount: '$35', status: 'Completed' },
-  { reference: 'BK-2841', customer: 'Yusuf Ali', service: 'Hotel Package', date: '2026-02-16', amount: '$1,200', status: 'Cancelled' },
-]
-
-const STATUS_LABEL_KEYS: Record<string, string> = {
-  Completed: 'salesDemo.statusCompleted',
-  Active: 'salesDemo.statusActive',
-  Pending: 'salesDemo.statusPending',
-  Cancelled: 'salesDemo.statusCancelled',
+const BOOKING_STATUS_COLORS: Record<string, string> = {
+  CONFIRMED: 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-800/50',
+  ACTIVE: 'bg-sky-100 text-sky-900 ring-1 ring-sky-200/80 dark:bg-sky-950/50 dark:text-sky-300 dark:ring-sky-800/50',
+  PENDING: 'bg-amber-100 text-amber-900 ring-1 ring-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-800/50',
+  PENDING_CONFIRMATION: 'bg-amber-100 text-amber-900 ring-1 ring-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-800/50',
+  CANCELLED: 'bg-red-100 text-red-900 ring-1 ring-red-200/80 dark:bg-red-950/50 dark:text-red-300 dark:ring-red-900/40',
+  COMPLETED: 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-800/50',
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const { t } = useLanguage()
-  const label = STATUS_LABEL_KEYS[status] ? t(STATUS_LABEL_KEYS[status]) : status
-  const styles: Record<string, string> = {
-    Completed:
-      'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-800/50',
-    Active:
-      'bg-sky-100 text-sky-900 ring-1 ring-sky-200/80 dark:bg-sky-950/50 dark:text-sky-300 dark:ring-sky-800/50',
-    Pending:
-      'bg-amber-100 text-amber-900 ring-1 ring-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-800/50',
-    Cancelled:
-      'bg-red-100 text-red-900 ring-1 ring-red-200/80 dark:bg-red-950/50 dark:text-red-300 dark:ring-red-900/40',
-  }
+  const cls = BOOKING_STATUS_COLORS[status] ?? 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-600'
   return (
-    <span
-      className={`inline-flex rounded-full px-3 py-1.5 text-sm font-medium ${
-        styles[status] ?? 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-600'
-      }`}
-    >
-      {label}
+    <span className={`inline-flex rounded-full px-3 py-1.5 text-sm font-medium ${cls}`}>
+      {status.replace(/_/g, ' ')}
     </span>
   )
+}
+
+function fmtDate(iso: string | undefined): string {
+  if (!iso) return '—'
+  try {
+    return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso))
+  } catch {
+    return iso
+  }
+}
+
+function fmtCurrency(amount: number | undefined, currency: string | undefined): string {
+  if (amount == null) return '—'
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency ?? 'USD', maximumFractionDigits: 0 }).format(amount)
+  } catch {
+    return `${amount}`
+  }
 }
 
 export function SalesDashboardPage() {
   const { theme } = useLayout()
   const { t } = useLanguage()
+  const { displayInDefault } = useDisplayCurrency()
   const [search, setSearch] = useState('')
+  const [bootstrap, setBootstrap] = useState<DashboardBootstrapDto | null>(null)
+  const [bookings, setBookings] = useState<BookingDto[]>([])
+  const [loadingKpis, setLoadingKpis] = useState(true)
+  const [loadingBookings, setLoadingBookings] = useState(true)
+  const [kpiError, setKpiError] = useState<string | null>(null)
+  const [bookingsError, setBookingsError] = useState<string | null>(null)
 
-  const salesStats = useMemo(
-    () => [
-      { icon: <DollarIcon />, label: t('salesDemo.statTotalRevenue'), value: '$458.2K', trend: '+18.5%', trendPositive: true },
-      { icon: <CalendarIcon />, label: t('salesDemo.statBookingsMtd'), value: '3,842', trend: '+12.3%', trendPositive: true },
-      { icon: <UsersIcon />, label: t('salesDemo.statActiveProviders'), value: '284', trend: '+8 new', trendPositive: true },
-      { icon: <StarIcon />, label: t('salesDemo.statAvgRating'), value: '4.8', trend: undefined, trendPositive: true },
-    ],
-    [t]
-  )
+  useEffect(() => {
+    dashboardAPI
+      .getBootstrap()
+      .then((res) => setBootstrap(res.data as DashboardBootstrapDto))
+      .catch((e: unknown) => {
+        const status = (e as { response?: { status?: number } })?.response?.status
+        setKpiError(status === 403 ? t('ui.accessDenied') : getApiErrorMessage(e))
+        setBootstrap(null)
+      })
+      .finally(() => setLoadingKpis(false))
+  }, [])
 
-  const revenueByService = useMemo(
-    () => REVENUE_META.map((row) => ({ ...row, name: t(row.nameKey) })),
-    [t]
-  )
+  useEffect(() => {
+    bookingsAPI
+      .listAdmin({ page: 0, size: 10 })
+      .then((res) => {
+        const data = res.data as { content?: BookingDto[] } | BookingDto[]
+        if (Array.isArray(data)) setBookings(data)
+        else if (data && 'content' in data && Array.isArray(data.content)) setBookings(data.content)
+        else setBookings([])
+      })
+      .catch((e: unknown) => {
+        const status = (e as { response?: { status?: number } })?.response?.status
+        setBookingsError(status === 403 ? t('ui.accessDenied') : getApiErrorMessage(e))
+        setBookings([])
+      })
+      .finally(() => setLoadingBookings(false))
+  }, [])
 
-  const bookingsByRegion = useMemo(
-    () => BOOKINGS_BY_REGION_KEYS.map((row) => ({ ...row, name: t(row.nameKey) })),
-    [t]
-  )
+  const kpis = bootstrap?.kpis
+
+  const salesStats = useMemo(() => {
+    const revenue = kpis ? displayInDefault(kpis.totalRevenue, kpis.revenueCurrency) : '—'
+    return [
+      { icon: <DollarIcon />, label: t('salesDemo.statTotalRevenue'), value: revenue, trendPositive: true },
+      { icon: <CalendarIcon />, label: t('salesDemo.statBookingsMtd'), value: kpis ? String(kpis.totalBookings) : '—', trendPositive: true },
+      { icon: <UsersIcon />, label: t('salesDemo.statActiveProviders'), value: kpis ? String(kpis.totalProviders) : '—', trendPositive: true },
+      { icon: <TicketIcon />, label: t('salesDemo.statOpenTickets'), value: kpis ? String(kpis.openTickets) : '—', trendPositive: false },
+    ]
+  }, [kpis, t, displayInDefault])
+
+  const bookingsByServiceType = useMemo(() => {
+    const counts = bootstrap?.serviceHealth?.activeBookingCountByType ?? {}
+    const colors = ['#1e4d6b', '#ac9e78', '#3b82f6', '#10b981', '#f59e0b']
+    return Object.entries(counts).map(([type, count], i) => ({
+      name: type,
+      value: count as number,
+      color: SERVICE_TYPE_COLORS[type] ?? colors[i % colors.length],
+    }))
+  }, [bootstrap])
+
+  const servicesByType = useMemo(() => {
+    const counts = bootstrap?.serviceHealth?.serviceCountByType ?? {}
+    return Object.entries(counts).map(([type, count]) => ({
+      name: type,
+      count: count as number,
+    }))
+  }, [bootstrap])
 
   const chartChrome = useMemo(() => {
     const dark = theme === 'dark'
@@ -164,11 +190,11 @@ export function SalesDashboardPage() {
     }
   }, [theme])
 
-  const filteredBookings = RECENT_BOOKINGS.filter(
+  const filteredBookings = bookings.filter(
     (b) =>
-      b.reference.toLowerCase().includes(search.toLowerCase()) ||
-      b.customer.toLowerCase().includes(search.toLowerCase()) ||
-      b.service.toLowerCase().includes(search.toLowerCase())
+      (b.bookingReference ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (b.customerName ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (b.serviceName ?? '').toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -177,12 +203,11 @@ export function SalesDashboardPage() {
         <h1 className="app-page-title">{t('salesDashboardPage.pageTitle')}</h1>
       </header>
 
-      <div className="dashboard-toolbar-surface border-primary/20 bg-primary/[0.06] dark:border-primary/25 dark:bg-primary/10">
-        <p className="max-w-2xl text-sm font-medium text-slate-800 dark:text-slate-100">{t('salesDashboardPage.ctaTitle')}</p>
-        <Link to="/management/providers" className="dashboard-btn-primary w-full shrink-0 sm:w-auto">
-          {t('salesDashboardPage.ctaPrimary')}
-        </Link>
-      </div>
+      {(kpiError || bookingsError) && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+          {kpiError ?? bookingsError}
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
@@ -191,55 +216,60 @@ export function SalesDashboardPage() {
             key={stat.label}
             icon={stat.icon}
             label={stat.label}
-            value={stat.value}
-            trend={stat.trend}
+            value={loadingKpis ? '…' : stat.value}
             trendPositive={stat.trendPositive}
           />
         ))}
       </div>
 
       {/* Charts */}
-      <div className="mt-8 grid gap-5 [grid-template-columns:repeat(auto-fill,min(30rem,100%))] [justify-content:center] sm:gap-6 [&_.recharts-text]:fill-slate-600 dark:[&_.recharts-text]:fill-slate-400 [&_.recharts-legend-item-text]:!fill-current">
-        <Card>
-          <h3 className="dashboard-card-title mb-4">{t('salesDemo.revenueByService')}</h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={revenueByService}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                >
-                  {revenueByService.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} stroke={theme === 'dark' ? 'rgb(15 23 42)' : '#fff'} strokeWidth={2} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => [`${value}%`, t('salesDemo.share')]} contentStyle={chartChrome.tooltip} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
+      {(bookingsByServiceType.length > 0 || servicesByType.length > 0) && (
+        <div className="mt-8 grid gap-5 [grid-template-columns:repeat(auto-fill,min(30rem,100%))] [justify-content:center] sm:gap-6 [&_.recharts-text]:fill-slate-600 dark:[&_.recharts-text]:fill-slate-400 [&_.recharts-legend-item-text]:!fill-current">
+          {bookingsByServiceType.length > 0 && (
+            <Card>
+              <h3 className="dashboard-card-title mb-4">{t('salesDemo.revenueByService')}</h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={bookingsByServiceType}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                    >
+                      {bookingsByServiceType.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} stroke={theme === 'dark' ? 'rgb(15 23 42)' : '#fff'} strokeWidth={2} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [value, t('salesDemo.bookings')]} contentStyle={chartChrome.tooltip} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          )}
 
-        <Card>
-          <h3 className="dashboard-card-title mb-4">{t('salesDemo.bookingsByRegion')}</h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={bookingsByRegion} layout="vertical" margin={{ left: 20, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={chartChrome.grid} />
-                <XAxis type="number" stroke={chartChrome.axis} fontSize={12} tickLine={false} />
-                <YAxis type="category" dataKey="name" width={100} stroke={chartChrome.axis} fontSize={12} tickLine={false} />
-                <Tooltip contentStyle={chartChrome.tooltip} formatter={(value) => [value, t('salesDemo.bookings')]} />
-                <Bar dataKey="bookings" fill="#1e4d6b" radius={[0, 6, 6, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </div>
+          {servicesByType.length > 0 && (
+            <Card>
+              <h3 className="dashboard-card-title mb-4">{t('salesDemo.servicesByType')}</h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={servicesByType} layout="vertical" margin={{ left: 20, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartChrome.grid} />
+                    <XAxis type="number" stroke={chartChrome.axis} fontSize={12} tickLine={false} />
+                    <YAxis type="category" dataKey="name" width={100} stroke={chartChrome.axis} fontSize={12} tickLine={false} />
+                    <Tooltip contentStyle={chartChrome.tooltip} formatter={(value) => [value, t('salesDemo.services')]} />
+                    <Bar dataKey="count" fill="#1e4d6b" radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Recent Bookings */}
       <div className="mt-8">
@@ -259,46 +289,52 @@ export function SalesDashboardPage() {
                   className="dashboard-date-input w-full pl-10 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 />
               </div>
-              <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
-                <button type="button" className="dashboard-btn-secondary flex-1 sm:flex-initial">
-                  <FilterIcon />
-                  {t('ui.filter')}
-                </button>
-                <button type="button" className="dashboard-btn-secondary flex-1 sm:flex-initial">
-                  <ExportIcon />
-                  {t('ui.export')}
-                </button>
-              </div>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="data-table w-full">
-              <thead>
-                <tr>
-                  <th className="px-5 py-3.5">{t('salesDemo.bookingReference')}</th>
-                  <th className="px-5 py-3.5">{t('salesDemo.customer')}</th>
-                  <th className="px-5 py-3.5">{t('salesDemo.service')}</th>
-                  <th className="px-5 py-3.5">{t('salesDemo.date')}</th>
-                  <th className="px-5 py-3.5">{t('salesDemo.amount')}</th>
-                  <th className="px-5 py-3.5">{t('salesDemo.status')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredBookings.map((booking) => (
-                  <tr key={booking.reference}>
-                    <td className="px-5 py-3.5 text-sm font-medium text-slate-900 dark:text-slate-100">{booking.reference}</td>
-                    <td className="px-5 py-3.5 text-sm text-slate-800 dark:text-slate-200">{booking.customer}</td>
-                    <td className="px-5 py-3.5 text-sm text-slate-800 dark:text-slate-200">{booking.service}</td>
-                    <td className="px-5 py-3.5 text-sm text-slate-800 dark:text-slate-200">{booking.date}</td>
-                    <td className="px-5 py-3.5 text-sm text-slate-800 dark:text-slate-200">{booking.amount}</td>
-                    <td className="px-5 py-3.5">
-                      <StatusBadge status={booking.status} />
-                    </td>
+            {loadingBookings ? (
+              <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
+            ) : filteredBookings.length === 0 ? (
+              <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">{t('bookingsPage.noBookings')}</div>
+            ) : (
+              <table className="data-table w-full">
+                <thead>
+                  <tr>
+                    <th className="px-5 py-3.5">{t('salesDemo.bookingReference')}</th>
+                    <th className="px-5 py-3.5">{t('salesDemo.customer')}</th>
+                    <th className="px-5 py-3.5">{t('salesDemo.service')}</th>
+                    <th className="px-5 py-3.5">{t('salesDemo.date')}</th>
+                    <th className="px-5 py-3.5">{t('salesDemo.amount')}</th>
+                    <th className="px-5 py-3.5">{t('salesDemo.status')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredBookings.map((booking) => (
+                    <tr key={booking.id}>
+                      <td className="px-5 py-3.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {booking.bookingReference ?? booking.id.slice(0, 8)}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-800 dark:text-slate-200">
+                        {booking.customerName ?? booking.customerEmail ?? '—'}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-800 dark:text-slate-200">
+                        {booking.serviceName ?? '—'}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-800 dark:text-slate-200">
+                        {fmtDate(booking.createdAt)}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-800 dark:text-slate-200">
+                        {fmtCurrency(booking.totalAmount, booking.currency)}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <StatusBadge status={booking.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </Card>
       </div>

@@ -5,6 +5,8 @@ import com.ziyara.backend.domain.enums.NotificationStatus;
 import com.ziyara.backend.domain.enums.NotificationType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -50,7 +52,9 @@ public class NotificationJpaEntity {
     @Column(name = "template_name")
     private String templateName;
     
-    @Column(name = "metadata", columnDefinition = "TEXT")
+    /** JSONB column (V16 type change from TEXT). Read/written as raw JSON string. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "metadata", columnDefinition = "jsonb")
     private String metadata;
     
     @Column(name = "sent_at")

@@ -18,4 +18,10 @@ public interface EmployeeJpaRepository extends JpaRepository<EmployeeJpaEntity, 
     List<EmployeeJpaEntity> findByDepartmentId(UUID departmentId);
     List<EmployeeJpaEntity> findByLevel(EmployeeLevel level);
     boolean existsByEmployeeCode(String employeeCode);
+
+    /** Active employees only (not offboarded). */
+    List<EmployeeJpaEntity> findByOffboardedAtIsNull();
+
+    /** Count of active employees — for seat-limit checks. */
+    long countByOffboardedAtIsNull();
 }

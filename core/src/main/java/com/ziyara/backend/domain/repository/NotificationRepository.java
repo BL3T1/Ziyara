@@ -1,9 +1,9 @@
 package com.ziyara.backend.domain.repository;
 
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.Notification;
 import com.ziyara.backend.domain.enums.NotificationStatus;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,9 +17,10 @@ public interface NotificationRepository {
     Optional<Notification> findById(UUID id);
     List<Notification> findByUserId(UUID userId);
 
-    Page<Notification> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
+    PagedResult<Notification> findByUserIdOrderByCreatedAtDesc(UUID userId, PageQuery pageQuery);
 
     long countByUserIdAndReadAtIsNull(UUID userId);
+    int markAllReadByUserId(UUID userId);
     List<Notification> findByUserIdAndStatus(UUID userId, NotificationStatus status);
     List<Notification> findByStatus(NotificationStatus status);
     long countByUserIdAndStatus(UUID userId, NotificationStatus status);

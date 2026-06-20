@@ -13,4 +13,11 @@ public interface GroupRepository {
     Group save(Group group);
 
     boolean existsByCode(String code);
+
+    /** True if another group (not {@code excludeId}) already uses {@code code}. */
+    boolean existsByCodeAndIdNot(String code, UUID excludeId);
+
+    void deleteById(UUID id);
+
+    Optional<Integer> findMaxCustomGroupCodeSuffix();
 }

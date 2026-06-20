@@ -8,6 +8,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -46,4 +47,6 @@ public class ServiceResponse {
     private LocalTime checkOutTime;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<HotelRoomResponse> rooms;
+    private String rejectionReason;
 }

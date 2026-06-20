@@ -1,6 +1,7 @@
 package com.ziyara.backend.modules.sys.api;
 
 import com.ziyara.backend.application.dto.request.CreateGroupRequest;
+import com.ziyara.backend.application.dto.request.UpdateGroupRequest;
 import com.ziyara.backend.application.dto.request.CreateRoleRequest;
 import com.ziyara.backend.application.dto.request.DeleteRoleRequest;
 import com.ziyara.backend.application.dto.request.UpdateRoleNavigationRequest;
@@ -35,10 +36,17 @@ public interface RoleServiceApi {
 
     GroupResponse createGroup(CreateGroupRequest request, UUID currentUserId);
 
+    GroupResponse updateGroup(UUID groupId, UpdateGroupRequest request, UUID currentUserId);
+
+    void deleteGroup(UUID groupId, UUID currentUserId);
+
     List<GroupSummaryResponse> listGroupSummaries();
 
     /** Users whose primary role code or RBAC assignment matches a role in the group (or ungrouped). */
     Page<UserResponse> listGroupMembers(UUID groupId, int page, int size);
+
+    /** Users assigned to a specific role (by RBAC assignment). */
+    Page<UserResponse> listRoleMembers(UUID roleId, int page, int size);
 
     RoleResponse createCustomRole(CreateRoleRequest request, UUID currentUserId);
 

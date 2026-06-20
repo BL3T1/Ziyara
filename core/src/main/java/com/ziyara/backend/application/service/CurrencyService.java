@@ -5,15 +5,17 @@ import com.ziyara.backend.application.dto.request.UpdateExchangeRateRequest;
 import com.ziyara.backend.application.dto.response.ExchangeRateResponse;
 import com.ziyara.backend.domain.entity.ExchangeRate;
 import com.ziyara.backend.domain.repository.ExchangeRateRepository;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -27,6 +29,7 @@ public class CurrencyService {
 
     private static final Logger log = LoggerFactory.getLogger(CurrencyService.class);
     private final ExchangeRateRepository exchangeRateRepository;
+    private final ExchangeRateLookup exchangeRateLookup;
 
     @Transactional(readOnly = true)
     public BigDecimal convert(BigDecimal amount, String from, String to) {
@@ -35,10 +38,19 @@ public class CurrencyService {
 
         log.debug("Converting {} from {} to {}", amount, from, to);
 
-        ExchangeRate rate = exchangeRateRepository.findByFromCurrencyAndToCurrency(from, to)
-                .orElseThrow(() -> new RuntimeException("Exchange rate not found for " + from + " to " + to));
+        ExchangeRate rate = exchangeRateLookup.getCachedRate(from, to)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Exchange rate not available for " + from + " to " + to));
 
         return amount.multiply(rate.getRate());
+    }
+
+    @Caching(evict = {
+            @CacheEvict(value = "exchangeRates", allEntries = true),
+            @CacheEvict(value = "exchangeRatesList", allEntries = true)
+    })
+    public void evictRateCache() {
+        log.debug("Exchange rate cache evicted");
     }
 
     /**
@@ -57,12 +69,13 @@ public class CurrencyService {
         }
         try {
             return convert(amount, from, to);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("No exchange rate {} -> {}; leaving amount as-is", from, to);
             return amount;
         }
     }
 
+    @Cacheable("exchangeRatesList")
     @Transactional(readOnly = true)
     public List<ExchangeRateResponse> getAllRates() {
         return exchangeRateRepository.findAll().stream()
@@ -70,7 +83,10 @@ public class CurrencyService {
                 .collect(Collectors.toList());
     }
 
-    /** Phase 3: Create exchange rate. */
+    @Caching(evict = {
+            @CacheEvict(value = "exchangeRates", allEntries = true),
+            @CacheEvict(value = "exchangeRatesList", allEntries = true)
+    })
     @Transactional
     public ExchangeRateResponse createRate(CreateExchangeRateRequest request) {
         ExchangeRate rate = new ExchangeRate();
@@ -81,7 +97,10 @@ public class CurrencyService {
         return mapToResponse(exchangeRateRepository.save(rate));
     }
 
-    /** Phase 3: Update exchange rate. */
+    @Caching(evict = {
+            @CacheEvict(value = "exchangeRates", allEntries = true),
+            @CacheEvict(value = "exchangeRatesList", allEntries = true)
+    })
     @Transactional
     public ExchangeRateResponse updateRate(java.util.UUID id, UpdateExchangeRateRequest request) {
         ExchangeRate rate = exchangeRateRepository.findById(id)
@@ -98,6 +117,10 @@ public class CurrencyService {
                 .orElseThrow(() -> new ResourceNotFoundException("Exchange rate not found"));
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "exchangeRates", allEntries = true),
+            @CacheEvict(value = "exchangeRatesList", allEntries = true)
+    })
     @Transactional
     public void deleteRate(java.util.UUID id) {
         if (exchangeRateRepository.findById(id).isEmpty()) {

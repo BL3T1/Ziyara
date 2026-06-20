@@ -49,6 +49,30 @@ public class AuditLogJpaEntity {
     
     @Column(name = "user_agent", columnDefinition = "TEXT")
     private String userAgent;
+
+    @Column(name = "correlation_id", length = 100)
+    private String correlationId;
+
+    @Column(name = "request_id", length = 100)
+    private String requestId;
+
+    @Column(name = "session_id")
+    private UUID sessionId;
+
+    @Column(name = "provider_id")
+    private UUID providerId;
+
+    @Column(name = "tenant_id")
+    private UUID tenantId;
+
+    @Column(name = "risk_score")
+    private Integer riskScore;
+
+    @Column(name = "duration_ms")
+    private Integer durationMs;
+
+    @Column(name = "tags", columnDefinition = "TEXT")
+    private String tags;
     
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

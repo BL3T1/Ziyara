@@ -1,13 +1,15 @@
 /**
- * Provider support hub: submit requests to Ziyara (Phase 5), quick links, FAQ.
+ * Provider support hub: submit requests to Ziyara, quick links, FAQ.
  */
 
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
+import { usePermission } from '../../hooks/usePermission'
 import { resolveCompanyDashboardUrl } from '../../config/appSurface'
 import { getApiErrorMessage, portalSupportAPI } from '../../services/api'
 import type { PortalSupportRequestDto } from '../../types/api'
+import { Card } from '../../components/Card'
 
 const FAQ_KEYS: { q: string; a: string }[] = [
   { q: 'portalSupportPage.faq1q', a: 'portalSupportPage.faq1a' },
@@ -20,14 +22,12 @@ function fmtWhen(iso: string | undefined, locale: string) {
   if (!iso) return '—'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleString(locale === 'ar' ? 'ar' : undefined, {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  })
+  return d.toLocaleString(locale === 'ar' ? 'ar' : undefined, { dateStyle: 'short', timeStyle: 'short' })
 }
 
 export function PortalSupportPage() {
   const { t, locale } = useLanguage()
+  const canAccess = usePermission('portal:access')
   const [rows, setRows] = useState<PortalSupportRequestDto[]>([])
   const [loadingList, setLoadingList] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -45,16 +45,11 @@ export function PortalSupportPage() {
         const data = r.data
         setRows(Array.isArray(data) ? data : [])
       })
-      .catch((e) => {
-        setError(getApiErrorMessage(e))
-        setRows([])
-      })
+      .catch((e) => { setError(getApiErrorMessage(e)); setRows([]) })
       .finally(() => setLoadingList(false))
   }, [])
 
-  useEffect(() => {
-    loadList()
-  }, [loadList])
+  useEffect(() => { loadList() }, [loadList])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,122 +76,153 @@ export function PortalSupportPage() {
     <>
       <h1 className="app-page-title">{t('title.portalSupport')}</h1>
 
-      <section className="mt-8 max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800/50">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-          {t('portalSupportPage.requestSectionTitle')}
-        </h2>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{t('portalSupportPage.requestSectionHint')}</p>
-        {sentOk && (
-          <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">
-            {t('portalSupportPage.sentOk')}
-          </p>
-        )}
-        {error && (
-          <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
-            {error}
-          </p>
-        )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-          <div>
-            <label htmlFor="portal-support-subject" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-              {t('portalSupportPage.subject')}
-            </label>
-            <input
-              id="portal-support-subject"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              maxLength={500}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="portal-support-body" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-              {t('portalSupportPage.message')}
-            </label>
-            <textarea
-              id="portal-support-body"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={5}
-              maxLength={8000}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-700"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="dashboard-btn-primary disabled:opacity-50"
-          >
-            {submitting ? t('portalSupportPage.submitting') : t('portalSupportPage.submit')}
-          </button>
-        </form>
-      </section>
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        {/* Submit form */}
+        <Card className="!p-5">
+          <h2 className="dashboard-card-title">{t('portalSupportPage.requestSectionTitle')}</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('portalSupportPage.requestSectionHint')}</p>
 
-      <section className="mt-10 max-w-3xl">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('portalSupportPage.recentTitle')}</h2>
+          {sentOk && (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300">
+              {t('portalSupportPage.sentOk')}
+            </div>
+          )}
+          {error && (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-300">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            <div>
+              <label htmlFor="portal-support-subject" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                {t('portalSupportPage.subject')}
+              </label>
+              <input
+                id="portal-support-subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                maxLength={500}
+                className="dashboard-date-input w-full"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="portal-support-body" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                {t('portalSupportPage.message')}
+              </label>
+              <textarea
+                id="portal-support-body"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={5}
+                maxLength={8000}
+                className="dashboard-date-input w-full resize-none"
+                required
+              />
+            </div>
+            {canAccess && (
+              <button type="submit" disabled={submitting} className="dashboard-btn-primary disabled:opacity-50">
+                {submitting ? t('portalSupportPage.submitting') : t('portalSupportPage.submit')}
+              </button>
+            )}
+          </form>
+        </Card>
+
+        {/* Quick links */}
+        <Card className="!p-5 h-fit">
+          <h2 className="dashboard-card-title mb-4">{t('portalSupportPage.linkBookings')}</h2>
+          <nav className="flex flex-col gap-2">
+            <Link to="/portal/bookings" className="dashboard-btn-primary justify-start">
+              {t('portalSupportPage.linkBookings')}
+            </Link>
+            <Link to="/portal/listings" className="dashboard-btn-secondary justify-start">
+              {t('portalSupportPage.linkListings')}
+            </Link>
+            <Link to="/portal/profile" className="dashboard-btn-secondary justify-start">
+              {t('portalSupportPage.linkProfile')}
+            </Link>
+            <a href={resolveCompanyDashboardUrl()} className="dashboard-btn-ghost justify-start">
+              {t('portal.companyDashboard')}
+            </a>
+          </nav>
+        </Card>
+      </div>
+
+      {/* Recent requests */}
+      <section>
+        <h2 className="dashboard-section-title">{t('portalSupportPage.recentTitle')}</h2>
         {loadingList ? (
-          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{t('ui.loading')}</p>
+          <div className="mt-3 flex flex-col gap-2">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-100 dark:bg-white/[0.04]" />
+            ))}
+          </div>
         ) : rows.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{t('portalSupportPage.emptyRequests')}</p>
         ) : (
-          <ul className="mt-4 space-y-3">
+          <ul className="mt-3 space-y-2">
             {rows.map((row) => (
               <li
                 key={row.id}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50"
+                className="rounded-xl border border-slate-100 bg-white px-4 py-3.5 dark:border-white/[0.05] dark:bg-[#0d1117]"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="font-medium text-slate-900 dark:text-slate-100">{row.subject}</span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">{fmtWhen(row.createdAt, locale)}</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{row.subject}</span>
+                  <div className="flex items-center gap-2">
+                    {row.staffResponse ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        ✓ {t('portalSupportPage.replied')}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        {t('portalSupportPage.awaitingReply')}
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-400 dark:text-slate-500">{fmtWhen(row.createdAt, locale)}</span>
+                  </div>
                 </div>
-                <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300">{row.body}</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                  {row.body}
+                </p>
+                {row.staffResponse && (
+                  <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                      {t('portalSupportPage.staffReply')} — {fmtWhen(row.respondedAt ?? undefined, locale)}
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-emerald-800 dark:text-emerald-300">
+                      {row.staffResponse}
+                    </p>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Link
-          to="/portal/bookings"
-          className="dashboard-btn-primary inline-flex shrink-0"
-        >
-          {t('portalSupportPage.linkBookings')}
-        </Link>
-        <Link
-          to="/portal/listings"
-          className="inline-flex rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200"
-        >
-          {t('portalSupportPage.linkListings')}
-        </Link>
-        <Link
-          to="/portal/profile"
-          className="inline-flex rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200"
-        >
-          {t('portalSupportPage.linkProfile')}
-        </Link>
-        <a
-          href={resolveCompanyDashboardUrl()}
-          className="inline-flex rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200"
-        >
-          {t('portal.companyDashboard')}
-        </a>
-      </div>
-
-      <h2 className="mt-12 text-lg font-semibold text-slate-900 dark:text-slate-100">{t('portalSupportPage.faqTitle')}</h2>
-      <div className="mt-4 max-w-2xl space-y-2">
-        {FAQ_KEYS.map((item, idx) => (
-          <details
-            key={idx}
-            className="group rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50"
-          >
-            <summary className="cursor-pointer text-sm font-medium text-slate-900 dark:text-slate-100">{t(item.q)}</summary>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{t(item.a)}</p>
-          </details>
-        ))}
-      </div>
+      {/* FAQ */}
+      <section>
+        <h2 className="dashboard-section-title">{t('portalSupportPage.faqTitle')}</h2>
+        <div className="mt-3 max-w-2xl space-y-2">
+          {FAQ_KEYS.map((item, idx) => (
+            <details
+              key={idx}
+              className="group rounded-xl border border-slate-100 bg-white px-4 py-3 transition-colors dark:border-white/[0.05] dark:bg-[#0d1117] open:border-[#1e4d6b]/20 dark:open:border-[#1e4d6b]/30"
+            >
+              <summary className="cursor-pointer select-none text-sm font-semibold text-slate-800 dark:text-slate-200 list-none">
+                <span className="flex items-center justify-between gap-2">
+                  {t(item.q)}
+                  <span className="shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-45">＋</span>
+                </span>
+              </summary>
+              <p className="mt-3 border-t border-slate-100 pt-3 text-sm leading-relaxed text-slate-600 dark:border-white/[0.05] dark:text-slate-300">
+                {t(item.a)}
+              </p>
+            </details>
+          ))}
+        </div>
+      </section>
     </>
   )
 }

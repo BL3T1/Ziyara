@@ -7,6 +7,8 @@ import com.ziyara.backend.application.dto.request.UpdateReviewRequest;
 import com.ziyara.backend.application.dto.response.ReviewResponse;
 import com.ziyara.backend.application.service.ReviewService;
 import com.ziyara.backend.domain.enums.ReviewStatus;
+import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -18,13 +20,12 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
-
-import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.COMPANY_STAFF;
 
 /**
  * Controller: ReviewController
@@ -55,12 +56,14 @@ public class ReviewController {
     }
 
     @GetMapping("/service/{serviceId}")
-    @Operation(summary = "Get service reviews", description = "Retrieve all published reviews for a service")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Get service reviews", description = "Retrieve published reviews for a service — company staff only")
     public ResponseEntity<ApiResponse<List<ReviewResponse>>> getServiceReviews(@PathVariable UUID serviceId) {
         return ResponseEntity.ok(ApiResponse.success(reviewService.getServiceReviews(serviceId)));
     }
     
     @PostMapping
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Submit review", description = "Add a new review for a completed booking")
     public ResponseEntity<ApiResponse<ReviewResponse>> createReview(
             @Valid @RequestBody CreateReviewRequest request,
@@ -71,30 +74,41 @@ public class ReviewController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Review submitted", response));
     }
-    
+
     @GetMapping("/{id}")
-    @Operation(summary = "Get review", description = "Get review by ID (Phase 3)")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Get review", description = "Get review by ID — company staff only")
     public ResponseEntity<ApiResponse<ReviewResponse>> getReview(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(reviewService.getReview(id)));
     }
 
-    @PutMapping("/{id}")
-    @Operation(summary = "Update review", description = "Update rating or comment (Phase 3)")
+    @PatchMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Update review", description = "Update rating or comment — author or staff only")
     public ResponseEntity<ApiResponse<ReviewResponse>> updateReview(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateReviewRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(reviewService.updateReview(id, request)));
+        UUID requestingUserId = currentUserId();
+        boolean isStaff = ApiAuthorizationExpressions.isCompanyStaff(
+                SecurityContextHolder.getContext().getAuthentication());
+        return ResponseEntity.ok(ApiResponse.success(
+                reviewService.updateReview(id, request, requestingUserId, isStaff)));
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete review", description = "Delete a review (Phase 3)")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Delete review", description = "Delete a review — author or staff only")
     public ResponseEntity<ApiResponse<Void>> deleteReview(@PathVariable UUID id) {
-        reviewService.deleteReview(id);
+        UUID requestingUserId = currentUserId();
+        boolean isStaff = ApiAuthorizationExpressions.isCompanyStaff(
+                SecurityContextHolder.getContext().getAuthentication());
+        reviewService.deleteReview(id, requestingUserId, isStaff);
         return ResponseEntity.ok(ApiResponse.success("Review deleted", null));
     }
 
     @PostMapping("/{id}/moderate")
-    @Operation(summary = "Moderate review", description = "Set status PUBLISHED/REJECTED/HIDDEN (Phase 3)")
+    @PreAuthorize(REVIEWS_MODERATE)
+    @Operation(summary = "Moderate review", description = "Set status PUBLISHED/REJECTED/HIDDEN — requires reviews:moderate permission")
     public ResponseEntity<ApiResponse<ReviewResponse>> moderateReview(
             @PathVariable UUID id,
             @Valid @RequestBody ModerateReviewRequest request) {
@@ -102,7 +116,8 @@ public class ReviewController {
     }
 
     @PostMapping("/{id}/respond")
-    @Operation(summary = "Respond to review", description = "Provider response to a user review")
+    @PreAuthorize(PORTAL_MANAGER)
+    @Operation(summary = "Respond to review", description = "Provider manager response to a user review")
     public ResponseEntity<ApiResponse<ReviewResponse>> respondToReview(
             @PathVariable UUID id,
             @RequestParam String response
@@ -114,5 +129,10 @@ public class ReviewController {
     private UUID extractUserId(String authHeader) {
         String token = authHeader.substring(7);
         return UUID.fromString(jwtService.extractUserId(token));
+    }
+
+    private UUID currentUserId() {
+        String name = SecurityContextHolder.getContext().getAuthentication().getName();
+        return UUID.fromString(name);
     }
 }

@@ -5,19 +5,27 @@ import com.ziyara.backend.application.dto.request.UpdateProviderCommissionReques
 import com.ziyara.backend.application.dto.request.UpdateServiceProviderRequest;
 import com.ziyara.backend.application.dto.response.ServiceProviderResponse;
 import com.ziyara.backend.application.locale.RequestLocaleHolder;
+import com.ziyara.backend.domain.entity.ProviderSubscription;
 import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.entity.User;
+import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.domain.enums.ProviderStatus;
+import com.ziyara.backend.domain.usecase.provider.ApproveProviderUseCase;
+import com.ziyara.backend.domain.usecase.provider.SuspendProviderUseCase;
 import com.ziyara.backend.domain.enums.ServiceType;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
+import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
+import com.ziyara.backend.domain.repository.ProviderSubscriptionRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.infrastructure.persistence.util.PageConverter;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,10 +38,8 @@ import java.util.stream.Collectors;
 
 /**
  * Service provider management.
- * <p>Product rules: Super Admin / CEO creates partners as {@link ProviderStatus#ACTIVE} with portal login
- * {@link UserStatus#ACTIVE}. Sales roles create {@link ProviderStatus#PENDING_APPROVAL} and keep the linked
- * {@link UserRole#PROVIDER_MANAGER} in {@link UserStatus#PENDING_VERIFICATION} until Super Admin / CEO approves.
- * Rejection sets provider {@link ProviderStatus#INACTIVE} and linked manager {@link UserStatus#INACTIVE}.</p>
+ * Creators with {@code providers:approve} permission activate providers immediately.
+ * Others create them as PENDING_APPROVAL for review.
  */
 @Service
 @RequiredArgsConstructor
@@ -44,27 +50,21 @@ public class ServiceProviderService {
 
     private final ServiceProviderRepository serviceProviderRepository;
     private final UserRepository userRepository;
+    private final ProviderSubscriptionRepository providerSubscriptionRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
     private final ProviderWorkflowEmailService providerWorkflowEmailService;
-    private final UserRbacAssignmentService userRbacAssignmentService;
-
-    private static boolean isSalesCreator(UserRole role) {
-        return role == UserRole.SALES_MANAGER || role == UserRole.SALES_REPRESENTATIVE;
-    }
-
-    private static boolean isElevatedCreator(UserRole role) {
-        return role == UserRole.SUPER_ADMIN || role == UserRole.CEO;
-    }
+    private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
+    private final UserPasswordService userPasswordService;
+    private final AuthEmailNotificationService authEmailNotificationService;
 
     /**
-     * Creates a provider; activation vs pending is derived from the creator's role.
+     * Creates a provider; activation vs pending depends on whether the creator
+     * holds {@code providers:approve} (immediate activation) or not (pending review).
      */
     @Transactional
-    public ServiceProviderResponse createProvider(CreateServiceProviderRequest request, UUID actorUserId, UserRole creatorRole) {
-        if (!isSalesCreator(creatorRole) && !isElevatedCreator(creatorRole)) {
-            throw new IllegalArgumentException("Your role cannot create provider accounts");
-        }
+    public ServiceProviderResponse createProvider(CreateServiceProviderRequest request, UUID actorUserId) {
+        boolean canApprove = SecurityRoleUtils.canApproveProviders();
 
         boolean mgrEmailOk = request.getManagerEmail() != null && !request.getManagerEmail().isBlank();
         boolean hasManagerPassword = request.getManagerPassword() != null && !request.getManagerPassword().isBlank();
@@ -102,9 +102,6 @@ public class ServiceProviderService {
             String managerEmail = request.getManagerEmail().trim().toLowerCase();
             managerUser = userRepository.findByEmail(managerEmail)
                     .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + managerEmail));
-            if (managerUser.getRole() != UserRole.PROVIDER_MANAGER) {
-                throw new IllegalArgumentException("Linked user must have role PROVIDER_MANAGER");
-            }
             if (serviceProviderRepository.findByUserId(managerUser.getId()).isPresent()) {
                 throw new IllegalArgumentException("This user already has a provider profile");
             }
@@ -121,21 +118,14 @@ public class ServiceProviderService {
             managerUser.setEmail(email);
             managerUser.setPhone(request.getManagerPhone());
             managerUser.setPasswordHash(passwordEncoder.encode(request.getManagerPassword()));
-            managerUser.setRole(UserRole.PROVIDER_MANAGER);
-            boolean pendingPath = isSalesCreator(creatorRole);
-            managerUser.setStatus(pendingPath ? UserStatus.PENDING_VERIFICATION : UserStatus.ACTIVE);
+            managerUser.setRole(UserRole.STAFF);
+            managerUser.setStatus(canApprove ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION);
             managerUser = userRepository.save(managerUser);
-            userRbacAssignmentService.autoAssignPrimaryRoleByUserRole(managerUser.getId(), managerUser.getRole());
         }
 
         if (!createNewManager) {
-            if (isSalesCreator(creatorRole)) {
-                managerUser.setStatus(UserStatus.PENDING_VERIFICATION);
-                userRepository.save(managerUser);
-            } else {
-                managerUser.setStatus(UserStatus.ACTIVE);
-                userRepository.save(managerUser);
-            }
+            managerUser.setStatus(canApprove ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION);
+            userRepository.save(managerUser);
         }
 
         ServiceProvider provider = new ServiceProvider();
@@ -151,11 +141,15 @@ public class ServiceProviderService {
         provider.setEmail(contactEmail);
         provider.setAddress(request.getAddress());
         provider.setDescription(request.getDescription());
-        provider.setRating(0.0);
+        if (request.getLogoUrl() != null && !request.getLogoUrl().isBlank()) {
+            provider.setLogoUrl(request.getLogoUrl().trim());
+        }
+        provider.setRating(BigDecimal.ZERO);
         provider.setReviewCount(0);
+        provider.setGlobalRate(request.getGlobalRate());
+        provider.setExpiryDate(request.getExpiryDate());
 
-        boolean pendingProvider = isSalesCreator(creatorRole);
-        if (pendingProvider) {
+        if (!canApprove) {
             provider.setStatus(ProviderStatus.PENDING_APPROVAL);
             provider.setVerified(false);
         } else {
@@ -166,15 +160,25 @@ public class ServiceProviderService {
         }
 
         ServiceProvider saved = serviceProviderRepository.save(provider);
-        String action = pendingProvider ? "PROVIDER_SUBMIT_PENDING" : "PROVIDER_CREATE_ACTIVE";
+        boolean pending = !canApprove;
+        String action = pending ? "PROVIDER_SUBMIT_PENDING" : "PROVIDER_CREATE_ACTIVE";
         auditLogService.logAction(action, "ServiceProvider", saved.getId().toString(), actorUserId,
                 null, "name=" + saved.getName() + ";userId=" + managerUser.getId(), null, null);
-        if (pendingProvider) {
+        if (pending) {
             providerWorkflowEmailService.notifySubmittedForApproval(saved, managerUser.getEmail());
+            staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                    .eventId(UUID.randomUUID())
+                    .notificationType(NotificationType.PROVIDER_PENDING_REVIEW.name())
+                    .title("Provider pending approval")
+                    .message("Partner \"" + saved.getName() + "\" is waiting for approval.")
+                    .notifyRoles(List.of("SALES_MANAGER", "SALES_REPRESENTATIVE", "SUPPORT_MANAGER", "SUPPORT_AGENT", "CEO"))
+                    .metadata("{\"providerId\":\"" + saved.getId() + "\"}")
+                    .build());
         } else {
             providerWorkflowEmailService.notifyActivated(saved, managerUser.getEmail());
         }
-        log.info("{} provider {} by role {}", pendingProvider ? "Pending" : "Active", saved.getId(), creatorRole);
+        log.info("{} provider {}", pending ? "Pending" : "Active", saved.getId());
+        ensureSubscription(saved.getId(), request.getSubscriptionPlan(), request.getStaffLimit());
         return mapToResponse(saved);
     }
 
@@ -191,10 +195,11 @@ public class ServiceProviderService {
         if (request.getAddress() != null) provider.setAddress(request.getAddress());
         if (request.getDescription() != null) provider.setDescription(request.getDescription());
         if (request.getStatus() != null) provider.setStatus(request.getStatus());
-        if (request.getWebsite() != null) provider.setWebsite(request.getWebsite());
         if (request.getLogoUrl() != null) provider.setLogoUrl(request.getLogoUrl());
         if (request.getVerified() != null) provider.setVerified(request.getVerified());
-        if (request.getCommissionRate() != null) provider.setCommissionRate(request.getCommissionRate());
+        if (request.getProfitMargin() != null) provider.setCommissionRate(request.getProfitMargin());
+        if (request.getGlobalRate() != null) provider.setGlobalRate(request.getGlobalRate());
+        if (request.getExpiryDate() != null) provider.setExpiryDate(request.getExpiryDate());
 
         return mapToResponse(serviceProviderRepository.save(provider));
     }
@@ -204,7 +209,7 @@ public class ServiceProviderService {
         ServiceProvider provider = serviceProviderRepository.findById(providerId)
                 .orElseThrow(() -> new RuntimeException("Service provider not found"));
         BigDecimal oldRate = provider.getCommissionRate();
-        BigDecimal newRate = request.getCommissionRate() != null ? request.getCommissionRate() : DEFAULT_COMMISSION_RATE;
+        BigDecimal newRate = request.getProfitMargin() != null ? request.getProfitMargin() : DEFAULT_COMMISSION_RATE;
         provider.setCommissionRate(newRate);
         ServiceProvider saved = serviceProviderRepository.save(provider);
         auditLogService.logAction("COMMISSION_UPDATE", "ServiceProvider", providerId.toString(), userId,
@@ -236,45 +241,40 @@ public class ServiceProviderService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ServiceProviderResponse> getProvidersPage(int page, int size, ProviderStatus status) {
-        int p = Math.max(0, page);
-        int s = Math.min(100, Math.max(1, size));
-        PageRequest pr = PageRequest.of(p, s, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<ServiceProvider> pg = status != null
-                ? serviceProviderRepository.findByStatus(status, pr)
-                : serviceProviderRepository.findAll(pr);
-        return pg.map(this::mapToResponse);
+    public Page<ServiceProviderResponse> getProvidersPage(int page, int size, ProviderStatus status, String type) {
+        PageQuery query = PageQuery.of(Math.max(0, page), Math.min(100, Math.max(1, size)), "createdAt", false);
+        String typeNorm = type != null && !type.isBlank() ? type.trim().toUpperCase() : null;
+
+        var result = (status != null && typeNorm != null)
+                ? serviceProviderRepository.findByStatusAndProviderType(status, typeNorm, query)
+                : (status != null)
+                    ? serviceProviderRepository.findByStatus(status, query)
+                    : (typeNorm != null)
+                        ? serviceProviderRepository.findByProviderType(typeNorm, query)
+                        : serviceProviderRepository.findAll(query);
+        return PageConverter.toSpringPage(result, query, this::mapToResponse);
     }
 
     @Transactional
     public void deleteProvider(UUID providerId) {
-        ServiceProvider provider = serviceProviderRepository.findById(providerId)
-                .orElseThrow(() -> new RuntimeException("Service provider not found"));
-        provider.setStatus(ProviderStatus.INACTIVE);
-        serviceProviderRepository.save(provider);
-        log.info("Provider soft-deleted (INACTIVE): {}", providerId);
+        serviceProviderRepository.findById(providerId)
+                .orElseThrow(() -> new IllegalArgumentException("Provider not found: " + providerId));
+        serviceProviderRepository.softDelete(providerId);
+        log.info("Provider soft-deleted (deleted_at set): {}", providerId);
     }
 
     @Transactional
     public ServiceProviderResponse approveProvider(UUID providerId, UUID approverUserId) {
-        ServiceProvider provider = serviceProviderRepository.findById(providerId)
-                .orElseThrow(() -> new IllegalArgumentException("Service provider not found"));
-        if (provider.getStatus() != ProviderStatus.PENDING_APPROVAL) {
-            throw new IllegalArgumentException("Only providers in PENDING_APPROVAL can be approved");
-        }
-        provider.setStatus(ProviderStatus.ACTIVE);
-        provider.setVerified(true);
-        provider.setApprovedBy(approverUserId);
-        provider.setApprovedAt(LocalDateTime.now());
-        ServiceProvider saved = serviceProviderRepository.save(provider);
+        var result = new ApproveProviderUseCase(serviceProviderRepository)
+                .execute(new ApproveProviderUseCase.Input(providerId, true, approverUserId));
+        if (!result.success()) throw new IllegalArgumentException(result.error());
+        ServiceProvider saved = result.provider();
 
         if (saved.getUserId() != null) {
             userRepository.findById(saved.getUserId()).ifPresent(u -> {
-                if (u.getRole() == UserRole.PROVIDER_MANAGER) {
-                    u.setStatus(UserStatus.ACTIVE);
-                    userRepository.save(u);
-                    providerWorkflowEmailService.notifyActivated(saved, u.getEmail());
-                }
+                u.setStatus(UserStatus.ACTIVE);
+                userRepository.save(u);
+                providerWorkflowEmailService.notifyActivated(saved, u.getEmail());
             });
         }
 
@@ -299,11 +299,9 @@ public class ServiceProviderService {
 
         if (saved.getUserId() != null) {
             userRepository.findById(saved.getUserId()).ifPresent(u -> {
-                if (u.getRole() == UserRole.PROVIDER_MANAGER) {
-                    u.setStatus(UserStatus.INACTIVE);
-                    userRepository.save(u);
-                    providerWorkflowEmailService.notifyRejected(saved, u.getEmail(), reason);
-                }
+                u.setStatus(UserStatus.INACTIVE);
+                userRepository.save(u);
+                providerWorkflowEmailService.notifyRejected(saved, u.getEmail(), reason);
             });
         }
 
@@ -315,13 +313,14 @@ public class ServiceProviderService {
 
     @Transactional
     public ServiceProviderResponse suspendProvider(UUID providerId) {
-        ServiceProvider provider = serviceProviderRepository.findById(providerId)
-                .orElseThrow(() -> new RuntimeException("Service provider not found"));
-        provider.setStatus(ProviderStatus.SUSPENDED);
-        return mapToResponse(serviceProviderRepository.save(provider));
+        var result = new SuspendProviderUseCase(serviceProviderRepository)
+                .execute(new SuspendProviderUseCase.Input(providerId, null, null));
+        if (!result.success()) throw new IllegalArgumentException(result.error());
+        return mapToResponse(result.provider());
     }
 
     private ServiceProviderResponse mapToResponse(ServiceProvider provider) {
+        var sub = providerSubscriptionRepository.findByProviderId(provider.getId());
         return ServiceProviderResponse.builder()
                 .id(provider.getId())
                 .userId(provider.getUserId())
@@ -331,14 +330,57 @@ public class ServiceProviderService {
                 .phone(provider.getPhone())
                 .email(provider.getEmail())
                 .address(provider.getAddress())
+                .description(provider.getDescription())
+                .logoUrl(provider.getLogoUrl())
                 .rating(provider.getRating())
                 .reviewCount(provider.getReviewCount())
                 .status(provider.getStatus())
                 .verified(provider.isVerified())
-                .commissionRate(provider.getCommissionRate())
+                .profitMargin(provider.getCommissionRate())
+                .globalRate(provider.getGlobalRate())
                 .createdAt(provider.getCreatedAt())
                 .approvedBy(provider.getApprovedBy())
                 .approvedAt(provider.getApprovedAt())
+                .subscriptionPlan(sub.map(s -> s.getPlan()).orElse("FREE"))
+                .staffLimit(sub.map(s -> s.getStaffLimit()).orElse(10))
+                .expiryDate(provider.getExpiryDate())
+                .expired(provider.isExpired())
                 .build();
+    }
+
+    @Transactional
+    public void resetProviderManagerPassword(UUID providerId, UUID actorUserId) {
+        ServiceProvider provider = serviceProviderRepository.findById(providerId)
+                .orElseThrow(() -> new IllegalArgumentException("Service provider not found"));
+        if (provider.getUserId() == null) {
+            throw new IllegalArgumentException("Provider has no linked manager account");
+        }
+        User managerUser = userRepository.findById(provider.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Provider manager user not found"));
+        String tempPassword = generateTempPassword();
+        userPasswordService.resetPassword(managerUser.getId(), tempPassword);
+        authEmailNotificationService.sendTempPasswordReset(managerUser.getEmail(), tempPassword);
+        auditLogService.logAction("PROVIDER_PASSWORD_RESET", "ServiceProvider", providerId.toString(), actorUserId,
+                null, "manager=" + managerUser.getEmail(), null, null);
+        log.info("Password reset for provider manager {} by actor {}", managerUser.getEmail(), actorUserId);
+    }
+
+    private static String generateTempPassword() {
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#";
+        java.security.SecureRandom rng = new java.security.SecureRandom();
+        StringBuilder sb = new StringBuilder(12);
+        for (int i = 0; i < 12; i++) sb.append(chars.charAt(rng.nextInt(chars.length())));
+        return sb.toString();
+    }
+
+    private void ensureSubscription(UUID providerId, String requestedPlan, Integer requestedLimit) {
+        if (providerSubscriptionRepository.findByProviderId(providerId).isPresent()) return;
+        String plan = (requestedPlan != null && requestedPlan.trim().equalsIgnoreCase("PRO")) ? "PRO" : "FREE";
+        int limit = "PRO".equals(plan) ? (requestedLimit != null && requestedLimit > 0 ? requestedLimit : 10) : 10;
+        ProviderSubscription sub = new ProviderSubscription();
+        sub.setProviderId(providerId);
+        sub.setPlan(plan);
+        sub.setStaffLimit(limit);
+        providerSubscriptionRepository.save(sub);
     }
 }

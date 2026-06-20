@@ -2,15 +2,23 @@ package com.ziyara.backend.application.service;
 
 import com.ziyara.backend.application.dto.request.CreateReviewRequest;
 import com.ziyara.backend.application.dto.response.ReviewResponse;
+import com.ziyara.backend.application.exception.BusinessException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.UnauthorizedException;
 import com.ziyara.backend.domain.entity.Review;
+import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.domain.enums.ReviewStatus;
+import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.domain.repository.ReviewRepository;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.domain.usecase.review.ModerateReviewUseCase;
+import com.ziyara.backend.domain.usecase.review.SubmitReviewUseCase;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.infrastructure.persistence.util.PageConverter;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,19 +38,27 @@ import java.util.stream.Collectors;
 public class ReviewService {
     
     private final ReviewRepository reviewRepository;
+    private final BookingRepository bookingRepository;
+    private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
     
     @Transactional
     public ReviewResponse createReview(UUID userId, CreateReviewRequest request) {
         log.info("User {} creating review for booking {}", userId, request.getBookingId());
-        
-        Review review = new Review();
-        review.setBookingId(request.getBookingId());
-        review.setUserId(userId);
-        review.setRating(request.getRating());
-        review.setComment(request.getComment());
-        review.setStatus(ReviewStatus.PENDING);
-        
-        return mapToResponse(reviewRepository.save(review));
+
+        var result = new SubmitReviewUseCase(bookingRepository, reviewRepository).execute(
+                new SubmitReviewUseCase.Input(request.getBookingId(), userId,
+                        request.getRating(), request.getComment()));
+        if (!result.success()) throw new BusinessException(result.error());
+        Review saved = result.review();
+        staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                .eventId(UUID.randomUUID())
+                .notificationType(NotificationType.SYSTEM_ALERT.name())
+                .title("Review pending moderation")
+                .message("A new review is pending for booking " + saved.getBookingId())
+                .notifyRoles(List.of("SUPPORT_MANAGER", "SUPPORT_AGENT"))
+                .metadata("{\"reviewId\":\"" + saved.getId() + "\"}")
+                .build());
+        return mapToResponse(saved);
     }
     
     @Transactional
@@ -69,13 +85,11 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public Page<ReviewResponse> listAdmin(int page, int size, ReviewStatus status, UUID serviceId,
                                           LocalDate start, LocalDate end) {
-        int p = Math.max(0, page);
-        int s = Math.min(100, Math.max(1, size));
-        Pageable pageable = PageRequest.of(p, s);
+        PageQuery query = PageQuery.of(Math.max(0, page), Math.min(100, Math.max(1, size)));
         LocalDateTime startDt = start != null ? start.atStartOfDay() : null;
         LocalDateTime endDt = end != null ? end.plusDays(1).atStartOfDay() : null;
-        return reviewRepository.findAllForAdmin(pageable, status, serviceId, startDt, endDt)
-                .map(this::mapToResponse);
+        return PageConverter.toSpringPage(
+                reviewRepository.findAllForAdmin(query, status, serviceId, startDt, endDt), query, this::mapToResponse);
     }
 
     @Transactional(readOnly = true)
@@ -85,32 +99,41 @@ public class ReviewService {
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
     }
 
-    /** Phase 3: Update review (rating, comment). */
+    /** Update review — only the author or company staff may edit. */
     @Transactional
-    public ReviewResponse updateReview(UUID id, com.ziyara.backend.application.dto.request.UpdateReviewRequest request) {
+    public ReviewResponse updateReview(UUID id, com.ziyara.backend.application.dto.request.UpdateReviewRequest request,
+                                       UUID requestingUserId, boolean isStaff) {
         Review review = reviewRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
+        assertCanModify(review, requestingUserId, isStaff);
         if (request.getRating() != null) review.setRating(request.getRating());
         if (request.getComment() != null) review.setComment(request.getComment());
         return mapToResponse(reviewRepository.save(review));
     }
 
-    /** Phase 3: Delete review. */
+    /** Delete review — only the author or company staff may delete. */
     @Transactional
-    public void deleteReview(UUID id) {
-        if (!reviewRepository.findById(id).isPresent()) {
-            throw new ResourceNotFoundException("Review not found");
-        }
+    public void deleteReview(UUID id, UUID requestingUserId, boolean isStaff) {
+        Review review = reviewRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
+        assertCanModify(review, requestingUserId, isStaff);
         reviewRepository.deleteById(id);
     }
 
-    /** Phase 3: Moderate review (set status PUBLISHED, REJECTED, HIDDEN). */
+    /** Phase 3: Moderate review (approve or reject). */
     @Transactional
     public ReviewResponse moderateReview(UUID id, com.ziyara.backend.application.dto.request.ModerateReviewRequest request) {
-        Review review = reviewRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
-        if (request.getStatus() != null) review.setStatus(request.getStatus());
-        return mapToResponse(reviewRepository.save(review));
+        boolean approve = request.getStatus() == ReviewStatus.APPROVED || request.getStatus() == ReviewStatus.PUBLISHED;
+        var result = new ModerateReviewUseCase(reviewRepository).execute(
+                new ModerateReviewUseCase.Input(id, approve, request.getRejectionReason(), null));
+        if (!result.success()) throw new BusinessException(result.error());
+        return mapToResponse(result.review());
+    }
+
+    private void assertCanModify(Review review, UUID requestingUserId, boolean isStaff) {
+        if (!isStaff && !review.getUserId().equals(requestingUserId)) {
+            throw new UnauthorizedException("You don't have access to this review");
+        }
     }
 
     private ReviewResponse mapToResponse(Review review) {

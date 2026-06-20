@@ -3,37 +3,36 @@
  */
 
 import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
+import { usePermissions } from '../../context/PermissionsContext'
 import { rolesAPI, getApiErrorMessage } from '../../services/api'
 import type { RoleDto, GroupDto, PermissionCatalogueItemDto } from '../../types/api'
 import { ALL_SIDEBAR_ITEM_IDS, SIDEBAR_SECTIONS } from '../../config/sidebar'
+import { Modal } from '../../components/Modal'
+import { FormField } from '../../components/FormField'
 
-/** Stable resource groups for permission catalogue UI */
-function catalogueByResource(items: PermissionCatalogueItemDto[]): [string, PermissionCatalogueItemDto[]][] {
-  const map = new Map<string, PermissionCatalogueItemDto[]>()
-  const sorted = [...items].sort((a, b) => {
-    const ra = a.resource ?? ''
-    const rb = b.resource ?? ''
-    if (ra !== rb) return ra.localeCompare(rb)
-    return (a.code ?? '').localeCompare(b.code ?? '')
-  })
-  for (const p of sorted) {
-    const key = p.resource?.trim() || 'other'
-    const list = map.get(key) ?? []
-    list.push(p)
-    map.set(key, list)
-  }
-  return Array.from(map.entries())
+
+const PROVIDER_ROLE_CODES = new Set(['PROVIDER_MANAGER', 'PROVIDER_FINANCE', 'PROVIDER_STAFF', 'TAXI_OPERATOR'])
+
+function isProviderRole(role: RoleDto): boolean {
+  if (role.providerRole) return true
+  if (!role.code) return false
+  return PROVIDER_ROLE_CODES.has(role.code) || role.code.startsWith('PROVIDER_')
 }
 
 export function RolesPage() {
   const { t } = useLanguage()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { has } = usePermissions()
+  const canWrite = has('roles:write')
   const [roles, setRoles] = useState<RoleDto[]>([])
   const [groups, setGroups] = useState<GroupDto[]>([])
   const [catalogue, setCatalogue] = useState<PermissionCatalogueItemDto[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'company' | 'provider'>('company')
   const [showCreate, setShowCreate] = useState(false)
-  const [editPermissionsRole, setEditPermissionsRole] = useState<RoleDto | null>(null)
   const [editDetailsRole, setEditDetailsRole] = useState<RoleDto | null>(null)
   const [deleteRole, setDeleteRole] = useState<RoleDto | null>(null)
   const [editNavRole, setEditNavRole] = useState<RoleDto | null>(null)
@@ -59,6 +58,21 @@ export function RolesPage() {
     load()
   }, [])
 
+  const roleIdFromUrl = searchParams.get('roleId')?.trim()
+
+  useEffect(() => {
+    if (!roleIdFromUrl || roles.length === 0) return
+    const match = roles.find((r) => r.id === roleIdFromUrl)
+    if (match) {
+      setEditNavRole(match)
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('roleId')
+        return next
+      }, { replace: true })
+    }
+  }, [roleIdFromUrl, roles, setSearchParams])
+
   if (loading) {
     return <div className="text-slate-500 dark:text-slate-400">{t('rolesPage.loading')}</div>
   }
@@ -69,13 +83,15 @@ export function RolesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('rolesPage.title')}</h1>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="dashboard-btn-primary shrink-0"
-        >
-          {t('rolesPage.createRoleButton')}
-        </button>
+        {canWrite && (
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="dashboard-btn-primary shrink-0"
+          >
+            {t('rolesPage.createRoleButton')}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -84,7 +100,24 @@ export function RolesPage() {
         </div>
       )}
 
-      <div className="mt-6 table-shell">
+      <div className="mt-6 flex gap-1 border-b border-slate-200 dark:border-slate-700">
+        {(['company', 'provider'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === tab
+                ? 'border-b-2 border-primary text-primary dark:text-secondary dark:border-secondary'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            {tab === 'company' ? t('rolesPage.tabCompany') : t('rolesPage.tabProvider')}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 table-shell">
         <table>
           <thead>
             <tr>
@@ -95,43 +128,54 @@ export function RolesPage() {
             </tr>
           </thead>
           <tbody>
-            {roles.map((role) => (
+            {roles.filter((r) => activeTab === 'provider' ? isProviderRole(r) : !isProviderRole(r)).map((role) => (
               <tr key={role.id}>
                 <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100">{role.name}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{role.code ?? '—'}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">{role.userCount ?? 0}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                  {(role.userCount ?? 0) > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/admin/roles/${role.id}/members`, { state: { roleName: role.name } })}
+                      className="font-medium text-primary hover:underline dark:text-secondary"
+                      title={t('rolesPage.viewUsersAria')}
+                    >
+                      {role.userCount}
+                    </button>
+                  ) : (
+                    <span>0</span>
+                  )}
+                </td>
                 <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
-                  <button
-                    type="button"
-                    onClick={() => setEditPermissionsRole(role)}
-                    className="text-primary hover:underline"
-                  >
-                    {t('rolesPage.editPermissions')}
-                  </button>
-                  <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
-                  <button
-                    type="button"
-                    onClick={() => setEditNavRole(role)}
-                    className="text-primary hover:underline"
-                  >
-                    {t('rolesPage.editSidebarNav')}
-                  </button>
-                  <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
-                  <button
-                    type="button"
-                    onClick={() => setEditDetailsRole(role)}
-                    className="text-primary hover:underline"
-                  >
-                    {t('rolesPage.editDetails')}
-                  </button>
-                  <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
-                  <button
-                    type="button"
-                    onClick={() => setDeleteRole(role)}
-                    className="text-red-600 hover:underline dark:text-red-400"
-                  >
-                    {t('rolesPage.delete')}
-                  </button>
+                  {canWrite ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setEditNavRole(role)}
+                        className="text-primary hover:underline"
+                      >
+                        {t('rolesPage.editPermissions')}
+                      </button>
+                      <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditDetailsRole(role)}
+                        className="text-primary hover:underline"
+                      >
+                        {t('rolesPage.editDetails')}
+                      </button>
+                      <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteRole(role)}
+                        className="text-red-600 hover:underline dark:text-red-400"
+                      >
+                        {t('rolesPage.delete')}
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-slate-400 dark:text-slate-500">{t('ui.emDash')}</span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -145,7 +189,7 @@ export function RolesPage() {
       {showCreate && (
         <CreateRoleModal
           groups={groups}
-          catalogue={catalogue}
+          defaultProvider={activeTab === 'provider'}
           onClose={() => setShowCreate(false)}
           onSuccess={() => {
             setShowCreate(false)
@@ -159,23 +203,10 @@ export function RolesPage() {
       {editDetailsRole && (
         <EditRoleDetailsModal
           role={editDetailsRole}
+          groups={groups}
           onClose={() => setEditDetailsRole(null)}
           onSuccess={() => {
             setEditDetailsRole(null)
-            setError('')
-            load()
-          }}
-          setError={setError}
-        />
-      )}
-
-      {editPermissionsRole && (
-        <EditPermissionsModal
-          role={editPermissionsRole}
-          catalogue={catalogue}
-          onClose={() => setEditPermissionsRole(null)}
-          onSuccess={() => {
-            setEditPermissionsRole(null)
             setError('')
             load()
           }}
@@ -200,6 +231,8 @@ export function RolesPage() {
       {editNavRole && (
         <EditRoleNavigationModal
           role={editNavRole}
+          catalogue={catalogue}
+          isProvider={isProviderRole(editNavRole)}
           onClose={() => setEditNavRole(null)}
           onSuccess={() => {
             setEditNavRole(null)
@@ -213,45 +246,166 @@ export function RolesPage() {
   )
 }
 
+type NavPermTab = { label: string; read?: string; write?: string }
+type NavPermEntry = { read?: string; write?: string; approve?: string; tabs?: NavPermTab[] }
+
+/** Maps each sidebar item to the permission codes it controls (read + optional write + optional approve). */
+const NAV_PERMISSION_MAP: Record<string, NavPermEntry> = {
+  dashboard:          {},
+  main_find_customer: { read: 'customers:read' },
+  main_deleted_items: {
+    tabs: [
+      { label: 'Company',   read: 'deleted_items:company:read',   write: 'deleted_items:company:restore' },
+      { label: 'Providers', read: 'deleted_items:providers:read', write: 'deleted_items:providers:restore' },
+      { label: 'Users',     read: 'deleted_items:users:read',     write: 'deleted_items:users:restore' },
+    ],
+  },
+  hotels:             { read: 'services:read',  write: 'services:write',            approve: 'services:publish' },
+  resorts:            { read: 'services:read',  write: 'services:write' },
+  restaurants:        { read: 'services:read',  write: 'services:write' },
+  taxis:              { read: 'taxi:read',       write: 'taxi:write' },
+  trips:              { read: 'services:read',  write: 'services:write' },
+  providers:          { read: 'providers:read', write: 'providers:write',            approve: 'providers:approve' },
+  bookings:           { read: 'bookings:read',  write: 'bookings:write' },
+  payments:           { read: 'payments:read',  write: 'payments:write' },
+  payouts:            { read: 'payouts:read',   write: 'payouts:write' },
+  discounts:          { read: 'discounts:read', write: 'discounts:write',            approve: 'discounts:approve' },
+  media_approvals:    { read: 'media_submissions:approve' },
+  reports:            { read: 'reports:read' },
+  taxi_trips:         { read: 'taxi:read',       write: 'taxi:write' },
+  currency_rates:     { read: 'currency:read',  write: 'currency:write' },
+  complaints:         { read: 'complaints:read', write: 'complaints:write' },
+  reviews:            { read: 'reviews:read',   write: 'reviews:write',              approve: 'reviews:moderate' },
+  provider_messages:  { read: 'providers_messages:read', write: 'providers_messages:write' },
+  settings:           { read: 'settings:read',  write: 'settings:write' },
+  users:              { read: 'users:read',      write: 'users:write' },
+  roles:              { read: 'roles:read',      write: 'roles:write' },
+  logs:               { read: 'audit:read' },
+  content:            { read: 'content:read',   write: 'content:write' },
+  api:                { read: 'settings:read' },
+  integrations:       { read: 'settings:read' },
+  webhooks:           { read: 'webhooks:read',  write: 'webhooks:write' },
+  subscriptions:      { read: 'providers:read' },
+}
+
+/** All permission codes that appear in NAV_PERMISSION_MAP (used to separate nav-managed vs standalone perms). */
+const NAV_MANAGED_PERMS = new Set(
+  Object.values(NAV_PERMISSION_MAP).flatMap((m) => {
+    const codes: string[] = []
+    if (m.read) codes.push(m.read)
+    if (m.write) codes.push(m.write)
+    if (m.approve) codes.push(m.approve)
+    m.tabs?.forEach((t) => { if (t.read) codes.push(t.read); if (t.write) codes.push(t.write) })
+    return codes
+  })
+)
+
+/** Permission codes that gate access/features inside the provider portal (not tied to the company sidebar). */
+const PORTAL_PERMISSIONS: { code: string; labelKey: string; descKey: string; group: 'core' | 'granular' }[] = [
+  // Core broad permissions
+  { code: 'portal:access',           labelKey: 'rolesPage.portalPermAccess',           descKey: 'rolesPage.portalPermAccessDesc',           group: 'core' },
+  { code: 'portal:manage',           labelKey: 'rolesPage.portalPermManage',           descKey: 'rolesPage.portalPermManageDesc',           group: 'core' },
+  { code: 'portal:finance',          labelKey: 'rolesPage.portalPermFinance',          descKey: 'rolesPage.portalPermFinanceDesc',          group: 'core' },
+  { code: 'portal:taxi',             labelKey: 'rolesPage.portalPermTaxi',             descKey: 'rolesPage.portalPermTaxiDesc',             group: 'core' },
+  // Granular permissions (V61)
+  { code: 'portal:bookings:read',    labelKey: 'rolesPage.portalPermBookingsRead',    descKey: 'rolesPage.portalPermBookingsReadDesc',    group: 'granular' },
+  { code: 'portal:bookings:manage',  labelKey: 'rolesPage.portalPermBookingsManage',  descKey: 'rolesPage.portalPermBookingsManageDesc',  group: 'granular' },
+  { code: 'portal:services:manage',  labelKey: 'rolesPage.portalPermServicesManage',  descKey: 'rolesPage.portalPermServicesManageDesc',  group: 'granular' },
+  { code: 'portal:staff:manage',     labelKey: 'rolesPage.portalPermStaffManage',     descKey: 'rolesPage.portalPermStaffManageDesc',     group: 'granular' },
+  { code: 'portal:reports:read',     labelKey: 'rolesPage.portalPermReportsRead',     descKey: 'rolesPage.portalPermReportsReadDesc',     group: 'granular' },
+  { code: 'portal:payouts:request',  labelKey: 'rolesPage.portalPermPayoutsRequest',  descKey: 'rolesPage.portalPermPayoutsRequestDesc',  group: 'granular' },
+  { code: 'portal:discounts:manage', labelKey: 'rolesPage.portalPermDiscountsManage', descKey: 'rolesPage.portalPermDiscountsManageDesc', group: 'granular' },
+  { code: 'portal:media:submit',     labelKey: 'rolesPage.portalPermMediaSubmit',     descKey: 'rolesPage.portalPermMediaSubmitDesc',     group: 'granular' },
+  { code: 'portal:support:write',    labelKey: 'rolesPage.portalPermSupportWrite',    descKey: 'rolesPage.portalPermSupportWriteDesc',    group: 'granular' },
+  { code: 'portal:menu:manage',      labelKey: 'rolesPage.portalPermMenuManage',      descKey: 'rolesPage.portalPermMenuManageDesc',      group: 'granular' },
+]
+const PORTAL_MANAGED_PERMS = new Set(PORTAL_PERMISSIONS.map((p) => p.code))
+
 function EditRoleNavigationModal({
   role,
+  catalogue,
+  isProvider,
   onClose,
   onSuccess,
   setError,
 }: {
   role: RoleDto
+  catalogue: PermissionCatalogueItemDto[]
+  isProvider: boolean
   onClose: () => void
   onSuccess: () => void
   setError: (s: string) => void
 }) {
   const { t } = useLanguage()
+  const { refreshPermissions } = usePermissions()
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  /** permCode → checked: tracks which write/approve permissions are explicitly enabled (read is auto-granted with nav item) */
+  const [permChecked, setPermChecked] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState('')
+
+  const catalogueCodes = new Set(catalogue.map((p) => p.code))
+  const unlockedCodes = new Set(catalogue.filter((p) => !p.locked).map((p) => p.code))
 
   useEffect(() => {
     rolesAPI
       .get(role.id)
       .then((r) => {
-        const data = r.data as RoleDto
-        const ids = data?.navigationItemIds
-        setSelected(ids?.length ? new Set(ids) : new Set())
+        const data = r.data as RoleDto & { permissionIds?: string[] }
+        const ids = data?.navigationItemIds ?? []
+        setSelected(ids.length ? new Set(ids) : new Set())
+
+        const rawPermIds: string[] = data?.permissionIds ?? data?.permissions ?? []
+        const permIdToCode = new Map(catalogue.map((p) => [p.id, p.code]))
+        const existingCodes = rawPermIds.map((id) => permIdToCode.get(id) ?? id).filter(Boolean)
+        setPermChecked(new Set(existingCodes.filter((c) => NAV_MANAGED_PERMS.has(c) || PORTAL_MANAGED_PERMS.has(c))))
       })
-      .catch(() => setSelected(new Set()))
+      .catch(() => { setSelected(new Set()); setPermChecked(new Set()) })
       .finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role.id])
 
-  const toggle = (id: string) => {
+  const toggleTab = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      const map = NAV_PERMISSION_MAP[id] ?? {}
+      const tabPerms = (map.tabs ?? []).flatMap((t) => [t.read, t.write].filter(Boolean) as string[])
+      if (next.has(id)) {
+        next.delete(id)
+        setPermChecked((pc) => {
+          const npc = new Set(pc)
+          if (map.read) npc.delete(map.read)
+          if (map.write) npc.delete(map.write)
+          if (map.approve) npc.delete(map.approve)
+          tabPerms.forEach((c) => npc.delete(c))
+          return npc
+        })
+      } else {
+        next.add(id)
+        const reads: string[] = []
+        if (map.read) reads.push(map.read)
+        ;(map.tabs ?? []).forEach((t) => { if (t.read) reads.push(t.read) })
+        if (reads.length) setPermChecked((pc) => new Set([...pc, ...reads]))
+      }
+      return next
+    })
+  }
+
+  const togglePerm = (code: string) => {
+    setPermChecked((prev) => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code)
+      else next.add(code)
       return next
     })
   }
 
   const orderedVisibleIds = () => ALL_SIDEBAR_ITEM_IDS.filter((id) => selected.has(id))
+
+  const buildPermissionIds = () => {
+    return catalogue.filter((p) => p.code && permChecked.has(p.code)).map((p) => p.id)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -259,7 +413,11 @@ function EditRoleNavigationModal({
     setError('')
     setSubmitting(true)
     try {
-      await rolesAPI.updateNavigation(role.id, { visibleItemIds: orderedVisibleIds() })
+      if (!isProvider) {
+        await rolesAPI.updateNavigation(role.id, { visibleItemIds: orderedVisibleIds() })
+      }
+      await rolesAPI.updatePermissions(role.id, { permissionIds: buildPermissionIds() })
+      refreshPermissions()
       onSuccess()
     } catch (err) {
       const msg = getApiErrorMessage(err)
@@ -271,90 +429,219 @@ function EditRoleNavigationModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('rolesPage.editNavTitle', { name: role.name })}</h3>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('rolesPage.editNavHint')}</p>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
-        )}
-        {loading ? (
-          <div className="mt-4 py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
-        ) : (
-          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setSelected(new Set(ALL_SIDEBAR_ITEM_IDS))}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300"
-              >
-                {t('rolesPage.navPresetFull')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelected(new Set())}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300"
-              >
-                {t('rolesPage.navPresetClear')}
-              </button>
-            </div>
-            <div className="max-h-[50vh] space-y-4 overflow-y-auto rounded-lg border border-slate-200 p-3 dark:border-slate-600">
-              {SIDEBAR_SECTIONS.map((section) => (
-                <div key={section.id}>
-                  <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    {t(`section.${section.id}`)}
-                  </div>
-                  <div className="space-y-1.5">
-                    {section.items.map((item) => (
-                      <label key={item.id} className="flex cursor-pointer items-center gap-2 py-0.5">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(item.id)}
-                          onChange={() => toggle(item.id)}
-                          className="rounded border-slate-300 text-primary"
-                        />
-                        <span className="text-sm text-slate-700 dark:text-slate-200">{t(`nav.${item.id}`)}</span>
-                      </label>
-                    ))}
-                  </div>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('rolesPage.editPermTitle', { name: role.name })}
+      size="lg"
+      footer={
+        !loading ? (
+          <>
+            <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+              {t('ui.cancel')}
+            </button>
+            <button type="submit" form="role-nav-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+              {t('rolesPage.save')}
+            </button>
+          </>
+        ) : undefined
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      {loading ? (
+        <div className="py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
+      ) : (
+        <form id="role-nav-form" onSubmit={handleSubmit} className="space-y-4">
+          {isProvider ? (
+            <div className="space-y-4 rounded-xl border border-slate-100 p-3.5 dark:border-white/[0.05]">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {t('rolesPage.portalPermSection')}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{t('rolesPage.portalPermHint')}</p>
+              </div>
+              {/* Core broad permissions */}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  {t('rolesPage.portalPermGroupCore')}
+                </p>
+                <div className="space-y-2.5">
+                  {PORTAL_PERMISSIONS.filter((p) => p.group === 'core' && unlockedCodes.has(p.code)).map((p) => (
+                    <label key={p.code} className="flex cursor-pointer items-start gap-2.5 py-0.5">
+                      <input
+                        type="checkbox"
+                        checked={permChecked.has(p.code)}
+                        onChange={() => togglePerm(p.code)}
+                        className="mt-0.5 rounded border-slate-300 text-primary"
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-slate-700 dark:text-slate-200">{t(p.labelKey)}</span>
+                        <span className="block text-xs text-slate-400 dark:text-slate-500">{t(p.descKey)}</span>
+                      </span>
+                    </label>
+                  ))}
                 </div>
-              ))}
+              </div>
+              {/* Granular permissions */}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  {t('rolesPage.portalPermGroupGranular')}
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {PORTAL_PERMISSIONS.filter((p) => p.group === 'granular' && unlockedCodes.has(p.code)).map((p) => (
+                    <label key={p.code} className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-100 p-2.5 py-0.5 dark:border-white/[0.05]">
+                      <input
+                        type="checkbox"
+                        checked={permChecked.has(p.code)}
+                        onChange={() => togglePerm(p.code)}
+                        className="mt-1 rounded border-slate-300 text-primary"
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-slate-700 dark:text-slate-200">{t(p.labelKey)}</span>
+                        <span className="block text-xs text-slate-400 dark:text-slate-500">{t(p.descKey)}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                {t('ui.cancel')}
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="dashboard-btn-primary flex-1 disabled:opacity-70"
-              >
-                {t('rolesPage.save')}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+          ) : (
+          <>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const newSelected = new Set<string>()
+                const allPerms = new Set<string>()
+                ALL_SIDEBAR_ITEM_IDS.forEach((id) => {
+                  const m: NavPermEntry = NAV_PERMISSION_MAP[id] ?? {}
+                  // Only include this nav item if its read permission is unlocked (or it has no permission gate)
+                  const readIsUnlocked = !m.read || unlockedCodes.has(m.read)
+                  if (!readIsUnlocked) return
+                  newSelected.add(id)
+                  if (m.read && unlockedCodes.has(m.read)) allPerms.add(m.read)
+                  if (m.write && unlockedCodes.has(m.write)) allPerms.add(m.write)
+                  if (m.approve && unlockedCodes.has(m.approve)) allPerms.add(m.approve)
+                  m.tabs?.forEach((tab) => {
+                    if (tab.read && unlockedCodes.has(tab.read)) allPerms.add(tab.read)
+                    if (tab.write && unlockedCodes.has(tab.write)) allPerms.add(tab.write)
+                  })
+                })
+                setSelected(newSelected)
+                setPermChecked(allPerms)
+              }}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300"
+            >
+              {t('rolesPage.navPresetFull')}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setSelected(new Set()); setPermChecked(new Set()) }}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300"
+            >
+              {t('rolesPage.navPresetClear')}
+            </button>
+          </div>
+          <div className="space-y-4 rounded-xl border border-slate-100 p-3.5 dark:border-white/[0.05]">
+            {SIDEBAR_SECTIONS.map((section) => (
+              <div key={section.id}>
+                <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {t(`section.${section.id}`)}
+                </div>
+                <div className="space-y-2">
+                  {section.items.map((item) => {
+                    const map: NavPermEntry = NAV_PERMISSION_MAP[item.id] ?? {}
+                    const isVisible = selected.has(item.id)
+                    const hasWrite = !!map.write && catalogueCodes.has(map.write)
+                    const hasTabs = !!map.tabs?.length
+                    return (
+                      <div key={item.id}>
+                        <label className="flex cursor-pointer items-center gap-2 py-0.5">
+                          <input
+                            type="checkbox"
+                            checked={isVisible}
+                            onChange={() => toggleTab(item.id)}
+                            className="rounded border-slate-300 text-primary"
+                          />
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                            {t(`nav.${item.id}`)}
+                          </span>
+                        </label>
+                        {isVisible && hasTabs && (
+                          <div className="ms-6 mt-1 space-y-1">
+                            {map.tabs!.map((tab) => (
+                              <div key={tab.label} className="flex items-center gap-4">
+                                <span className="w-20 text-xs font-medium text-slate-600 dark:text-slate-400">{tab.label}</span>
+                                {tab.write && catalogueCodes.has(tab.write) && (
+                                  <label className="flex cursor-pointer items-center gap-1.5">
+                                    <input
+                                      type="checkbox"
+                                      checked={permChecked.has(tab.write)}
+                                      onChange={() => togglePerm(tab.write!)}
+                                      className="rounded border-slate-300 text-primary"
+                                    />
+                                    <span className="text-xs text-slate-500 dark:text-slate-400">Restore</span>
+                                  </label>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {isVisible && !hasTabs && (hasWrite || (!!map.approve && catalogueCodes.has(map.approve))) && (
+                          <div className="ms-6 mt-0.5 flex gap-4">
+                            {hasWrite && (
+                              <label className="flex cursor-pointer items-center gap-1.5">
+                                <input
+                                  type="checkbox"
+                                  checked={permChecked.has(map.write!)}
+                                  onChange={() => togglePerm(map.write!)}
+                                  className="rounded border-slate-300 text-primary"
+                                />
+                                <span className="text-xs text-slate-500 dark:text-slate-400">Write</span>
+                              </label>
+                            )}
+                            {map.approve && catalogueCodes.has(map.approve) && (
+                              <label className="flex cursor-pointer items-center gap-1.5">
+                                <input
+                                  type="checkbox"
+                                  checked={permChecked.has(map.approve)}
+                                  onChange={() => togglePerm(map.approve!)}
+                                  className="rounded border-slate-300 text-primary"
+                                />
+                                <span className="text-xs text-slate-500 dark:text-slate-400">Approve</span>
+                              </label>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
+          )}
+
+        </form>
+      )}
+    </Modal>
   )
 }
 
 function EditRoleDetailsModal({
   role,
+  groups,
   onClose,
   onSuccess,
   setError,
 }: {
   role: RoleDto
+  groups: GroupDto[]
   onClose: () => void
   onSuccess: () => void
   setError: (s: string) => void
@@ -364,9 +651,14 @@ function EditRoleDetailsModal({
   const [description, setDescription] = useState('')
   const [nameAr, setNameAr] = useState('')
   const [descriptionAr, setDescriptionAr] = useState('')
+  const [groupId, setGroupId] = useState('')
+  const [maxDiscountPct, setMaxDiscountPct] = useState(0)
+  const [maxPayoutRequestAmount, setMaxPayoutRequestAmount] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState('')
+
+  const isProvider = isProviderRole(role)
 
   useEffect(() => {
     rolesAPI
@@ -377,15 +669,19 @@ function EditRoleDetailsModal({
         setDescription((d?.description ?? '').trim())
         setNameAr('')
         setDescriptionAr('')
+        setGroupId(d?.groupId ?? role.groupId ?? '')
+        setMaxDiscountPct(d?.maxDiscountPct ?? 0)
+        setMaxPayoutRequestAmount(d?.maxPayoutRequestAmount != null ? String(d.maxPayoutRequestAmount) : '')
       })
       .catch(() => {
         setName(role.name ?? '')
         setDescription('')
         setNameAr('')
         setDescriptionAr('')
+        setGroupId(role.groupId ?? '')
       })
       .finally(() => setLoading(false))
-  }, [role.id, role.name])
+  }, [role.id, role.name, role.groupId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -397,11 +693,16 @@ function EditRoleDetailsModal({
     }
     setSubmitting(true)
     try {
+      const payoutAmt = maxPayoutRequestAmount.trim() ? parseFloat(maxPayoutRequestAmount) : undefined
       await rolesAPI.updateDetails(role.id, {
         name: name.trim(),
         description: description.trim() || undefined,
         nameAr: nameAr.trim() || undefined,
         descriptionAr: descriptionAr.trim() || undefined,
+        groupId: groupId || null,
+        maxDiscountPct: isProvider ? undefined : maxDiscountPct,
+        maxPayoutRequestAmount: isProvider ? payoutAmt : undefined,
+        clearPayoutLimit: isProvider && maxPayoutRequestAmount.trim() === '' ? true : undefined,
       })
       onSuccess()
     } catch (err) {
@@ -414,95 +715,125 @@ function EditRoleDetailsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-          {t('rolesPage.editDetailsTitle', { name: role.name })}
-        </h3>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('rolesPage.editDetailsHint')}</p>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
-        )}
-        {loading ? (
-          <div className="mt-4 py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
-        ) : (
-          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.nameLabel')}</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                required
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.descriptionLabel')}</label>
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.nameArLabel')}</label>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('rolesPage.editDetailsTitle', { name: role.name })}
+      description={t('rolesPage.editDetailsHint')}
+      size="md"
+      footer={
+        !loading ? (
+          <>
+            <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+              {t('ui.cancel')}
+            </button>
+            <button type="submit" form="role-details-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+              {t('rolesPage.save')}
+            </button>
+          </>
+        ) : undefined
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      {loading ? (
+        <div className="py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
+      ) : (
+        <form id="role-details-form" onSubmit={handleSubmit} className="space-y-4">
+          <FormField label={t('rolesPage.nameLabel')} required>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="modal-input"
+              required
+            />
+          </FormField>
+          <FormField label={t('rolesPage.descriptionLabel')}>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="modal-input"
+            />
+          </FormField>
+          <FormField label={t('rolesPage.groupLabel')}>
+            <select
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              className="modal-select"
+            >
+              <option value="">{t('rolesPage.groupNone')}</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label={t('rolesPage.nameArLabel')}>
               <input
                 type="text"
                 value={nameAr}
                 onChange={(e) => setNameAr(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                className="modal-input"
                 dir="rtl"
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.descriptionArLabel')}</label>
+            </FormField>
+            <FormField label={t('rolesPage.descriptionArLabel')}>
               <input
                 type="text"
                 value={descriptionAr}
                 onChange={(e) => setDescriptionAr(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                className="modal-input"
                 dir="rtl"
               />
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                {t('ui.cancel')}
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="dashboard-btn-primary flex-1 disabled:opacity-70"
-              >
-                {t('rolesPage.save')}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+            </FormField>
+          </div>
+          {!isProvider && (
+            <FormField label={t('rolesPage.maxDiscountPctLabel')}>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={maxDiscountPct}
+                onChange={(e) => setMaxDiscountPct(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                className="modal-input"
+              />
+              <p className="mt-1 text-xs text-slate-400">{t('rolesPage.maxDiscountPctHint')}</p>
+            </FormField>
+          )}
+          {isProvider && (
+            <FormField label={t('rolesPage.maxPayoutRequestAmountLabel')}>
+              <input
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={maxPayoutRequestAmount}
+                onChange={(e) => setMaxPayoutRequestAmount(e.target.value)}
+                placeholder={t('rolesPage.maxPayoutRequestAmountPlaceholder')}
+                className="modal-input"
+              />
+              <p className="mt-1 text-xs text-slate-400">{t('rolesPage.maxPayoutRequestAmountHint')}</p>
+            </FormField>
+          )}
+        </form>
+      )}
+    </Modal>
   )
 }
 
 function CreateRoleModal({
   groups,
-  catalogue,
+  defaultProvider,
   onClose,
   onSuccess,
   setError,
 }: {
   groups: GroupDto[]
-  catalogue: PermissionCatalogueItemDto[]
+  defaultProvider?: boolean
   onClose: () => void
   onSuccess: () => void
   setError: (s: string) => void
@@ -511,18 +842,11 @@ function CreateRoleModal({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [groupId, setGroupId] = useState('')
-  const [permissionIds, setPermissionIds] = useState<string[]>([])
+  const [providerRole, setProviderRole] = useState(!!defaultProvider)
+  const [maxDiscountPct, setMaxDiscountPct] = useState(0)
+  const [maxPayoutRequestAmount, setMaxPayoutRequestAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState('')
-
-  const unlocked = catalogue.filter((p) => !p.locked)
-  const locked = catalogue.filter((p) => p.locked)
-
-  const togglePermission = (id: string) => {
-    setPermissionIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    )
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -534,11 +858,14 @@ function CreateRoleModal({
     }
     setSubmitting(true)
     try {
+      const payoutAmt = maxPayoutRequestAmount.trim() ? parseFloat(maxPayoutRequestAmount) : undefined
       await rolesAPI.create({
         name: name.trim(),
         description: description.trim() || undefined,
         groupId: groupId || undefined,
-        permissionIds: permissionIds.length ? permissionIds : undefined,
+        providerRole,
+        maxDiscountPct: providerRole ? 0 : maxDiscountPct,
+        maxPayoutRequestAmount: providerRole ? payoutAmt : undefined,
       })
       onSuccess()
     } catch (err) {
@@ -551,239 +878,95 @@ function CreateRoleModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('rolesPage.createRoleTitle')}</h3>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.nameLabel')}</label>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('rolesPage.createRoleTitle')}
+      size="md"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+            {t('ui.cancel')}
+          </button>
+          <button type="submit" form="role-create-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+            {t('rolesPage.create')}
+          </button>
+        </>
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="role-create-form" onSubmit={handleSubmit} className="space-y-4">
+        <FormField label={t('rolesPage.nameLabel')} required>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="modal-input"
+            required
+          />
+        </FormField>
+        <FormField label={t('rolesPage.descriptionLabel')}>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="modal-input"
+          />
+        </FormField>
+        <FormField label={t('rolesPage.groupLabel')}>
+          <select
+            value={groupId}
+            onChange={(e) => setGroupId(e.target.value)}
+            className="modal-select"
+          >
+            <option value="">{t('rolesPage.groupNone')}</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
+        </FormField>
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={providerRole}
+            onChange={(e) => setProviderRole(e.target.checked)}
+            className="modal-checkbox"
+          />
+          {t('rolesPage.providerRoleLabel')}
+        </label>
+        {!providerRole && (
+          <FormField label={t('rolesPage.maxDiscountPctLabel')}>
             <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              required
+              type="number"
+              min={0}
+              max={100}
+              value={maxDiscountPct}
+              onChange={(e) => setMaxDiscountPct(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+              className="modal-input"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.descriptionLabel')}</label>
+            <p className="mt-1 text-xs text-slate-400">{t('rolesPage.maxDiscountPctHint')}</p>
+          </FormField>
+        )}
+        {providerRole && (
+          <FormField label={t('rolesPage.maxPayoutRequestAmountLabel')}>
             <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              type="number"
+              min={0.01}
+              step={0.01}
+              value={maxPayoutRequestAmount}
+              onChange={(e) => setMaxPayoutRequestAmount(e.target.value)}
+              placeholder={t('rolesPage.maxPayoutRequestAmountPlaceholder')}
+              className="modal-input"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.groupLabel')}</label>
-            <select
-              value={groupId}
-              onChange={(e) => setGroupId(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-            >
-              <option value="">{t('rolesPage.groupNone')}</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {unlocked.length > 0 && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.permissionsOptional')}</label>
-              <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-200 p-2 dark:border-slate-600">
-                {unlocked.map((p) => (
-                  <label key={p.id} className="flex cursor-pointer items-center gap-2 py-1">
-                    <input
-                      type="checkbox"
-                      checked={permissionIds.includes(p.id)}
-                      onChange={() => togglePermission(p.id)}
-                      className="rounded border-slate-300 text-primary"
-                    />
-                    <span className="text-sm text-slate-700 dark:text-slate-200">{p.name ?? p.code}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-          {locked.length > 0 && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">{t('rolesPage.createRoleLockedReference')}</label>
-              <div className="max-h-32 overflow-y-auto rounded-lg border border-dashed border-slate-200 bg-slate-50 p-2 dark:border-slate-600 dark:bg-slate-900/40">
-                {locked.map((p) => (
-                  <div key={p.id} className="flex items-center gap-2 py-1 opacity-70">
-                    <input type="checkbox" disabled checked={false} className="rounded border-slate-300" readOnly aria-hidden />
-                    <span className="text-sm text-slate-600 dark:text-slate-400">
-                      {p.name ?? p.code}{' '}
-                      <span className="text-xs text-amber-700 dark:text-amber-400">({t('rolesPage.permLockedBadge')})</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
-              {t('ui.cancel')}
-            </button>
-            <button type="submit" disabled={submitting} className="dashboard-btn-primary flex-1 disabled:opacity-70">
-              {t('rolesPage.create')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-function EditPermissionsModal({
-  role,
-  catalogue,
-  onClose,
-  onSuccess,
-  setError,
-}: {
-  role: RoleDto
-  catalogue: PermissionCatalogueItemDto[]
-  onClose: () => void
-  onSuccess: () => void
-  setError: (s: string) => void
-}) {
-  const { t } = useLanguage()
-  const [permissionIds, setPermissionIds] = useState<string[]>(role.permissions ?? [])
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [localError, setLocalError] = useState('')
-
-  useEffect(() => {
-    rolesAPI
-      .get(role.id)
-      .then((r) => {
-        const data = r.data as RoleDto & { permissionIds?: string[] }
-        const raw = data?.permissionIds ?? data?.permissions ?? []
-        const sys = data?.systemRole === true
-        setPermissionIds(
-          sys
-            ? raw
-            : raw.filter((id) => !catalogue.some((c) => c.id === id && c.locked)),
-        )
-      })
-      .catch(() => setPermissionIds([]))
-      .finally(() => setLoading(false))
-    // catalogue is stable for the session once Roles page loaded; avoid re-fetch loop on parent re-renders
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reload when switching role
-  }, [role.id])
-
-  const isSystemRole = role.systemRole === true
-  const groups = catalogueByResource(catalogue)
-
-  const togglePermission = (id: string, canToggle: boolean) => {
-    if (!canToggle) return
-    setPermissionIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    )
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLocalError('')
-    setError('')
-    setSubmitting(true)
-    try {
-      const lockedIds = new Set(catalogue.filter((p) => p.locked).map((p) => p.id))
-      const toSend =
-        isSystemRole ? permissionIds : permissionIds.filter((id) => !lockedIds.has(id))
-      await rolesAPI.updatePermissions(role.id, { permissionIds: toSend })
-      onSuccess()
-    } catch (err) {
-      const msg = getApiErrorMessage(err)
-      setLocalError(msg)
-      setError(msg)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('rolesPage.editPermTitle', { name: role.name })}</h3>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
+            <p className="mt-1 text-xs text-slate-400">{t('rolesPage.maxPayoutRequestAmountHint')}</p>
+          </FormField>
         )}
-        {loading ? (
-          <div className="mt-4 py-8 text-center text-slate-500 dark:text-slate-400">{t('ui.loading')}</div>
-        ) : (
-          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              {isSystemRole ? t('rolesPage.permHintSystemRole') : t('rolesPage.permHintCustomRole')}
-            </p>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.permissionsLabel')}</label>
-              <div className="max-h-[min(24rem,55vh)] space-y-4 overflow-y-auto rounded-lg border border-slate-200 p-3 dark:border-slate-600">
-                {catalogue.length === 0 ? (
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{t('rolesPage.noPermissionsInCatalogue')}</p>
-                ) : (
-                  groups.map(([resource, perms]) => (
-                    <div key={resource}>
-                      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{resource}</div>
-                      <div className="space-y-1 pl-0">
-                        {perms.map((p) => {
-                          const locked = Boolean(p.locked)
-                          const canToggle = isSystemRole || !locked
-                          return (
-                            <label
-                              key={p.id}
-                              className={`flex items-center gap-2 py-1 ${canToggle ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'}`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={permissionIds.includes(p.id)}
-                                disabled={!canToggle}
-                                onChange={() => togglePermission(p.id, canToggle)}
-                                className="rounded border-slate-300 text-primary disabled:opacity-50"
-                              />
-                              <span className="text-sm text-slate-700 dark:text-slate-200">
-                                {p.name ?? p.code}
-                                {locked ? (
-                                  <span className="ms-1 text-xs text-amber-700 dark:text-amber-400">({t('rolesPage.permLockedBadge')})</span>
-                                ) : null}
-                              </span>
-                            </label>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
-                {t('ui.cancel')}
-              </button>
-              <button type="submit" disabled={submitting} className="dashboard-btn-primary flex-1 disabled:opacity-70">
-                {t('rolesPage.save')}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+      </form>
+    </Modal>
   )
 }
 
@@ -828,50 +1011,52 @@ function DeleteRoleModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('rolesPage.deleteTitle')}</h3>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-          {t('rolesPage.deleteQuestion', { name: role.name })}
-          {userCount > 0 ? ` ${t('rolesPage.reassignHint', { count: userCount })}` : ''}
-        </p>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('rolesPage.deleteTitle')}
+      description={`${t('rolesPage.deleteQuestion', { name: role.name })}${userCount > 0 ? ` ${t('rolesPage.reassignHint', { count: userCount })}` : ''}`}
+      size="sm"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+            {t('ui.cancel')}
+          </button>
+          <button
+            type="submit"
+            form="role-delete-form"
+            disabled={submitting}
+            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-70"
+          >
+            {t('rolesPage.deleteConfirm')}
+          </button>
+        </>
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="role-delete-form" onSubmit={handleSubmit} className="space-y-4">
+        {userCount > 0 && (
+          <FormField label={t('rolesPage.reassignLabel')} required>
+            <select
+              value={targetRoleId}
+              onChange={(e) => setTargetRoleId(e.target.value)}
+              className="modal-select"
+              required
+            >
+              <option value="">{t('rolesPage.selectRole')}</option>
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {t('rolesPage.optionRoleUsers', { name: r.name, count: r.userCount ?? 0 })}
+                </option>
+              ))}
+            </select>
+          </FormField>
         )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          {userCount > 0 && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.reassignLabel')}</label>
-              <select
-                value={targetRoleId}
-                onChange={(e) => setTargetRoleId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                required={userCount > 0}
-              >
-                <option value="">{t('rolesPage.selectRole')}</option>
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {t('rolesPage.optionRoleUsers', { name: r.name, count: r.userCount ?? 0 })}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
-              {t('ui.cancel')}
-            </button>
-            <button type="submit" disabled={submitting} className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-70">
-              {t('rolesPage.deleteConfirm')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   )
 }

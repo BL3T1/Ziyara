@@ -1,0 +1,10 @@
+flutter_native_splash:
+  # اللون الكحلي فقط (بدون صورة)
+  color: "#1A2C42"
+  
+  # إعدادات أندرويد 12 (لون فقط)
+  android_12:
+    color: "#1A2C42"
+    icon_background_color: "#1A2C42"
+    
+  fullscreen: true

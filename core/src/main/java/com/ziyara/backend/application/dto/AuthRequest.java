@@ -1,7 +1,6 @@
 package com.ziyara.backend.application.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -20,9 +19,8 @@ import lombok.NoArgsConstructor;
 @Schema(description = "Authentication request")
 public class AuthRequest {
     
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
-    @Schema(description = "User email", example = "user@example.com")
+    @NotBlank(message = "Identifier is required")
+    @Schema(description = "Username (company staff) or email address (provider portal)", example = "john.smith")
     private String email;
     
     @NotBlank(message = "Password is required")
@@ -32,4 +30,7 @@ public class AuthRequest {
     
     @Schema(description = "Remember me flag", example = "false")
     private Boolean rememberMe = false;
+
+    @Schema(description = "TOTP code when MFA is enabled on the account", example = "123456")
+    private String mfaCode;
 }

@@ -7,6 +7,7 @@ import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -64,6 +65,17 @@ public class RoleJpaEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "navigation_item_ids", columnDefinition = "jsonb")
     private List<String> navigationItemIds;
+
+    @Column(name = "max_discount_pct", nullable = false)
+    private short maxDiscountPct;
+
+    /** True if this role can be assigned to provider portal staff (independent of code prefix). */
+    @Column(name = "is_provider_role", nullable = false)
+    private boolean providerRole = false;
+
+    /** Maximum single payout request amount for this role; null = no limit. */
+    @Column(name = "max_payout_request_amount", precision = 15, scale = 2)
+    private BigDecimal maxPayoutRequestAmount;
 
     @PrePersist
     protected void onCreate() {

@@ -4,9 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ziyara.backend.application.dto.request.UpsertFeatureFlagRequest;
 import com.ziyara.backend.application.dto.response.FeatureFlagResponse;
 import com.ziyara.backend.application.service.FeatureFlagService;
+import com.ziyara.backend.application.service.JwtTokenBlocklistService;
+import com.ziyara.backend.infrastructure.config.WebMvcConfigurationPropertiesImport;
 import com.ziyara.backend.infrastructure.config.LocaleConfig;
+import com.ziyara.backend.infrastructure.config.WebMvcSecuritySliceConfiguration;
 import com.ziyara.backend.infrastructure.config.SecurityConfig;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
+import com.ziyara.backend.infrastructure.security.JwtIdleTimeoutService;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +23,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,12 +35,20 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = AdminFeatureFlagsController.class)
-@Import({SecurityConfig.class, LocaleConfig.class, AdminFeatureFlagsControllerWebMvcTest.SecurityBeans.class})
+@Import({
+        SecurityConfig.class,
+        WebMvcConfigurationPropertiesImport.class,
+        WebMvcSecuritySliceConfiguration.class,
+        LocaleConfig.class,
+        AdminFeatureFlagsControllerWebMvcTest.SecurityBeans.class
+})
 @ActiveProfiles("test")
 class AdminFeatureFlagsControllerWebMvcTest {
 
@@ -57,20 +69,20 @@ class AdminFeatureFlagsControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
-                                                         SecurityContextRepository securityContextRepository) {
-            return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository);
+                                                         SecurityContextRepository securityContextRepository,
+                                                         JwtCookieProperties jwtCookieProperties,
+                                                         JwtTokenBlocklistService jwtTokenBlocklistService,
+                                                         JwtIdleTimeoutService jwtIdleTimeoutService) {
+            return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository,
+                    jwtCookieProperties, jwtTokenBlocklistService, jwtIdleTimeoutService);
         }
     }
 
     @Test
-    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", roles = "CEO")
+    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", authorities = "settings:write")
     void list_okForCeo() throws Exception {
         UUID id = UUID.fromString("b0000000-0000-4000-8000-000000000001");
         when(featureFlagService.listAll()).thenReturn(List.of(
@@ -98,7 +110,7 @@ class AdminFeatureFlagsControllerWebMvcTest {
     }
 
     @Test
-    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", roles = "GENERAL_MANAGER")
+    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", authorities = "settings:write")
     void put_ok() throws Exception {
         UUID uid = UUID.fromString("a0000000-0000-0000-0000-000000000001");
         FeatureFlagResponse body = FeatureFlagResponse.builder()
@@ -113,7 +125,7 @@ class AdminFeatureFlagsControllerWebMvcTest {
                 .enabled(false)
                 .build();
 
-        mockMvc.perform(put("/admin/feature-flags")
+        mockMvc.perform(put("/admin/feature-flags").with(csrf())
                         .header("Authorization", "Bearer t")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))

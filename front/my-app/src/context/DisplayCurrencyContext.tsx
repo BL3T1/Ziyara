@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from './AuthContext'
 import { currencyAPI, settingsAPI } from '../services/api'
 import type { SystemSettingsDto } from '../types/api'
@@ -7,10 +7,17 @@ import { convertAmountWithRates, type ExchangeRateLike } from '../utils/currency
 interface DisplayCurrencyContextValue {
   /** Platform default from Admin → Settings */
   defaultCurrency: string
+  /** User-selected display currency (persisted in localStorage). Defaults to defaultCurrency. */
+  selectedCurrency: string
+  setSelectedCurrency: (code: string) => void
+  /** All currencies available for selection (derived from rate table). */
+  availableCurrencies: string[]
   /** Format amount using ISO currency (defaults to {@link defaultCurrency}). No FX conversion. */
   formatMoney: (amount: number, isoCurrencyCode?: string) => string
   /** Convert from {@code sourceCurrency} to {@link defaultCurrency} using rate table, then format. Falls back to literal format if no path. */
   displayInDefault: (amount: number, sourceCurrency?: string | null) => string
+  /** Convert amount from sourceCurrency to selectedCurrency and format. */
+  displayInSelected: (amount: number, sourceCurrency?: string | null) => string
   /** Refetch settings + rates (e.g. after saving Admin Settings). */
   refreshDisplayCurrency: () => void
 }
@@ -30,48 +37,51 @@ function formatMoneyIntl(amount: number, code: string): string {
   }
 }
 
+const STORAGE_KEY = 'ziyara-currency'
+
 export function DisplayCurrencyProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [defaultCurrency, setDefaultCurrency] = useState('USD')
   const [rateRows, setRateRows] = useState<ExchangeRateLike[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
+  const [selectedCurrency, setSelectedCurrencyState] = useState<string>(
+    () => localStorage.getItem(STORAGE_KEY) ?? 'USD',
+  )
+
+  const setSelectedCurrency = useCallback((code: string) => {
+    const c = code.trim().toUpperCase()
+    if (c.length !== 3) return
+    localStorage.setItem(STORAGE_KEY, c)
+    setSelectedCurrencyState(c)
+  }, [])
 
   const refreshDisplayCurrency = useCallback(() => {
     setRefreshKey((k) => k + 1)
   }, [])
 
+  // Load rates — requires auth, so only fetch when the user is logged in
   useEffect(() => {
     if (!user) return
     let cancelled = false
+    currencyAPI.listRates()
+      .then((r) => { if (!cancelled) setRateRows(Array.isArray(r.data) ? (r.data as ExchangeRateLike[]) : []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [user, refreshKey])
 
-    const load = async () => {
-      try {
-        const [settingsRes, ratesRes] = await Promise.all([settingsAPI.get(), currencyAPI.listRates()])
+  // Load admin default currency only when authenticated
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    settingsAPI.get()
+      .then((r) => {
         if (cancelled) return
-        const d = settingsRes.data as SystemSettingsDto
+        const d = r.data as SystemSettingsDto
         const c = (d?.defaultCurrency ?? 'USD').toUpperCase()
         if (c.length === 3) setDefaultCurrency(c)
-        const raw = ratesRes.data
-        setRateRows(Array.isArray(raw) ? (raw as ExchangeRateLike[]) : [])
-      } catch {
-        if (cancelled) return
-        try {
-          const settingsRes = await settingsAPI.get()
-          if (cancelled) return
-          const d = settingsRes.data as SystemSettingsDto
-          const c = (d?.defaultCurrency ?? 'USD').toUpperCase()
-          if (c.length === 3) setDefaultCurrency(c)
-        } catch {
-          /* keep prior default */
-        }
-        setRateRows([])
-      }
-    }
-
-    void load()
-    return () => {
-      cancelled = true
-    }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
   }, [user, refreshKey])
 
   const formatMoney = useCallback(
@@ -83,6 +93,14 @@ export function DisplayCurrencyProvider({ children }: { children: ReactNode }) {
     },
     [defaultCurrency],
   )
+
+  const availableCurrencies = useMemo(() => {
+    const codes = new Set<string>(['USD', defaultCurrency])
+    rateRows.forEach((r) => {
+      if (r.toCurrency?.length === 3) codes.add(r.toCurrency.toUpperCase())
+    })
+    return Array.from(codes).sort()
+  }, [rateRows, defaultCurrency])
 
   const displayInDefault = useCallback(
     (amount: number, sourceCurrency?: string | null) => {
@@ -103,10 +121,27 @@ export function DisplayCurrencyProvider({ children }: { children: ReactNode }) {
     [defaultCurrency, rateRows],
   )
 
+  const displayInSelected = useCallback(
+    (amount: number, sourceCurrency?: string | null) => {
+      const target = selectedCurrency || defaultCurrency
+      const { value, converted } = convertAmountWithRates(amount, sourceCurrency, target, rateRows, 'USD')
+      if (!converted) {
+        const src = sourceCurrency && sourceCurrency.trim().length === 3 ? sourceCurrency.trim().toUpperCase() : target
+        return formatMoneyIntl(amount, src)
+      }
+      return formatMoneyIntl(value, target)
+    },
+    [selectedCurrency, defaultCurrency, rateRows],
+  )
+
   const value: DisplayCurrencyContextValue = {
     defaultCurrency,
+    selectedCurrency: selectedCurrency || defaultCurrency,
+    setSelectedCurrency,
+    availableCurrencies,
     formatMoney,
     displayInDefault,
+    displayInSelected,
     refreshDisplayCurrency,
   }
 
@@ -116,16 +151,18 @@ export function DisplayCurrencyProvider({ children }: { children: ReactNode }) {
 export function useDisplayCurrency(): DisplayCurrencyContextValue {
   const ctx = useContext(DisplayCurrencyContext)
   if (!ctx) {
+    const fallbackFmt = (amount: number, iso?: string | null) => {
+      const code = (iso && iso.trim().length === 3 ? iso.trim() : 'USD').toUpperCase()
+      return formatMoneyIntl(amount, code)
+    }
     return {
       defaultCurrency: 'USD',
-      formatMoney: (amount: number, iso?: string) => {
-        const code = (iso && iso.length === 3 ? iso : 'USD').toUpperCase()
-        return formatMoneyIntl(amount, code)
-      },
-      displayInDefault: (amount: number, iso?: string | null) => {
-        const code = (iso && iso.trim().length === 3 ? iso.trim() : 'USD').toUpperCase()
-        return formatMoneyIntl(amount, code)
-      },
+      selectedCurrency: 'USD',
+      setSelectedCurrency: () => {},
+      availableCurrencies: ['USD'],
+      formatMoney: fallbackFmt,
+      displayInDefault: fallbackFmt,
+      displayInSelected: fallbackFmt,
       refreshDisplayCurrency: () => {},
     }
   }

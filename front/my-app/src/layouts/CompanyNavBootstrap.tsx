@@ -17,19 +17,22 @@ export function CompanyNavBootstrap() {
       setSidebarNav(null)
       return
     }
+    // Super admin sees everything — ABAC fallback (has() always true) covers all items
+    if (user.role === 'super_admin') {
+      setSidebarNav(null)
+      return
+    }
     let cancelled = false
     usersAPI
       .getMyNavigation()
       .then((res) => {
         if (cancelled) return
         const d = res.data as UserNavigationDto
-        if (
-          d?.source === 'rbac_role' &&
-          d.visibleItemIds &&
-          Array.isArray(d.visibleItemIds) &&
-          d.visibleItemIds.length > 0
-        ) {
-          setSidebarNav({ visibleItemIds: d.visibleItemIds, source: 'rbac_role' })
+        if (d?.source === 'rbac_role') {
+          // Admin explicitly set this nav (even if empty — empty means show nothing)
+          setSidebarNav({ visibleItemIds: Array.isArray(d.visibleItemIds) ? d.visibleItemIds : [], source: 'rbac_role' })
+        } else if (d?.visibleItemIds && Array.isArray(d.visibleItemIds) && d.visibleItemIds.length > 0) {
+          setSidebarNav({ visibleItemIds: d.visibleItemIds, source: d.source ?? 'default_user_role' })
         } else {
           setSidebarNav(null)
         }

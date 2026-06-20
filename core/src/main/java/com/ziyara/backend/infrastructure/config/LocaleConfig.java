@@ -23,8 +23,4 @@ public class LocaleConfig implements WebMvcConfigurer {
         return resolver;
     }
 
-    @Bean
-    public LocaleFilter localeFilter() {
-        return new LocaleFilter();
-    }
 }

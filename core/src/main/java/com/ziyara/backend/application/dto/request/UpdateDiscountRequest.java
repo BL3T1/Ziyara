@@ -47,6 +47,12 @@ public class UpdateDiscountRequest {
     @Schema(description = "COMPANY, PROVIDER, or BOTH")
     private String sponsor;
 
+    @Schema(description = "Company-side discount amount when sponsor = BOTH")
+    private BigDecimal companyValue;
+
+    @Schema(description = "Provider-side discount amount when sponsor = BOTH")
+    private BigDecimal providerValue;
+
     @Schema(description = "Restrict to this provider; null clears when explicitly patching (omit field to leave unchanged)")
     private UUID providerId;
 

@@ -1,6 +1,0 @@
-# Production profile: activate with -Dspring.profiles.active=prod
-# Disables demo super admin seeding. Other demo users are already skipped by @Profile("!prod").
-app:
-  demo:
-    super-admin:
-      enabled: false

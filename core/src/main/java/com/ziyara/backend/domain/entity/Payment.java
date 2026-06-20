@@ -30,6 +30,9 @@ public class Payment {
     /** Idempotency key to prevent duplicate charges (client-supplied). */
     private String idempotencyKey;
     private String errorMessage;
+    private String entityType;
+    private UUID entityId;
+    private String category;
     private LocalDateTime processedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -88,6 +91,12 @@ public class Payment {
     public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public String getEntityType() { return entityType; }
+    public void setEntityType(String entityType) { this.entityType = entityType; }
+    public UUID getEntityId() { return entityId; }
+    public void setEntityId(UUID entityId) { this.entityId = entityId; }
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
     public LocalDateTime getProcessedAt() { return processedAt; }
     public void setProcessedAt(LocalDateTime processedAt) { this.processedAt = processedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }

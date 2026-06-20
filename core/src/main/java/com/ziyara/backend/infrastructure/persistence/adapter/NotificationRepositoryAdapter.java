@@ -1,13 +1,15 @@
 package com.ziyara.backend.infrastructure.persistence.adapter;
 
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.Notification;
 import com.ziyara.backend.domain.enums.NotificationStatus;
 import com.ziyara.backend.domain.repository.NotificationRepository;
 import com.ziyara.backend.infrastructure.persistence.entity.NotificationJpaEntity;
 import com.ziyara.backend.infrastructure.persistence.mapper.NotificationMapper;
 import com.ziyara.backend.infrastructure.persistence.repository.NotificationJpaRepository;
+import com.ziyara.backend.infrastructure.persistence.util.PageConverter;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
@@ -47,9 +49,9 @@ public class NotificationRepositoryAdapter implements NotificationRepository {
     }
 
     @Override
-    public Page<Notification> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable) {
-        return notificationJpaRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
-                .map(notificationMapper::toDomainEntity);
+    public PagedResult<Notification> findByUserIdOrderByCreatedAtDesc(UUID userId, PageQuery pageQuery) {
+        Pageable pageable = PageConverter.toPageable(pageQuery);
+        return PageConverter.toPagedResult(notificationJpaRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable), notificationMapper::toDomainEntity);
     }
 
     @Override
@@ -76,6 +78,11 @@ public class NotificationRepositoryAdapter implements NotificationRepository {
         return notificationJpaRepository.countByUserIdAndStatus(userId, status);
     }
     
+    @Override
+    public int markAllReadByUserId(UUID userId) {
+        return notificationJpaRepository.markAllReadByUserId(userId);
+    }
+
     @Override
     public void deleteById(UUID id) {
         notificationJpaRepository.deleteById(id);

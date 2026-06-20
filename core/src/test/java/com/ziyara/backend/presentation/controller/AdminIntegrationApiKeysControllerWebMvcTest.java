@@ -5,9 +5,14 @@ import com.ziyara.backend.application.dto.request.CreateIntegrationApiKeyRequest
 import com.ziyara.backend.application.dto.response.IntegrationApiKeyCreatedResponse;
 import com.ziyara.backend.application.dto.response.IntegrationApiKeySummaryResponse;
 import com.ziyara.backend.application.service.IntegrationApiKeyService;
+import com.ziyara.backend.application.service.JwtTokenBlocklistService;
+import com.ziyara.backend.infrastructure.config.WebMvcConfigurationPropertiesImport;
 import com.ziyara.backend.infrastructure.config.LocaleConfig;
+import com.ziyara.backend.infrastructure.config.WebMvcSecuritySliceConfiguration;
 import com.ziyara.backend.infrastructure.config.SecurityConfig;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
+import com.ziyara.backend.infrastructure.security.JwtIdleTimeoutService;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +24,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,13 +37,22 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = AdminIntegrationApiKeysController.class)
-@Import({SecurityConfig.class, LocaleConfig.class, AdminIntegrationApiKeysControllerWebMvcTest.SecurityBeans.class})
+@Import({
+        SecurityConfig.class,
+        WebMvcConfigurationPropertiesImport.class,
+        WebMvcSecuritySliceConfiguration.class,
+        LocaleConfig.class,
+        AdminIntegrationApiKeysControllerWebMvcTest.SecurityBeans.class
+})
 @ActiveProfiles("test")
 class AdminIntegrationApiKeysControllerWebMvcTest {
 
@@ -60,20 +73,20 @@ class AdminIntegrationApiKeysControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
-                                                         SecurityContextRepository securityContextRepository) {
-            return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository);
+                                                         SecurityContextRepository securityContextRepository,
+                                                         JwtCookieProperties jwtCookieProperties,
+                                                         JwtTokenBlocklistService jwtTokenBlocklistService,
+                                                         JwtIdleTimeoutService jwtIdleTimeoutService) {
+            return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository,
+                    jwtCookieProperties, jwtTokenBlocklistService, jwtIdleTimeoutService);
         }
     }
 
     @Test
-    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", roles = "SUPER_ADMIN")
+    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", authorities = "settings:read")
     void list_ok() throws Exception {
         UUID id = UUID.fromString("d0000000-0000-4000-8000-000000000001");
         when(integrationApiKeyService.listActive()).thenReturn(List.of(
@@ -91,14 +104,14 @@ class AdminIntegrationApiKeysControllerWebMvcTest {
     }
 
     @Test
-    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", roles = "CEO")
+    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", authorities = "bookings:read")
     void list_forbiddenForCeo() throws Exception {
         mockMvc.perform(get("/admin/integration-api-keys").header("Authorization", "Bearer t"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", roles = "SUPER_ADMIN")
+    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", authorities = "settings:write")
     void create_returns201() throws Exception {
         UUID uid = UUID.fromString("a0000000-0000-0000-0000-000000000001");
         UUID kid = UUID.fromString("e0000000-0000-4000-8000-000000000001");
@@ -113,7 +126,7 @@ class AdminIntegrationApiKeysControllerWebMvcTest {
 
         CreateIntegrationApiKeyRequest req = CreateIntegrationApiKeyRequest.builder().name("N").build();
 
-        mockMvc.perform(post("/admin/integration-api-keys")
+        mockMvc.perform(post("/admin/integration-api-keys").with(csrf())
                         .header("Authorization", "Bearer t")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
@@ -122,12 +135,12 @@ class AdminIntegrationApiKeysControllerWebMvcTest {
     }
 
     @Test
-    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", roles = "SUPER_ADMIN")
+    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", authorities = "settings:write")
     void revoke_ok() throws Exception {
         UUID uid = UUID.fromString("a0000000-0000-0000-0000-000000000001");
         UUID kid = UUID.fromString("f0000000-0000-4000-8000-000000000001");
 
-        mockMvc.perform(delete("/admin/integration-api-keys/{id}", kid).header("Authorization", "Bearer t"))
+        mockMvc.perform(delete("/admin/integration-api-keys/{id}", kid).with(csrf()).header("Authorization", "Bearer t"))
                 .andExpect(status().isOk());
 
         verify(integrationApiKeyService).revoke(eq(kid), eq(uid));

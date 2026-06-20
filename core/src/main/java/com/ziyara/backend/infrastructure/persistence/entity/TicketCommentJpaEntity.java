@@ -1,6 +1,8 @@
 package com.ziyara.backend.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -32,7 +34,8 @@ public class TicketCommentJpaEntity {
     @Column(name = "is_resolution", nullable = false)
     private boolean isResolution = false;
     
-    @Column(name = "attachments", columnDefinition = "JSONB")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "attachments", columnDefinition = "jsonb")
     private String attachments;
     
     @Column(name = "created_at", nullable = false, updatable = false)

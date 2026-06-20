@@ -3,6 +3,7 @@ package com.ziyara.backend.modules.payment.api;
 import com.ziyara.backend.application.dto.request.CreatePaymentRequest;
 import com.ziyara.backend.application.dto.request.RefundRequest;
 import com.ziyara.backend.application.dto.response.PaymentResponse;
+import com.ziyara.backend.application.dto.response.PaymentSummaryResponse;
 import com.ziyara.backend.application.dto.response.RefundResponse;
 import com.ziyara.backend.domain.enums.PaymentStatus;
 import org.springframework.data.domain.Page;
@@ -32,9 +33,14 @@ public interface PaymentServiceApi {
 
     Page<PaymentResponse> getPayments(int page, int size, @Nullable PaymentStatus status);
 
+    Page<PaymentResponse> pageForCustomerUserId(UUID userId, int page, int size);
+
     PaymentResponse getPayment(UUID id);
 
     PaymentResponse getByTransactionRef(String reference);
 
     RefundResponse refund(UUID paymentId, RefundRequest request, @Nullable UUID performedByUserId);
+
+    /** Platform-wide aggregate: total collected, pending, and refunded. */
+    PaymentSummaryResponse getPaymentSummary();
 }

@@ -15,12 +15,14 @@ export const ROUTE_TITLES: Record<string, string> = {
   '/services/trips': 'Trips',
   '/management/users': 'Groups',
   '/management/providers': 'Providers',
+  '/management/providers/new': 'New provider',
   '/management/bookings': 'Bookings',
   '/management/payments': 'Payments',
   '/management/discounts': 'Discounts',
   '/management/reports': 'Reports',
   '/support/complaints': 'Complaints',
   '/support/reviews': 'Reviews',
+  '/support/tickets': 'Provider messages',
   '/management/taxi-trips': 'Taxi trips',
   '/management/currency-rates': 'Currency rates',
   '/admin/settings': 'Settings',
@@ -43,12 +45,14 @@ export const ROUTE_TITLE_KEYS: Record<string, string> = {
   '/services/trips': 'title.trips',
   '/management/users': 'title.groups',
   '/management/providers': 'title.providers',
+  '/management/providers/new': 'title.providerNew',
   '/management/bookings': 'title.bookings',
   '/management/payments': 'title.payments',
   '/management/discounts': 'title.discounts',
   '/management/reports': 'title.reports',
   '/support/complaints': 'title.complaints',
   '/support/reviews': 'title.reviews',
+  '/support/tickets': 'title.tickets',
   '/management/taxi-trips': 'title.taxiTrips',
   '/management/currency-rates': 'title.currencyRates',
   '/admin/settings': 'title.settings',
@@ -65,6 +69,8 @@ export const ROUTE_TITLE_KEYS: Record<string, string> = {
   '/portal/earnings': 'title.earnings',
   '/portal/profile': 'title.profile',
   '/portal/support': 'title.portalSupport',
+  '/portal/cash': 'title.portalCash',
+  '/admin/cash': 'title.adminCash',
 }
 
 /** Path to header icon (sidebar item id). Header shows this icon for the current page. */
@@ -79,12 +85,14 @@ export const ROUTE_ICONS: Record<string, SidebarIconId> = {
   '/services/trips': 'trips',
   '/management/users': 'users',
   '/management/providers': 'providers',
+  '/management/providers/new': 'providers',
   '/management/bookings': 'bookings',
   '/management/payments': 'payments',
   '/management/discounts': 'discounts',
   '/management/reports': 'reports',
   '/support/complaints': 'complaints',
   '/support/reviews': 'reviews',
+  '/support/tickets': 'chat',
   '/management/taxi-trips': 'taxi_trips',
   '/management/currency-rates': 'sales',
   '/admin/settings': 'settings',
@@ -114,6 +122,14 @@ const SERVICE_TYPE_TITLES: Record<string, string> = {
 export function getPageTitleForPath(pathname: string): string {
   const exact = ROUTE_TITLES[pathname]
   if (exact) return exact
+  const providerEdit = pathname.match(/^\/management\/providers\/([^/]+)$/)
+  if (
+    providerEdit &&
+    providerEdit[1] !== 'new' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(providerEdit[1])
+  ) {
+    return 'Edit provider'
+  }
   const servicesMatch = pathname.match(/^\/services\/([^/]+)(?:\/([^/]+))?/)
   if (servicesMatch) {
     const [, type] = servicesMatch
@@ -126,6 +142,14 @@ export function getPageTitleForPath(pathname: string): string {
 export function getPageTitleKeyForPath(pathname: string): string {
   const exact = ROUTE_TITLE_KEYS[pathname]
   if (exact) return exact
+  const providerEdit = pathname.match(/^\/management\/providers\/([^/]+)$/)
+  if (
+    providerEdit &&
+    providerEdit[1] !== 'new' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(providerEdit[1])
+  ) {
+    return 'title.providerEdit'
+  }
   if (pathname.startsWith('/portal/listings/') && pathname !== '/portal/listings/new') {
     return 'title.listingEdit'
   }
@@ -141,6 +165,14 @@ export function getPageTitleKeyForPath(pathname: string): string {
 export function getPageIconForPath(pathname: string): SidebarIconId {
   const exact = ROUTE_ICONS[pathname]
   if (exact) return exact
+  const providerEdit = pathname.match(/^\/management\/providers\/([^/]+)$/)
+  if (
+    providerEdit &&
+    providerEdit[1] !== 'new' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(providerEdit[1])
+  ) {
+    return 'providers'
+  }
   if (pathname.startsWith('/portal/listings')) return 'hotels'
   if (pathname.startsWith('/support/reviews')) return 'reviews'
   const servicesMatch = pathname.match(/^\/services\/([^/]+)/)

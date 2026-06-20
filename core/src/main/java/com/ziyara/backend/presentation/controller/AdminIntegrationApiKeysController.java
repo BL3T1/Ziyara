@@ -5,6 +5,7 @@ import com.ziyara.backend.application.dto.request.CreateIntegrationApiKeyRequest
 import com.ziyara.backend.application.dto.response.IntegrationApiKeyCreatedResponse;
 import com.ziyara.backend.application.dto.response.IntegrationApiKeySummaryResponse;
 import com.ziyara.backend.application.service.IntegrationApiKeyService;
+import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,14 +31,14 @@ public class AdminIntegrationApiKeysController {
     private final IntegrationApiKeyService integrationApiKeyService;
 
     @GetMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize(ApiAuthorizationExpressions.SETTINGS_READ)
     @Operation(summary = "List active integration API keys")
     public ResponseEntity<ApiResponse<List<IntegrationApiKeySummaryResponse>>> list() {
         return ResponseEntity.ok(ApiResponse.success(integrationApiKeyService.listActive()));
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize(ApiAuthorizationExpressions.SETTINGS_WRITE)
     @Operation(summary = "Create API key", description = "Returns plain secret once")
     public ResponseEntity<ApiResponse<IntegrationApiKeyCreatedResponse>> create(
             @Valid @RequestBody CreateIntegrationApiKeyRequest request) {
@@ -48,7 +49,7 @@ public class AdminIntegrationApiKeysController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize(ApiAuthorizationExpressions.SETTINGS_WRITE)
     @Operation(summary = "Revoke API key")
     public ResponseEntity<ApiResponse<Void>> revoke(@PathVariable UUID id) {
         UUID userId = getCurrentUserId();

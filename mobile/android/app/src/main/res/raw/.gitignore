@@ -1,0 +1,3 @@
+# The CA certificate is generated locally per-environment and must never be committed.
+# Run infra/certs/generate.sh and copy ca.crt here as ziyara_ca.crt before building.
+ziyara_ca.crt

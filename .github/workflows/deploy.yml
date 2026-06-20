@@ -1,0 +1,156 @@
+name: Deploy
+
+on:
+  push:
+    tags:
+      - "v*"           # trigger on version tags: v1.0.0, v1.1.0 …
+    branches:
+      - development    # auto-deploy to staging on every merge to development
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [staging, production]
+        default: staging
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Build & push Docker images to GHCR
+  # ─────────────────────────────────────────────
+  build-push:
+    name: Build & push images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      backend-tag: ${{ steps.meta-backend.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Backend ────────────────────────────────────────────────────────────
+
+      - name: Backend image metadata
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/backend
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./core
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Frontend (company surface) ──────────────────────────────────────────
+
+      - name: Frontend image metadata
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/frontend
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,prefix=sha-,format=short
+
+      - name: Build & push frontend (company surface)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./front/my-app
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          build-args: |
+            VITE_APP_SURFACE=company
+            VITE_API_URL=/api/v1
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────
+  # Deploy — DISABLED — no deploy host yet.
+  # Uncomment when DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY / GHCR_TOKEN
+  # secrets are added in repo Settings → Secrets → Actions,
+  # and DEPLOY_BASE_URL is added under Settings → Variables → Actions.
+  # ─────────────────────────────────────────────
+  #deploy:
+  #  name: Deploy to VPS
+  #  needs: build-push
+  #  runs-on: ubuntu-latest
+  #  timeout-minutes: 15
+  #  environment: ${{ github.event.inputs.environment || 'staging' }}
+  #
+  #  steps:
+  #    - name: Deploy via SSH
+  #      uses: appleboy/ssh-action@v1.0.3
+  #      with:
+  #        host: ${{ secrets.DEPLOY_HOST }}
+  #        username: ${{ secrets.DEPLOY_USER }}
+  #        key: ${{ secrets.DEPLOY_SSH_KEY }}
+  #        port: ${{ secrets.DEPLOY_PORT || 22 }}
+  #        script: |
+  #          set -e
+  #          cd /opt/ziyara
+  #          echo "==> Pulling latest code"
+  #          git pull origin master
+  #          echo "==> Logging in to GHCR"
+  #          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+  #          sed -i '/^BACKEND_IMAGE=/d' .env
+  #          echo "BACKEND_IMAGE=ghcr.io/${{ github.repository }}/backend:${{ needs.build-push.outputs.backend-tag }}" >> .env
+  #          docker compose pull backend
+  #          docker compose --profile ipmode up -d --no-deps --remove-orphans backend
+  #          docker image prune -f
+  #          echo "==> Deploy complete"
+  #          docker compose ps
+
+  # ─────────────────────────────────────────────
+  # Smoke test — verify the deployment is live
+  # ─────────────────────────────────────────────
+  smoke-test:
+    name: Post-deploy smoke test
+    needs: build-push  # change to [build-push, deploy] when the deploy job is re-enabled
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    if: vars.DEPLOY_BASE_URL != ''
+
+    steps:
+      - name: Wait for health
+        run: |
+          echo "Checking health at ${{ vars.DEPLOY_BASE_URL }}/api/v1/actuator/health"
+          curl -sf \
+            --max-time 10 \
+            --retry 12 \
+            --retry-delay 10 \
+            --retry-connrefused \
+            "${{ vars.DEPLOY_BASE_URL }}/api/v1/actuator/health" \
+          | grep -q '"status":"UP"'
+          echo "✓ Health check passed"
+
+      - name: Verify OpenAPI is locked in production
+        if: github.event.inputs.environment == 'production'
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ vars.DEPLOY_BASE_URL }}/api/v1/swagger-ui.html")
+          if [ "$STATUS" != "404" ] && [ "$STATUS" != "403" ]; then
+            echo "ERROR: Swagger UI is exposed in production (HTTP $STATUS)"
+            exit 1
+          fi
+          echo "✓ OpenAPI locked ($STATUS)"

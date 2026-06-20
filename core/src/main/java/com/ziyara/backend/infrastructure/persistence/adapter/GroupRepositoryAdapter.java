@@ -40,4 +40,19 @@ public class GroupRepositoryAdapter implements GroupRepository {
     public boolean existsByCode(String code) {
         return jpaRepository.existsByCode(code);
     }
+
+    @Override
+    public boolean existsByCodeAndIdNot(String code, UUID excludeId) {
+        return jpaRepository.existsByCodeAndIdNot(code, excludeId);
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
+    }
+
+    @Override
+    public Optional<Integer> findMaxCustomGroupCodeSuffix() {
+        return jpaRepository.findMaxCustomGroupCodeSuffix();
+    }
 }

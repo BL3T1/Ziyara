@@ -32,8 +32,8 @@ public class ContactLeadJpaEntity {
     @Column(name = "message", nullable = false, columnDefinition = "TEXT")
     private String message;
 
-    @Column(name = "client_ip", length = 64)
-    private String clientIp;
+    @Column(name = "ip_address", length = 45)
+    private String ipAddress;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

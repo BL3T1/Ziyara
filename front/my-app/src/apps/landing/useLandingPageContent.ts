@@ -16,11 +16,10 @@ export function useLandingPageContent(slug: string) {
     let mounted = true
     const existing = cache.get(key)
     if (existing) {
-      setContent(existing)
-      setLoading(false)
+      Promise.resolve().then(() => { setContent(existing); setLoading(false) })
       return
     }
-    setLoading(true)
+    Promise.resolve().then(() => setLoading(true))
     landingPublicApi
       .getPageContent(slug, locale)
       .then((data) => {

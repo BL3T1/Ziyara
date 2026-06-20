@@ -7,8 +7,8 @@ import com.ziyara.backend.application.query.ServiceQueryHandler;
 import com.ziyara.backend.domain.entity.ServiceImage;
 import com.ziyara.backend.domain.enums.ServiceImageCategory;
 import com.ziyara.backend.domain.repository.ServiceImageRepository;
-import com.ziyara.backend.infrastructure.media.LocalMediaStorageService;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.infrastructure.media.MediaStorageService;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +25,7 @@ public class ServiceImageService {
 
     private final ServiceImageRepository serviceImageRepository;
     private final ServiceQueryHandler serviceQueryHandler;
-    private final LocalMediaStorageService localMediaStorageService;
+    private final MediaStorageService localMediaStorageService;
 
     @Transactional(readOnly = true)
     public List<ServiceImageResponse> list(UUID serviceId) {
@@ -155,21 +155,11 @@ public class ServiceImageService {
     }
 
     private void clearPrimaryForService(UUID serviceId) {
-        for (ServiceImage img : serviceImageRepository.findByServiceId(serviceId)) {
-            if (img.isPrimary()) {
-                img.setPrimary(false);
-                serviceImageRepository.save(img);
-            }
-        }
+        serviceImageRepository.clearPrimaryByServiceId(serviceId);
     }
 
     private void clearPrimaryForServiceExcept(UUID serviceId, UUID keepImageId) {
-        for (ServiceImage img : serviceImageRepository.findByServiceId(serviceId)) {
-            if (img.isPrimary() && !keepImageId.equals(img.getId())) {
-                img.setPrimary(false);
-                serviceImageRepository.save(img);
-            }
-        }
+        serviceImageRepository.clearPrimaryByServiceIdExcept(serviceId, keepImageId);
     }
 
     private static String normalizeContextKey(String key) {

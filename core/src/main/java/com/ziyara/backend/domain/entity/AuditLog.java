@@ -19,6 +19,14 @@ public class AuditLog {
     private String newValue;
     private String ipAddress;
     private String userAgent;
+    private String correlationId;
+    private String requestId;
+    private UUID sessionId;
+    private UUID providerId;
+    private UUID tenantId;
+    private Integer riskScore;
+    private Integer durationMs;
+    private String tags;
     private LocalDateTime createdAt;
 
     // Constructors
@@ -55,6 +63,22 @@ public class AuditLog {
     public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
     public String getUserAgent() { return userAgent; }
     public void setUserAgent(String userAgent) { this.userAgent = userAgent; }
+    public String getCorrelationId() { return correlationId; }
+    public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
+    public String getRequestId() { return requestId; }
+    public void setRequestId(String requestId) { this.requestId = requestId; }
+    public UUID getSessionId() { return sessionId; }
+    public void setSessionId(UUID sessionId) { this.sessionId = sessionId; }
+    public UUID getProviderId() { return providerId; }
+    public void setProviderId(UUID providerId) { this.providerId = providerId; }
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
+    public Integer getRiskScore() { return riskScore; }
+    public void setRiskScore(Integer riskScore) { this.riskScore = riskScore; }
+    public Integer getDurationMs() { return durationMs; }
+    public void setDurationMs(Integer durationMs) { this.durationMs = durationMs; }
+    public String getTags() { return tags; }
+    public void setTags(String tags) { this.tags = tags; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

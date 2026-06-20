@@ -1,8 +1,8 @@
 -- Every UserRole enum value has a sys_roles row linked to an organizational group (Groups admin page).
--- Adds G7 B2C Customers; assigns CUSTOMER to G7; inserts missing system roles idempotently.
+-- Adds Z7 B2C Customers; assigns CUSTOMER to Z7; inserts missing system roles idempotently.
 
 INSERT INTO sys_groups (id, name, code, description) VALUES
-    ('b0000000-0000-0000-0000-000000000007', 'B2C Customers', 'G7', 'End-customer accounts (bookings and profile)')
+    ('b0000000-0000-0000-0000-000000000007', 'B2C Customers', 'Z7', 'End-customer accounts (bookings and profile)')
 ON CONFLICT (code) DO NOTHING;
 
 UPDATE sys_roles SET group_id = 'b0000000-0000-0000-0000-000000000001'::uuid WHERE code = 'SUPER_ADMIN';

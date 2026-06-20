@@ -3,8 +3,8 @@ package com.ziyara.backend.application.service;
 import com.ziyara.backend.application.dto.request.UpsertContentPageRequest;
 import com.ziyara.backend.application.dto.response.ContentPageResponse;
 import com.ziyara.backend.application.locale.RequestLocaleHolder;
-import com.ziyara.backend.infrastructure.persistence.entity.ContentPageJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.repository.ContentPageJpaRepository;
+import com.ziyara.backend.domain.entity.ContentPage;
+import com.ziyara.backend.domain.repository.ContentPageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,31 +16,36 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ContentPageService {
 
-    private final ContentPageJpaRepository contentPageJpaRepository;
+    private final ContentPageRepository contentPageRepository;
 
     @Transactional(readOnly = true)
     public ContentPageResponse getPublicPage(String slug, String lang) {
-        ContentPageJpaEntity entity = contentPageJpaRepository
-                .findBySlugAndPublishedTrue(normalizeSlug(slug))
-                .orElseGet(() -> createFallbackEntity(normalizeSlug(slug)));
-        Map<String, Object> localized = resolveLocalizedContent(entity, lang);
+        ContentPage page = contentPageRepository
+                .findBySlug(normalizeSlug(slug))
+                .filter(p -> Boolean.TRUE.equals(p.getPublished()))
+                .orElseGet(() -> createFallbackPage(normalizeSlug(slug)));
+        Map<String, Object> localized = resolveLocalizedContent(page, lang);
         return ContentPageResponse.builder()
-                .slug(entity.getSlug())
+                .slug(page.getSlug())
                 .content(localized)
-                .published(entity.getPublished())
-                .updatedAt(entity.getUpdatedAt())
+                .published(page.getPublished())
+                .updatedAt(page.getUpdatedAt())
                 .build();
     }
 
     @Transactional
     public ContentPageResponse upsert(String slug, UpsertContentPageRequest request) {
         String normalizedSlug = normalizeSlug(slug);
-        ContentPageJpaEntity entity = contentPageJpaRepository.findBySlug(normalizedSlug)
-                .orElseGet(() -> ContentPageJpaEntity.builder().slug(normalizedSlug).build());
-        entity.setContentEn(copyOrEmpty(request.getContentEn()));
-        entity.setContentAr(copyOrEmpty(request.getContentAr()));
-        entity.setPublished(request.getPublished() != null ? request.getPublished() : Boolean.TRUE);
-        ContentPageJpaEntity saved = contentPageJpaRepository.save(entity);
+        ContentPage page = contentPageRepository.findBySlug(normalizedSlug)
+                .orElseGet(() -> {
+                    ContentPage p = new ContentPage();
+                    p.setSlug(normalizedSlug);
+                    return p;
+                });
+        page.setContentEn(copyOrEmpty(request.getContentEn()));
+        page.setContentAr(copyOrEmpty(request.getContentAr()));
+        page.setPublished(request.getPublished() != null ? request.getPublished() : Boolean.TRUE);
+        ContentPage saved = contentPageRepository.save(page);
         return ContentPageResponse.builder()
                 .slug(saved.getSlug())
                 .content(resolveLocalizedContent(saved, "en"))
@@ -49,10 +54,10 @@ public class ContentPageService {
                 .build();
     }
 
-    private Map<String, Object> resolveLocalizedContent(ContentPageJpaEntity entity, String lang) {
+    private Map<String, Object> resolveLocalizedContent(ContentPage page, String lang) {
         boolean useArabic = (lang != null && lang.toLowerCase().startsWith("ar")) || RequestLocaleHolder.isArabic();
-        Map<String, Object> preferred = useArabic ? entity.getContentAr() : entity.getContentEn();
-        Map<String, Object> fallback = useArabic ? entity.getContentEn() : entity.getContentAr();
+        Map<String, Object> preferred = useArabic ? page.getContentAr() : page.getContentEn();
+        Map<String, Object> fallback = useArabic ? page.getContentEn() : page.getContentAr();
         if (preferred != null && !preferred.isEmpty()) return preferred;
         if (fallback != null && !fallback.isEmpty()) return fallback;
         return new HashMap<>();
@@ -66,12 +71,12 @@ public class ContentPageService {
         return source == null ? new HashMap<>() : new HashMap<>(source);
     }
 
-    private static ContentPageJpaEntity createFallbackEntity(String slug) {
-        return ContentPageJpaEntity.builder()
-                .slug(slug)
-                .contentEn(new HashMap<>())
-                .contentAr(new HashMap<>())
-                .published(true)
-                .build();
+    private static ContentPage createFallbackPage(String slug) {
+        ContentPage p = new ContentPage();
+        p.setSlug(slug);
+        p.setContentEn(new HashMap<>());
+        p.setContentAr(new HashMap<>());
+        p.setPublished(true);
+        return p;
     }
 }

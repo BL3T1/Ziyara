@@ -1,0 +1,2176 @@
+apiVersion: 1
+
+groups:
+
+  # ---------------------------------------------------------------------------
+  # GROUP 1: Security & Traffic
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: Security & Traffic
+    folder: Ziyara
+    interval: 1m
+    rules:
+
+      # -----------------------------------------------------------------------
+      # DDoS — High HTTP Request Rate
+      # Fires when the backend receives more than 100 requests/second sustained
+      # for 2 minutes. Tune the threshold to your normal peak traffic.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-ddos-request-rate
+        title: "DDoS — High HTTP Request Rate"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum(rate(http_server_requests_seconds_count[1m]))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [100]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Possible DDoS: backend receiving >100 req/s"
+          description: "The backend HTTP request rate has exceeded 100 req/s for 2 consecutive minutes. This may indicate a DDoS or scraping attack. Tune the threshold (currently 100 req/s) to your normal traffic baseline."
+        labels:
+          severity: critical
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # Security — High Unauthorized Request Rate (brute-force / credential stuffing)
+      # Fires when 401/403 responses exceed 30 per minute for 2 minutes.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-high-401-rate
+        title: "Security — High Unauthorized Request Rate"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum(rate(http_server_requests_seconds_count{status=~"401|403"}[1m])) * 60'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [30]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Possible brute-force: >30 unauthorized requests/min"
+          description: "HTTP 401/403 response rate has exceeded 30 per minute for 2 minutes. This may indicate credential stuffing or a brute-force login attack."
+        labels:
+          severity: warning
+        isPaused: false
+
+  # ---------------------------------------------------------------------------
+  # GROUP 2: Host Infrastructure (node-exporter)
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: Host Infrastructure
+    folder: Ziyara
+    interval: 1m
+    rules:
+
+      # -----------------------------------------------------------------------
+      # CPU Usage > 80%
+      # -----------------------------------------------------------------------
+      - uid: ziyara-cpu-high
+        title: "Host — CPU Usage > 80%"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: '100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [80]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Host CPU usage above 80%"
+          description: "Host CPU utilization has been sustained above 80% for 5 minutes. Check for runaway processes or container CPU spikes."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # RAM Usage > 80%
+      # -----------------------------------------------------------------------
+      - uid: ziyara-ram-high
+        title: "Host — RAM Usage > 80%"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: '(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [80]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Host RAM usage above 80%"
+          description: "Host memory utilization has been above 80% for 5 minutes. Risk of OOM kills on containers (PostgreSQL, backend)."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # Disk Usage > 80% (any non-tmpfs/overlay filesystem)
+      # -----------------------------------------------------------------------
+      - uid: ziyara-disk-high
+        title: "Host — Disk Usage > 80%"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'max((1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100)'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [80]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Disk usage above 80% on at least one filesystem"
+          description: "A filesystem has exceeded 80% disk usage. If the Docker volume partition fills up, PostgreSQL will crash and media uploads will fail."
+        labels:
+          severity: warning
+        isPaused: false
+
+  # ---------------------------------------------------------------------------
+  # GROUP 2b: System Temperature (node_hwmon_temp_celsius / node_thermal_zone_temp)
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: System Temperature
+    folder: Ziyara
+    interval: 1m
+    rules:
+
+      # -----------------------------------------------------------------------
+      # Temperature Warning — any sensor > 75 °C for 5 minutes
+      # A sustained warm reading before hitting the critical threshold.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-temp-warning
+        title: "Host — System Temperature High (>75 °C)"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'max(max_over_time(node_hwmon_temp_celsius[1m]))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [75]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "System temperature above 75 °C"
+          description: "At least one hardware sensor has been reading above 75 °C for 5 minutes. Check server airflow, fan speeds, and ambient temperature."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # Temperature Critical — any sensor > 85 °C for 2 minutes
+      # Risk of thermal throttling or hardware damage.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-temp-critical
+        title: "Host — System Temperature Critical (>85 °C)"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'max(max_over_time(node_hwmon_temp_celsius[1m]))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [85]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "CRITICAL: system temperature above 85 °C"
+          description: "A hardware sensor has exceeded 85 °C for 2 minutes. Thermal throttling is likely active and hardware damage is a risk. Shut down non-essential workloads immediately."
+        labels:
+          severity: critical
+        isPaused: false
+
+  # ---------------------------------------------------------------------------
+  # GROUP 3: Application Health (Spring Boot Actuator + cadvisor)
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: Application Health
+    folder: Ziyara
+    interval: 1m
+    rules:
+
+      # -----------------------------------------------------------------------
+      # Backend Service Unreachable
+      # noDataState=Alerting: if Prometheus can't scrape the target at all,
+      # treat it the same as the service being down.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-backend-down
+        title: "Backend — Service Unreachable"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'up{job="ziyara-backend"}'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [1]
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          summary: "Backend API is down or unreachable"
+          description: "Prometheus cannot scrape the backend Actuator endpoint for 2 minutes. The Spring Boot service is likely crashed or in a crash loop."
+        labels:
+          severity: critical
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # HTTP 5xx Error Rate > 5%
+      # -----------------------------------------------------------------------
+      - uid: ziyara-http-5xx-high
+        title: "API — HTTP 5xx Error Rate > 5%"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) / sum(rate(http_server_requests_seconds_count[5m])) * 100'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [5]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "API 5xx error rate exceeded 5%"
+          description: "More than 5% of API responses are server errors (5xx) over the last 5 minutes. Check backend logs for stack traces or DB connection issues."
+        labels:
+          severity: critical
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # HTTP p99 Latency > 1 second
+      # -----------------------------------------------------------------------
+      - uid: ziyara-api-latency-high
+        title: "API — p99 Latency > 1s"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket[5m])) by (le))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [1]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: "API p99 response time exceeded 1 second"
+          description: "The 99th-percentile API response time has been above 1s for 3 minutes. Users are experiencing slow responses. Check for N+1 queries, DB locks, or GC pauses."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # JVM Heap Memory > 80%
+      # -----------------------------------------------------------------------
+      - uid: ziyara-jvm-heap-high
+        title: "JVM — Heap Memory > 80%"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum(jvm_memory_used_bytes{area="heap"}) / sum(jvm_memory_max_bytes{area="heap"}) * 100'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [80]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "JVM heap memory above 80%"
+          description: "JVM heap usage has been above 80% for 5 minutes. A GC storm or OutOfMemoryError may follow. Consider increasing Xmx or investigating memory leaks."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # HikariCP DB Connection Pool Near Exhaustion
+      # -----------------------------------------------------------------------
+      - uid: ziyara-db-pool-high
+        title: "DB — Connection Pool Near Exhaustion (>80%)"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'max(hikaricp_connections_active / hikaricp_connections_max * 100)'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [80]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: "HikariCP connection pool above 80% utilization"
+          description: "The database connection pool has been above 80% utilized for 3 minutes. New requests may start timing out waiting for a connection. Check for slow queries or connection leaks."
+        labels:
+          severity: warning
+        isPaused: false
+
+  # ---------------------------------------------------------------------------
+  # GROUP 4: Host Infrastructure — Extended
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: Host Infrastructure — Extended
+    folder: Ziyara
+    interval: 1m
+    rules:
+
+      # -----------------------------------------------------------------------
+      # Disk I/O Wait > 30%
+      # CPU is "idle" but blocked on disk — saturation invisible to the CPU alert.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-disk-iowait-high
+        title: "Host — Disk I/O Wait > 30%"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'avg(rate(node_cpu_seconds_total{mode="iowait"}[5m])) * 100'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [30]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Host disk I/O wait above 30%"
+          description: "CPU iowait has exceeded 30% for 10 minutes. The host is I/O-saturated even though CPU usage may look low. Check for slow disk, high container write activity, or a PostgreSQL vacuum storm."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # File Descriptor Exhaustion > 80%
+      # JVM opens one FD per HTTP connection, socket, and file. Exhaustion
+      # causes all requests to fail with "Too many open files".
+      # -----------------------------------------------------------------------
+      - uid: ziyara-fd-exhaustion
+        title: "Backend — File Descriptor Exhaustion (>80%)"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'process_open_fds{job="ziyara-backend"} / process_max_fds{job="ziyara-backend"} * 100'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [80]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Backend process file descriptors above 80%"
+          description: "The JVM is using more than 80% of its file descriptor limit. If it reaches 100%, all new connections and file operations will fail. Check for connection leaks or unclosed streams."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # OOM Kill Detected (immediate)
+      # Silent killer — a container or process was terminated by the kernel.
+      # Nothing in application logs explains the crash.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-oom-kill
+        title: "Host — OOM Kill Detected"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'increase(node_vmstat_oom_kill[5m])'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "OOM kill event detected on host"
+          description: "The Linux kernel out-of-memory killer terminated one or more processes in the last 5 minutes. A container may have crashed silently. Check `dmesg` or `journalctl -k` for the killed process name."
+        labels:
+          severity: critical
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # Network Interface Errors
+      # Packet drops or errors indicate physical/virtual NIC degradation.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-network-errors
+        title: "Host — Network Interface Errors"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum(rate(node_network_receive_errs_total{device!~"lo|veth.*"}[5m])) + sum(rate(node_network_transmit_errs_total{device!~"lo|veth.*"}[5m]))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [5]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Network interface errors detected"
+          description: "Receive or transmit errors on a non-loopback/veth interface have exceeded 5 errors/s for 5 minutes. This may indicate a faulty NIC, bad cable, or misconfigured switch port."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # Swap Usage > 50%
+      # Heavy swap usage means RAM is effectively exhausted. Returns NoData
+      # when swap is disabled (no false positive).
+      # -----------------------------------------------------------------------
+      - uid: ziyara-swap-high
+        title: "Host — Swap Usage > 50%"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: '(node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes) / node_memory_SwapTotal_bytes * 100'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [50]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Host swap usage above 50%"
+          description: "More than 50% of swap space is in use, meaning the host's physical RAM is effectively exhausted. Performance will be severely degraded. Consider adding RAM or reducing container memory usage."
+        labels:
+          severity: warning
+        isPaused: false
+
+  # ---------------------------------------------------------------------------
+  # GROUP 5: Application Health — Extended
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: Application Health — Extended
+    folder: Ziyara
+    interval: 1m
+    rules:
+
+      # -----------------------------------------------------------------------
+      # Backend Restart Detected (immediate)
+      # Catches crash loops before the "service unreachable" alert has time
+      # to trigger. The process came back up but crashed — something is wrong.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-backend-restart
+        title: "Backend — Restart Detected"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 900
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'changes(process_start_time_seconds{job="ziyara-backend"}[15m])'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 900
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "Backend Spring Boot process restarted"
+          description: "The backend JVM process_start_time changed in the last 15 minutes, indicating a restart or crash-loop. Check container logs for stack traces or OutOfMemoryError."
+        labels:
+          severity: critical
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # HikariCP Pending Connections > 5
+      # Threads are actively queuing for a DB connection — a direct SLA signal
+      # more actionable than the pool-utilization alert.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-db-pool-pending
+        title: "DB — HikariCP Pending Connections > 5"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'hikaricp_connections_pending{job="ziyara-backend"}'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [5]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "More than 5 threads waiting for a DB connection"
+          description: "HikariCP has more than 5 threads queued waiting for a free connection. Requests are actively stalling. Check for slow queries holding connections, connection leaks, or pool size too small."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # HikariCP Acquisition Timeout Rate > 0
+      # A connection request timed out and threw an exception to the caller.
+      # Any non-zero rate is a user-facing error.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-db-pool-timeout
+        title: "DB — HikariCP Connection Acquisition Timeout"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'rate(hikaricp_connections_timeout_total{job="ziyara-backend"}[5m])'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: "HikariCP connection acquisition is timing out"
+          description: "At least one DB connection request timed out in the last 5 minutes, throwing an exception to the caller. This is a user-visible error. Pool may be too small or DB queries too slow."
+        labels:
+          severity: critical
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # JVM GC Overhead > 10%
+      # More than 10% of elapsed time is spent in garbage collection.
+      # Throughput is degraded; heap exhaustion may follow.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-jvm-gc-overhead
+        title: "JVM — GC Overhead > 10%"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum(rate(jvm_gc_pause_seconds_sum{job="ziyara-backend"}[5m]))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [0.1]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "JVM spending more than 10% of time in GC"
+          description: "The GC pause rate exceeds 10% of elapsed time, meaning throughput is seriously degraded. An OutOfMemoryError or full GC storm may follow. Check heap usage, memory leaks, or consider tuning -Xmx."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # node-exporter Down
+      # Without this, all host and temperature alerts silently return NoData
+      # and will never fire.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-node-exporter-down
+        title: "Monitoring — node-exporter Unreachable"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'up{job="node-exporter"}'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [1]
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          summary: "node-exporter is down"
+          description: "Prometheus cannot scrape node-exporter. All host CPU, RAM, disk, and temperature alerts are now silent. Check that the node-exporter container is running."
+        labels:
+          severity: critical
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # cAdvisor Down
+      # Without this, all container metrics alerts silently return NoData.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-cadvisor-down
+        title: "Monitoring — cAdvisor Unreachable"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'up{job="cadvisor"}'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [1]
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          summary: "cAdvisor is down"
+          description: "Prometheus cannot scrape cAdvisor. All Docker container CPU and memory metrics are now unavailable. Check that the cAdvisor container is running."
+        labels:
+          severity: critical
+        isPaused: false
+
+  # ---------------------------------------------------------------------------
+  # GROUP 6: Application Coverage
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: Application Coverage
+    folder: Ziyara
+    interval: 1m
+    rules:
+
+      # -----------------------------------------------------------------------
+      # HTTP 4xx Spike (non-auth)
+      # A surge in 400/404/422 that isn't 401/403 usually means a broken
+      # API contract after a deployment or a malformed client request.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-http-4xx-spike
+        title: "API — HTTP 4xx Spike (non-auth)"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum(rate(http_server_requests_seconds_count{job="ziyara-backend",status=~"4..",status!~"401|403|429"}[5m])) * 60'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [50]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: "Non-auth 4xx error rate above 50/min"
+          description: "API is returning more than 50 non-auth 4xx errors per minute for 3 minutes. This may indicate a broken API contract after a deployment, malformed client requests, or a missing resource."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # JVM Metaspace > 256 MB
+      # Metaspace is non-heap and won't trigger the heap alert. A steadily
+      # growing metaspace usually means a classloader/proxy leak.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-jvm-metaspace-high
+        title: "JVM — Metaspace > 256 MB"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum(jvm_memory_used_bytes{job="ziyara-backend",id=~".*[Mm]etaspace.*"})'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [268435456]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "JVM Metaspace exceeds 256 MB"
+          description: "JVM Metaspace usage is above 256 MB for 10 minutes. This is usually caused by a classloader leak from dynamic proxy generation, CGLIB, or Groovy script evaluation. A restart will temporarily free it but the root cause should be investigated."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # Slow Request Ratio > 5% (requests taking longer than 3 seconds)
+      # p99 shows the worst case; this shows how many users are affected.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-slow-request-ratio
+        title: "API — Slow Request Ratio > 5% (>3s)"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum(rate(http_server_requests_seconds_bucket{job="ziyara-backend",uri!~"/actuator.*",le="3.0"}[5m])) / sum(rate(http_server_requests_seconds_count{job="ziyara-backend",uri!~"/actuator.*"}[5m]))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [0.95]
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "More than 5% of API requests take longer than 3 seconds"
+          description: "The fraction of requests completing within 3 seconds has dropped below 95% for 5 minutes. Users are experiencing slow page loads. Check for N+1 queries, missing DB indexes, or external service timeouts."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # Container Memory Near Limit > 85%
+      # Only fires when docker-compose memory limits are configured.
+      # Prevents OOM kills before they happen.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-container-mem-limit
+        title: "Container — Memory Near Limit (>85%)"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'max(sum by(container) (container_memory_usage_bytes{container!=""}) / sum by(container) (container_spec_memory_limit_bytes{container!="",container_spec_memory_limit_bytes>0}) * 100)'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [85]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "A container is using more than 85% of its memory limit"
+          description: "At least one container has consumed more than 85% of its configured memory limit. An OOM kill is imminent. Either increase the container's memory limit in docker-compose or investigate the memory usage."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # Prometheus Config Reload Failed
+      # If the last config reload failed, rule and scrape changes are silently
+      # not applied. New alerts you add won't actually be evaluated.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-prometheus-config-failed
+        title: "Monitoring — Prometheus Config Reload Failed"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'prometheus_config_last_reload_successful'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [1]
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          summary: "Prometheus failed to reload its configuration"
+          description: "The last Prometheus configuration reload was unsuccessful. Changes to prometheus.yml or scrape targets are not taking effect. Check the Prometheus logs for YAML syntax errors."
+        labels:
+          severity: critical
+        isPaused: false
+
+  # ---------------------------------------------------------------------------
+  # GROUP 7: Database — PostgreSQL
+  # PAUSED — activate after adding postgres_exporter to docker-compose.
+  # Image: prometheuscommunity/postgres-exporter
+  # ENV: DATA_SOURCE_NAME=postgresql://user:pass@postgres:5432/db?sslmode=disable
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: Database — PostgreSQL
+    folder: Ziyara
+    interval: 1m
+    rules:
+
+      # -----------------------------------------------------------------------
+      # PostgreSQL Lock Waits > 5
+      # Active sessions waiting on a lock indicate query contention or a
+      # long-running transaction holding locks.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-pg-lock-waits
+        title: "PostgreSQL — Lock Waits > 5"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum(pg_stat_activity_count{job="postgres-exporter",wait_event_type="Lock"})'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [5]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "PostgreSQL has more than 5 sessions waiting on locks"
+          description: "More than 5 database sessions are waiting to acquire a lock. A long-running transaction or deadlock may be blocking writes. Check pg_stat_activity for the blocking session."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # PostgreSQL Dead Tuples High
+      # Table bloat from unvacuumed rows degrades query performance and
+      # eventually causes table file growth.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-pg-dead-tuples
+        title: "PostgreSQL — Dead Tuple Count High (>100k per table)"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'max(pg_stat_user_tables_n_dead_tup{job="postgres-exporter"})'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [100000]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 30m
+        annotations:
+          summary: "PostgreSQL table has more than 100,000 dead tuples"
+          description: "At least one table has more than 100,000 dead tuples (unvacuumed rows). This causes table bloat, slower sequential scans, and eventually index bloat. Run VACUUM ANALYZE on the affected table."
+        labels:
+          severity: warning
+        isPaused: false
+
+  # ---------------------------------------------------------------------------
+  # GROUP 8: Cache — Redis
+  # PAUSED — activate after adding redis_exporter to docker-compose.
+  # Image: oliver006/redis_exporter
+  # ENV: REDIS_ADDR=redis://redis:6379
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: Cache — Redis
+    folder: Ziyara
+    interval: 1m
+    rules:
+
+      # -----------------------------------------------------------------------
+      # Redis Memory > 80% of maxmemory
+      # Returns NoData if maxmemory is not configured (no false positive).
+      # -----------------------------------------------------------------------
+      - uid: ziyara-redis-mem-high
+        title: "Redis — Memory Usage > 80%"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'redis_memory_used_bytes{job="redis-exporter"} / redis_memory_max_bytes{job="redis-exporter"} * 100'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [80]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Redis memory usage above 80%"
+          description: "Redis is using more than 80% of its configured maxmemory. When it reaches 100%, Redis will start evicting keys (if eviction policy is set) or reject write commands. Review cache TTLs or increase maxmemory."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # Redis Key Evictions > 0
+      # Any eviction means Redis is under memory pressure and dropping cached
+      # data — cache-miss rates will increase and DB load will spike.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-redis-evictions
+        title: "Redis — Key Evictions Occurring"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'rate(redis_evicted_keys_total{job="redis-exporter"}[5m])'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Redis is evicting cached keys"
+          description: "Redis has started evicting keys due to memory pressure. Cache hit rates will drop and database load will increase as previously cached queries must be re-fetched. Increase Redis maxmemory or reduce cache object sizes."
+        labels:
+          severity: warning
+        isPaused: false
+
+  # ---------------------------------------------------------------------------
+  # GROUP 9: Message Broker — Kafka
+  # PAUSED — activate after adding kafka_exporter to docker-compose.
+  # Image: danielqsj/kafka-exporter
+  # ENV: --kafka.server=kafka:9092
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: Message Broker — Kafka
+    folder: Ziyara
+    interval: 1m
+    rules:
+
+      # -----------------------------------------------------------------------
+      # Kafka Consumer Group Lag > 1000 messages
+      # Consumer is falling behind producers. Sustained lag causes stale data
+      # and eventual OOM if the topic retains messages.
+      # -----------------------------------------------------------------------
+      - uid: ziyara-kafka-consumer-lag
+        title: "Kafka — Consumer Group Lag > 1000"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum by(consumergroup, topic) (kafka_consumergroup_lag{job="kafka-exporter"})'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [1000]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Kafka consumer group lag exceeds 1000 messages"
+          description: "A consumer group is more than 1000 messages behind the producer on at least one topic. The consumer may be too slow, crashing and restarting, or the producer is spiking. Check consumer logs and partition assignment."
+        labels:
+          severity: warning
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # Kafka Exporter / Broker Unreachable
+      # -----------------------------------------------------------------------
+      - uid: ziyara-kafka-broker-down
+        title: "Kafka — Broker Unreachable"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'up{job="kafka-exporter"}'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [1]
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          summary: "Kafka broker is unreachable"
+          description: "kafka_exporter cannot connect to the Kafka broker. All message publishing and consuming is likely failing. Check the Kafka container and its logs."
+        labels:
+          severity: critical
+        isPaused: false
+
+  # ---------------------------------------------------------------------------
+  # GROUP 10: External Endpoints
+  # PAUSED — activate after adding blackbox_exporter to docker-compose and
+  # configuring probe targets in blackbox.yml.
+  # Image: prom/blackbox-exporter
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: External Endpoints
+    folder: Ziyara
+    interval: 5m
+    rules:
+
+      # -----------------------------------------------------------------------
+      # SSL Certificate Expiry < 14 days
+      # -----------------------------------------------------------------------
+      - uid: ziyara-ssl-cert-expiry
+        title: "TLS — Certificate Expires in < 14 Days"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: '(probe_ssl_earliest_cert_expiry{job="blackbox"} - time()) / 86400'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [14]
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "TLS certificate expires in less than 14 days"
+          description: "An SSL/TLS certificate monitored by blackbox_exporter will expire in fewer than 14 days. Renew the certificate immediately to avoid HTTPS failures for end users."
+        labels:
+          severity: critical
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # External Health Check Failing
+      # Probes the public-facing URL — catches issues invisible from inside
+      # the Docker network (DNS, load balancer, Nginx config).
+      # -----------------------------------------------------------------------
+      - uid: ziyara-external-health-fail
+        title: "External — Health Check Failing"
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'probe_success{job="blackbox"}'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params: [1]
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: B
+              type: classic_conditions
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          summary: "External health check is failing"
+          description: "blackbox_exporter cannot successfully probe an external endpoint for 2 minutes. This catches issues invisible from inside the Docker network such as DNS failures, Nginx misconfiguration, or load balancer problems."
+        labels:
+          severity: critical
+        isPaused: false

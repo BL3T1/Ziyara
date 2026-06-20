@@ -5,9 +5,12 @@ import com.ziyara.backend.application.dto.response.PaymentResponse;
 import com.ziyara.backend.domain.entity.Payment;
 import com.ziyara.backend.domain.enums.PaymentStatus;
 import com.ziyara.backend.domain.enums.PaymentMethod;
+import com.ziyara.backend.domain.repository.CashCollectionRepository;
 import com.ziyara.backend.domain.repository.PaymentRepository;
 import com.ziyara.backend.domain.repository.RefundRepository;
-import com.ziyara.backend.infrastructure.config.PaymentGatewayProperties;
+import com.ziyara.backend.infrastructure.payment.PaymentGatewayProperties;
+import com.ziyara.backend.infrastructure.payment.ReceiptNumberGenerator;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,22 +36,36 @@ class PaymentServiceTest {
     private RefundRepository refundRepository;
 
     @Mock
+    private CashCollectionRepository cashCollectionRepository;
+
+    @Mock
+    private ReceiptNumberGenerator receiptNumberGenerator;
+
+    @Mock
     private com.ziyara.backend.modules.sys.api.AuditServiceApi auditLogService;
 
     @Mock
     private PaymentGatewayProperties gatewayProperties;
+
+    @Mock
+    private StaffNotificationCommandPublisher staffNotificationCommandPublisher;
 
     private PaymentService paymentService;
 
     @BeforeEach
     void setUp() {
         lenient().when(gatewayProperties.isEnabled()).thenReturn(false);
+        lenient().when(gatewayProperties.isCashOnlyMode()).thenReturn(false);
+        lenient().when(gatewayProperties.isGatewayActive()).thenReturn(false);
         paymentService = new PaymentService(
                 paymentRepository,
                 refundRepository,
+                cashCollectionRepository,
+                receiptNumberGenerator,
                 auditLogService,
                 gatewayProperties,
-                Optional.empty());
+                Optional.empty(),
+                staffNotificationCommandPublisher);
     }
 
     @Test

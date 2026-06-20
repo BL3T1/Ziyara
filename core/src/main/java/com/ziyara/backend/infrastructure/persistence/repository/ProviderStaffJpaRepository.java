@@ -11,6 +11,8 @@ public interface ProviderStaffJpaRepository extends JpaRepository<ProviderStaffJ
 
     List<ProviderStaffJpaEntity> findByProviderIdOrderByCreatedAtAsc(UUID providerId);
 
+    long countByProviderId(UUID providerId);
+
     Optional<ProviderStaffJpaEntity> findByProviderIdAndUserId(UUID providerId, UUID userId);
 
     Optional<ProviderStaffJpaEntity> findByUserId(UUID userId);

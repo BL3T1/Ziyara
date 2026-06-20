@@ -6,6 +6,7 @@ import com.ziyara.backend.domain.enums.ServiceStatus;
 import com.ziyara.backend.domain.enums.ServiceType;
 import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
+import org.springframework.cache.annotation.Cacheable;
 import org.jooq.DSLContext;
 import org.jooq.Field;
 import org.jooq.Record;
@@ -48,19 +49,23 @@ public class ServiceQueryHandler {
     private static final Field<LocalDateTime> F_DELETED_AT = DSL.field(DSL.name(TABLE, "deleted_at"), LocalDateTime.class);
     private static final Field<LocalTime> F_CHECK_IN = DSL.field(DSL.name(TABLE, "check_in_time"), LocalTime.class);
     private static final Field<LocalTime> F_CHECK_OUT = DSL.field(DSL.name(TABLE, "check_out_time"), LocalTime.class);
+    private static final Field<String> F_REJECTION_REASON = DSL.field(DSL.name(TABLE, "rejection_reason"), String.class);
 
     private final DSLContext dsl;
 
+    @Cacheable(value = "serviceDetail", key = "#id")
     public Optional<ServiceResponse> findById(UUID id) {
         var record = dsl.select(F_ID, F_PROVIDER_ID, F_TYPE, F_NAME, F_DESCRIPTION, F_CITY, F_COUNTRY, F_ADDRESS,
                         F_BASE_PRICE, F_CURRENCY, F_STATUS, F_STAR_RATING, F_TOTAL_ROOMS, F_AVAILABLE_ROOMS, F_MAX_GUESTS,
-                        F_CREATED_AT, F_UPDATED_AT, F_CHECK_IN, F_CHECK_OUT)
+                        F_CREATED_AT, F_UPDATED_AT, F_CHECK_IN, F_CHECK_OUT, F_REJECTION_REASON)
                 .from(DSL.table(DSL.name(TABLE)))
                 .where(F_ID.eq(id).and(F_DELETED_AT.isNull()))
                 .fetchOne();
         return Optional.ofNullable(record).map(this::toResponse);
     }
 
+    @Cacheable(value = "servicesList", cacheManager = "servicesCacheManager",
+               key = "#page + ':' + #size + ':' + #providerId + ':' + #type + ':' + #status + ':' + #city + ':' + #country")
     public org.springframework.data.domain.Page<ServiceResponse> findPage(int page, int size,
                                                                             UUID providerId,
                                                                             ServiceType type,
@@ -79,7 +84,7 @@ public class ServiceQueryHandler {
         long total = dsl.fetchCount(dsl.selectFrom(table).where(condition));
         List<ServiceResponse> content = dsl.select(F_ID, F_PROVIDER_ID, F_TYPE, F_NAME, F_DESCRIPTION, F_CITY, F_COUNTRY, F_ADDRESS,
                         F_BASE_PRICE, F_CURRENCY, F_STATUS, F_STAR_RATING, F_TOTAL_ROOMS, F_AVAILABLE_ROOMS, F_MAX_GUESTS,
-                        F_CREATED_AT, F_UPDATED_AT, F_CHECK_IN, F_CHECK_OUT)
+                        F_CREATED_AT, F_UPDATED_AT, F_CHECK_IN, F_CHECK_OUT, F_REJECTION_REASON)
                 .from(table)
                 .where(condition)
                 .orderBy(F_CREATED_AT.desc())
@@ -94,6 +99,8 @@ public class ServiceQueryHandler {
         );
     }
 
+    @Cacheable(value = "servicesSearch", cacheManager = "servicesCacheManager",
+               key = "#page + ':' + #size + ':' + #q + ':' + #type + ':' + #city + ':' + #minPrice + ':' + #maxPrice")
     public org.springframework.data.domain.Page<ServiceResponse> search(int page, int size,
                                                                          String q,
                                                                          ServiceType type,
@@ -118,7 +125,7 @@ public class ServiceQueryHandler {
         long total = dsl.fetchCount(dsl.selectFrom(table).where(condition));
         List<ServiceResponse> content = dsl.select(F_ID, F_PROVIDER_ID, F_TYPE, F_NAME, F_DESCRIPTION, F_CITY, F_COUNTRY, F_ADDRESS,
                         F_BASE_PRICE, F_CURRENCY, F_STATUS, F_STAR_RATING, F_TOTAL_ROOMS, F_AVAILABLE_ROOMS, F_MAX_GUESTS,
-                        F_CREATED_AT, F_UPDATED_AT, F_CHECK_IN, F_CHECK_OUT)
+                        F_CREATED_AT, F_UPDATED_AT, F_CHECK_IN, F_CHECK_OUT, F_REJECTION_REASON)
                 .from(table)
                 .where(condition)
                 .orderBy(F_BASE_PRICE.asc())
@@ -154,6 +161,7 @@ public class ServiceQueryHandler {
                 .checkOutTime(r.get(F_CHECK_OUT))
                 .createdAt(r.get(F_CREATED_AT))
                 .updatedAt(r.get(F_UPDATED_AT))
+                .rejectionReason(r.get(F_REJECTION_REASON))
                 .build();
     }
 

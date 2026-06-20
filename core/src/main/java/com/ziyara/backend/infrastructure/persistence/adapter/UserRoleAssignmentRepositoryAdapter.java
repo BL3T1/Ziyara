@@ -5,13 +5,18 @@ import com.ziyara.backend.infrastructure.persistence.entity.UserRoleJpaEntity;
 import com.ziyara.backend.infrastructure.persistence.repository.RoleJpaRepository;
 import com.ziyara.backend.infrastructure.persistence.repository.UserRoleJpaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -26,7 +31,20 @@ public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRe
     }
 
     @Override
+    public Map<UUID, Long> countByRoleIdIn(Set<UUID> roleIds) {
+        if (roleIds == null || roleIds.isEmpty()) return Map.of();
+        return jpaRepository.countByRoleIdIn(roleIds).stream()
+                .collect(Collectors.toMap(row -> (UUID) row[0], row -> (Long) row[1]));
+    }
+
+    @Override
+    public long countByGroupId(UUID groupId) {
+        return jpaRepository.countByGroupId(groupId);
+    }
+
+    @Override
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "userPermissions", allEntries = true)
     public void reassignAllToRole(UUID fromRoleId, UUID targetRoleId) {
         jpaRepository.reassignAllToRole(fromRoleId, targetRoleId);
     }
@@ -41,7 +59,17 @@ public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRe
     }
 
     @Override
+    @Cacheable(value = "userPermissions", key = "#userId", unless = "#result == null || #result.isEmpty()")
+    public List<String> findPermissionCodesByUserId(UUID userId) {
+        return jpaRepository.findPermissionCodesByUserId(userId);
+    }
+
+    @Override
     @Transactional
+    @org.springframework.cache.annotation.Caching(evict = {
+            @CacheEvict(value = "userPermissions", key = "#userId"),
+            @CacheEvict(value = "userDetails", key = "#userId.toString()", cacheManager = "localCacheManager")
+    })
     public void setPrimaryRoleForUser(UUID userId, UUID roleId) {
         jpaRepository.deleteByUserId(userId);
         UserRoleJpaEntity row = UserRoleJpaEntity.builder()
@@ -55,7 +83,27 @@ public class UserRoleAssignmentRepositoryAdapter implements UserRoleAssignmentRe
 
     @Override
     @Transactional
+    @CacheEvict(value = "userPermissions", key = "#userId")
     public void clearAssignmentsForUser(UUID userId) {
         jpaRepository.deleteByUserId(userId);
+    }
+
+    @Override
+    public List<UUID> findUserIdsByRoleId(UUID roleId) {
+        return jpaRepository.findByRoleId(roleId).stream()
+                .map(UserRoleJpaEntity::getUserId)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    @Override
+    public List<String> findPermissionCodesBySystemRoleCode(String roleCode) {
+        return jpaRepository.findPermissionCodesBySystemRoleCode(roleCode);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = "userPermissions", allEntries = true)
+    public void clearGroupId(UUID groupId) {
+        jpaRepository.clearGroupId(groupId);
     }
 }

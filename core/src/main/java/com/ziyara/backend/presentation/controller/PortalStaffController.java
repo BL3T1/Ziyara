@@ -4,10 +4,10 @@ import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.request.AddPortalStaffRequest;
 import com.ziyara.backend.application.dto.request.CreatePortalStaffUserRequest;
 import com.ziyara.backend.application.dto.request.UpdatePortalStaffRequest;
+import com.ziyara.backend.application.dto.response.LinkableUserResponse;
 import com.ziyara.backend.application.dto.response.PortalStaffMemberResponse;
 import com.ziyara.backend.application.service.PortalStaffService;
 import com.ziyara.backend.application.service.ServiceProviderService;
-import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
 import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,6 +42,7 @@ public class PortalStaffController {
     }
 
     @PostMapping
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_STAFF_MANAGE)
     @Operation(summary = "Add staff", description = "Link an existing provider-role user to this organization")
     public ResponseEntity<ApiResponse<PortalStaffMemberResponse>> add(@Valid @RequestBody AddPortalStaffRequest request) {
         UUID providerId = requireCurrentProviderId();
@@ -49,7 +50,14 @@ public class PortalStaffController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Staff member added", created));
     }
 
+    @GetMapping("/linkable")
+    @Operation(summary = "Linkable users", description = "Active STAFF users not yet linked to any provider — candidates for Add Staff")
+    public ResponseEntity<ApiResponse<List<LinkableUserResponse>>> listLinkable() {
+        return ResponseEntity.ok(ApiResponse.success(portalStaffService.listLinkableUsers()));
+    }
+
     @PostMapping("/users")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_STAFF_MANAGE)
     @Operation(summary = "Create staff user", description = "Provider Manager creates a new provider portal user and links it to this organization")
     public ResponseEntity<ApiResponse<PortalStaffMemberResponse>> createUser(
             @Valid @RequestBody CreatePortalStaffUserRequest request) {
@@ -58,9 +66,7 @@ public class PortalStaffController {
         if (actorUserId == null) {
             throw new org.springframework.security.access.AccessDeniedException("Not authenticated");
         }
-        UserRole actorRole = SecurityRoleUtils.currentUserRole()
-                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Not authenticated"));
-        PortalStaffMemberResponse created = portalStaffService.createStaffUser(providerId, actorUserId, actorRole, request);
+        PortalStaffMemberResponse created = portalStaffService.createStaffUser(providerId, actorUserId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Staff user created", created));
     }
 
@@ -74,6 +80,7 @@ public class PortalStaffController {
     }
 
     @DeleteMapping("/{userId}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_STAFF_MANAGE)
     @Operation(summary = "Remove staff", description = "Unlink a staff user (cannot remove primary owner)")
     public ResponseEntity<ApiResponse<Void>> remove(@PathVariable UUID userId) {
         UUID providerId = requireCurrentProviderId();

@@ -1,0 +1,146 @@
+/*
+ * Semantic theme tokens — what components actually consume.
+ * Never reference --color-primary-* directly in components; use these instead.
+ * Light mode is the default; .dark overrides each token.
+ */
+
+/* ── Light Mode (default) ────────────────────────────────────────────────── */
+:root,
+[data-theme="light"] {
+  /* Surfaces — elevation via whiteness */
+  --surface-base:    #F8F5EE;
+  --surface-raised:  #FFFFFF;
+  --surface-overlay: #FAFAF8;
+  --surface-float:   #FFFFFF;
+  --surface-dialog:  #FFFFFF;
+
+  /* Borders */
+  --border-subtle:   var(--color-warm-200);
+  --border-default:  var(--color-warm-300);
+  --border-strong:   var(--color-warm-400);
+  --border-focus:    var(--color-primary-500);
+
+  /* Text */
+  --text-primary:    var(--color-warm-950);
+  --text-secondary:  var(--color-warm-700);
+  --text-muted:      var(--color-warm-500);
+  --text-disabled:   var(--color-warm-400);
+  --text-inverse:    #FFFFFF;
+  --text-on-primary: #FFFFFF;
+  --text-on-accent:  #FFFFFF;
+
+  /* Brand interactive */
+  --interactive-primary:       var(--color-primary-500);
+  --interactive-primary-hover: var(--color-primary-600);
+  --interactive-primary-press: var(--color-primary-700);
+  --interactive-primary-soft:  var(--color-primary-50);
+
+  --interactive-secondary:       var(--color-secondary-500);
+  --interactive-secondary-hover: var(--color-secondary-600);
+  --interactive-secondary-soft:  var(--color-secondary-50);
+
+  --interactive-accent:       var(--color-accent-500);
+  --interactive-accent-hover: var(--color-accent-600);
+  --interactive-accent-soft:  var(--color-accent-100);
+
+  /* Semantic state backgrounds + text */
+  --status-success:      var(--color-success-500);
+  --status-success-bg:   var(--color-success-50);
+  --status-success-text: var(--color-success-700);
+  --status-info:         var(--color-info-500);
+  --status-info-bg:      var(--color-info-50);
+  --status-info-text:    var(--color-info-700);
+  --status-warning:      var(--color-warning-500);
+  --status-warning-bg:   var(--color-warning-50);
+  --status-warning-text: var(--color-warning-700);
+  --status-danger:       var(--color-danger-500);
+  --status-danger-bg:    var(--color-danger-50);
+  --status-danger-text:  var(--color-danger-700);
+
+  /* Shadows — drop shadows on light surfaces */
+  --shadow-sm: 0 1px 2px rgba(24, 19, 12, 0.06);
+  --shadow-md: 0 4px 12px rgba(24, 19, 12, 0.08), 0 1px 3px rgba(24, 19, 12, 0.05);
+  --shadow-lg: 0 8px 24px rgba(24, 19, 12, 0.10), 0 2px 6px rgba(24, 19, 12, 0.05);
+  --shadow-xl: 0 20px 48px rgba(24, 19, 12, 0.12), 0 4px 12px rgba(24, 19, 12, 0.07);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px rgba(184, 116, 44, 0.40);
+
+  /* Chart (pass-through from palette) */
+  --chart-1: var(--color-chart-1);
+  --chart-2: var(--color-chart-2);
+  --chart-3: var(--color-chart-3);
+  --chart-4: var(--color-chart-4);
+  --chart-5: var(--color-chart-5);
+  --chart-6: var(--color-chart-6);
+  --chart-7: var(--color-chart-7);
+  --chart-8: var(--color-chart-8);
+}
+
+/* ── Dark Mode ───────────────────────────────────────────────────────────── */
+/*
+ * Dark mode uses warm-undertone surfaces (not pure black or cool grey).
+ * Elevation is communicated via lightness steps, not shadows.
+ * Shadows become subtle warm ambient glows instead of black drop-shadows.
+ */
+[data-theme="dark"],
+html.dark {
+  /* Surfaces — elevation via lightness (L0 darkest → L4 lightest) */
+  --surface-base:    #14110B;   /* L0: page root */
+  --surface-raised:  #1C1915;   /* L1: cards, sidebar */
+  --surface-overlay: #232019;   /* L2: hovered rows, subtle layers */
+  --surface-float:   #2C281E;   /* L3: dropdowns, tooltips */
+  --surface-dialog:  #343026;   /* L4: modals, drawers */
+
+  /* Borders — warm-white tinted at low opacity */
+  --border-subtle:   rgba(255, 245, 220, 0.06);
+  --border-default:  rgba(255, 245, 220, 0.10);
+  --border-strong:   rgba(255, 245, 220, 0.18);
+  --border-focus:    var(--color-primary-400);
+
+  /* Text — warm whites, never pure #FFF */
+  --text-primary:    #F0EBE0;
+  --text-secondary:  #BFB8A8;
+  --text-muted:      #8A8070;
+  --text-disabled:   #5A5448;
+  --text-inverse:    var(--color-warm-950);
+  --text-on-primary: #FFFFFF;
+  --text-on-accent:  #FFFFFF;
+
+  /* Brand interactive — shifted lighter for dark-bg visibility */
+  --interactive-primary:       var(--color-primary-400);
+  --interactive-primary-hover: var(--color-primary-300);
+  --interactive-primary-press: var(--color-primary-500);
+  --interactive-primary-soft:  rgba(200, 137, 58, 0.12);
+
+  --interactive-secondary:       var(--color-secondary-300);
+  --interactive-secondary-hover: var(--color-secondary-200);
+  --interactive-secondary-soft:  rgba(26, 122, 143, 0.15);
+
+  --interactive-accent:       var(--color-accent-400);
+  --interactive-accent-hover: var(--color-accent-300);
+  --interactive-accent-soft:  rgba(200, 67, 44, 0.15);
+
+  /* Semantic states — adjusted for dark surfaces */
+  --status-success:      #2DB876;
+  --status-success-bg:   rgba(38, 138, 94, 0.15);
+  --status-success-text: #52D49A;
+  --status-info:         #3D9FE0;
+  --status-info-bg:      rgba(30, 125, 192, 0.15);
+  --status-info-text:    #74C0F5;
+  --status-warning:      #E09A30;
+  --status-warning-bg:   rgba(200, 122, 0, 0.15);
+  --status-warning-text: #F0C060;
+  --status-danger:       #E03A28;
+  --status-danger-bg:    rgba(192, 40, 26, 0.15);
+  --status-danger-text:  #F07060;
+
+  /* Shadows — ambient warm glow instead of black drop-shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.40);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.50), 0 0 0 1px rgba(255, 245, 220, 0.04);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.60), 0 0 0 1px rgba(255, 245, 220, 0.04);
+  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.70), 0 0 40px rgba(200, 137, 58, 0.04);
+
+  /* Focus ring — softer in dark context */
+  --focus-ring: 0 0 0 3px rgba(217, 160, 85, 0.45);
+}

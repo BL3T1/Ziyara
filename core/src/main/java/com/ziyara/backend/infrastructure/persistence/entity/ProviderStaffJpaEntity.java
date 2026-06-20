@@ -1,5 +1,6 @@
 package com.ziyara.backend.infrastructure.persistence.entity;
 
+import com.ziyara.backend.domain.enums.ProviderStaffRole;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -31,6 +32,10 @@ public class ProviderStaffJpaEntity {
 
     @Column(name = "title", length = 100)
     private String title;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provider_role", length = 30)
+    private ProviderStaffRole providerRole;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

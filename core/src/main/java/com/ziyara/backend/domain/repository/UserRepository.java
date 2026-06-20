@@ -22,6 +22,7 @@ public interface UserRepository {
     /** Batch load by id (avoids N+1 when resolving many users). */
     List<User> findAllById(Collection<UUID> ids);
     Optional<User> findByEmail(String email);
+    Optional<User> findByUsername(String username);
     Optional<User> findByPhone(String phone);
     void deleteById(UUID id);
     void delete(User user);
@@ -34,6 +35,7 @@ public interface UserRepository {
     
     // Existence checks
     boolean existsByEmail(String email);
+    boolean existsByUsername(String username);
     boolean existsByPhone(String phone);
     boolean existsById(UUID id);
     
@@ -45,4 +47,7 @@ public interface UserRepository {
     long count();
     long countByStatus(UserStatus status);
     long countByRole(UserRole role);
+
+    /** Active (non-deleted) users with any of the given roles and status. */
+    List<UUID> findActiveDirectoryUserIdsByRoles(Collection<UserRole> roles, UserStatus status);
 }

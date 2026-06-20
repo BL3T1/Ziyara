@@ -5,6 +5,7 @@ import com.ziyara.backend.application.dto.request.CreateNotificationRequest;
 import com.ziyara.backend.application.dto.response.NotificationInboxResponse;
 import com.ziyara.backend.application.dto.response.NotificationResponse;
 import com.ziyara.backend.application.service.NotificationService;
+import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -13,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -41,9 +43,31 @@ public class NotificationController {
         UUID userId = extractUserId(authHeader);
         return ResponseEntity.ok(ApiResponse.success(notificationService.getUserNotificationsInbox(userId, page, size)));
     }
+
+    @GetMapping("/me")
+    @Operation(summary = "My notifications (paged)", description = "Alias for GET /notifications — returns paged inbox with unread count")
+    public ResponseEntity<ApiResponse<NotificationInboxResponse>> getMyNotificationsAlias(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        UUID userId = extractUserId(authHeader);
+        return ResponseEntity.ok(ApiResponse.success(notificationService.getUserNotificationsInbox(userId, page, size)));
+    }
+
+    @GetMapping("/me/unread-count")
+    @Operation(summary = "Unread notification count", description = "Returns the number of unread notifications for the authenticated user")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Long>>> getUnreadCount(
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        UUID userId = extractUserId(authHeader);
+        long count = notificationService.countUnread(userId);
+        return ResponseEntity.ok(ApiResponse.success(java.util.Map.of("unreadCount", count)));
+    }
     
     @PostMapping
-    @Operation(summary = "Create notification", description = "Send a manual notification (Admin only)")
+    @PreAuthorize(ApiAuthorizationExpressions.SETTINGS_WRITE)
+    @Operation(summary = "Create notification", description = "Send a manual notification")
     public ResponseEntity<ApiResponse<NotificationResponse>> createNotification(
             @Valid @RequestBody CreateNotificationRequest request
     ) {
@@ -58,7 +82,8 @@ public class NotificationController {
             @PathVariable UUID id,
             @RequestHeader("Authorization") String authHeader
     ) {
-        notificationService.markAsRead(id);
+        UUID userId = extractUserId(authHeader);
+        notificationService.markAsRead(id, userId);
         return ResponseEntity.ok(ApiResponse.success("Notification marked as read", null));
     }
 

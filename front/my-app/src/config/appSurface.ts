@@ -20,6 +20,8 @@ export const isLandingSurface = APP_SURFACE === 'landing'
 /** Public marketing site login URLs (absolute); used on landing CTAs. */
 export const VITE_COMPANY_APP_URL = import.meta.env.VITE_COMPANY_APP_URL ?? ''
 export const VITE_PROVIDER_APP_URL = import.meta.env.VITE_PROVIDER_APP_URL ?? ''
+/** Landing / marketing site base URL — used by dashboard footer links (Privacy, Terms, Contact). */
+export const VITE_LANDING_APP_URL = import.meta.env.VITE_LANDING_APP_URL ?? ''
 
 /** Company dashboard URL for cross-links from the provider bundle (relative when env unset). */
 export function resolveCompanyDashboardUrl(): string {

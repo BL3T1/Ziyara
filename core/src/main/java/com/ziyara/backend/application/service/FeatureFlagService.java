@@ -2,8 +2,11 @@ package com.ziyara.backend.application.service;
 
 import com.ziyara.backend.application.dto.request.UpsertFeatureFlagRequest;
 import com.ziyara.backend.application.dto.response.FeatureFlagResponse;
-import com.ziyara.backend.infrastructure.persistence.entity.FeatureFlagJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.repository.FeatureFlagJpaRepository;
+import com.ziyara.backend.domain.entity.FeatureFlag;
+import com.ziyara.backend.domain.enums.NotificationType;
+import com.ziyara.backend.domain.repository.FeatureFlagRepository;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,13 +21,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FeatureFlagService {
 
-    private final FeatureFlagJpaRepository repository;
+    private final FeatureFlagRepository repository;
     private final AuditLogService auditLogService;
+    private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
 
     @Transactional(readOnly = true)
     public List<FeatureFlagResponse> listAll() {
         return repository.findAll().stream()
-                .sorted(Comparator.comparing(FeatureFlagJpaEntity::getFlagKey))
+                .sorted(Comparator.comparing(FeatureFlag::getFlagKey))
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -33,18 +37,22 @@ public class FeatureFlagService {
     public FeatureFlagResponse upsert(UpsertFeatureFlagRequest request, UUID actorId) {
         String key = request.getFlagKey().trim();
         Instant now = Instant.now();
-        FeatureFlagJpaEntity row = repository.findByFlagKey(key).orElseGet(() ->
-                FeatureFlagJpaEntity.builder().flagKey(key).enabled(false).build());
+        FeatureFlag flag = repository.findByKey(key).orElseGet(() -> {
+            FeatureFlag f = new FeatureFlag();
+            f.setFlagKey(key);
+            f.setEnabled(false);
+            return f;
+        });
         if (request.getEnabled() != null) {
-            row.setEnabled(request.getEnabled());
+            flag.setEnabled(request.getEnabled());
         }
         if (request.getDescription() != null) {
             String d = request.getDescription().trim();
-            row.setDescription(d.isEmpty() ? null : d);
+            flag.setDescription(d.isEmpty() ? null : d);
         }
-        row.setUpdatedAt(now);
-        row.setUpdatedBy(actorId);
-        FeatureFlagJpaEntity saved = repository.save(row);
+        flag.setUpdatedAt(now);
+        flag.setUpdatedBy(actorId);
+        FeatureFlag saved = repository.save(flag);
         auditLogService.logAction(
                 "FEATURE_FLAG_UPSERT",
                 "FeatureFlag",
@@ -55,17 +63,25 @@ public class FeatureFlagService {
                 null,
                 null
         );
+        staffNotificationCommandPublisher.publishAfterCommit(StaffNotificationEvent.builder()
+                .eventId(UUID.randomUUID())
+                .notificationType(NotificationType.SYSTEM_ALERT.name())
+                .title("Feature flag updated")
+                .message("Flag " + key + " is now enabled=" + saved.isEnabled())
+                .notifyRoles(List.of("CEO", "SUPER_ADMIN"))
+                .metadata("{\"flagKey\":\"" + key + "\"}")
+                .build());
         return toResponse(saved);
     }
 
-    private FeatureFlagResponse toResponse(FeatureFlagJpaEntity e) {
+    private FeatureFlagResponse toResponse(FeatureFlag f) {
         return FeatureFlagResponse.builder()
-                .id(e.getId())
-                .flagKey(e.getFlagKey())
-                .enabled(e.isEnabled())
-                .description(e.getDescription())
-                .updatedAt(e.getUpdatedAt())
-                .updatedBy(e.getUpdatedBy())
+                .id(f.getId())
+                .flagKey(f.getFlagKey())
+                .enabled(f.isEnabled())
+                .description(f.getDescription())
+                .updatedAt(f.getUpdatedAt())
+                .updatedBy(f.getUpdatedBy())
                 .build();
     }
 }

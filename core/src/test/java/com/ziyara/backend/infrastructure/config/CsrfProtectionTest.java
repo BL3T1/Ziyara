@@ -3,9 +3,11 @@ package com.ziyara.backend.infrastructure.config;
 import com.ziyara.backend.application.dto.request.CreateExchangeRateRequest;
 import com.ziyara.backend.application.dto.response.ExchangeRateResponse;
 import com.ziyara.backend.application.service.CurrencyService;
-import com.ziyara.backend.infrastructure.security.JwtService;
+import com.ziyara.backend.application.service.JwtTokenBlocklistService;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
-import com.ziyara.backend.infrastructure.web.LocaleFilter;
+import com.ziyara.backend.infrastructure.security.JwtIdleTimeoutService;
+import com.ziyara.backend.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -16,7 +18,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.web.context.SecurityContextRepository;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -33,7 +34,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ziyara.backend.presentation.controller.CurrencyController;
 
 @WebMvcTest(controllers = CurrencyController.class)
-@Import(SecurityConfig.class)
+@Import({
+        SecurityConfig.class,
+        WebMvcConfigurationPropertiesImport.class,
+        WebMvcSecuritySliceConfiguration.class,
+        LocaleConfig.class
+})
 @ActiveProfiles("test")
 class CsrfProtectionTest {
 
@@ -51,15 +57,15 @@ class CsrfProtectionTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
-                                                         SecurityContextRepository securityContextRepository) {
-            return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository);
+                                                         SecurityContextRepository securityContextRepository,
+                                                         JwtCookieProperties jwtCookieProperties,
+                                                         JwtTokenBlocklistService jwtTokenBlocklistService,
+                                                         JwtIdleTimeoutService jwtIdleTimeoutService) {
+            return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository,
+                    jwtCookieProperties, jwtTokenBlocklistService, jwtIdleTimeoutService);
         }
     }
 

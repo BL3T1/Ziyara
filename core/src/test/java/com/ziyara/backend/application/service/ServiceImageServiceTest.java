@@ -8,7 +8,7 @@ import com.ziyara.backend.domain.entity.ServiceImage;
 import com.ziyara.backend.domain.enums.ServiceImageCategory;
 import com.ziyara.backend.domain.repository.ServiceImageRepository;
 import com.ziyara.backend.infrastructure.media.LocalMediaStorageService;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

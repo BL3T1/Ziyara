@@ -12,24 +12,28 @@ import com.ziyara.backend.domain.enums.DiscountStatus;
 import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.domain.repository.DiscountCodeRepository;
 import com.ziyara.backend.domain.repository.ServiceRepository;
+import com.ziyara.backend.domain.usecase.discount.ApproveDiscountCodeUseCase;
 import com.ziyara.backend.infrastructure.security.SecurityContextUserId;
 import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
-import com.ziyara.backend.presentation.exception.BusinessException;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.annotation.Audited;
+import com.ziyara.backend.application.exception.BusinessException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ziyara.backend.modules.webhook.api.WebhookEventPublisher;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 /**
- * Service: DiscountCodeService (Phase 2 – Commands)
+ * Service: DiscountCodeService (Phase 2 â€“ Commands)
  * Handles create, update, delete, approve, deactivate, validate, recordUsage.
  */
 @Service
@@ -43,7 +47,9 @@ public class DiscountCodeService {
     private final BookingRepository bookingRepository;
     private final ServiceRepository serviceRepository;
     private final DiscountScopeService discountScopeService;
+    private final WebhookEventPublisher webhookEventPublisher;
 
+    @Audited(action = "DISCOUNT_CREATE", entityType = "Discount")
     @Transactional
     public DiscountResponse create(CreateDiscountRequest request) {
         if (discountCodeRepository.existsByCode(request.getCode())) {
@@ -53,13 +59,27 @@ public class DiscountCodeService {
         dc.setCode(request.getCode());
         dc.setDescription(request.getDescription());
         dc.setType(request.getType());
-        dc.setValue(request.getValue());
+        if (request.getValue() != null) {
+            dc.setValue(request.getValue());
+        }
         dc.setMinBookingAmount(request.getMinBookingAmount() != null ? request.getMinBookingAmount() : BigDecimal.ZERO);
         dc.setMaxDiscountAmount(request.getMaxDiscountAmount());
         dc.setStartDate(request.getStartDate());
         dc.setEndDate(request.getEndDate());
         dc.setUsageLimit(request.getUsageLimit() != null ? request.getUsageLimit() : 0);
-        dc.setSponsor(normalizeSponsor(request.getSponsor()));
+        String sponsor = normalizeSponsor(request.getSponsor());
+        dc.setSponsor(sponsor);
+        if ("BOTH".equals(sponsor)) {
+            if (request.getCompanyValue() == null || request.getProviderValue() == null) {
+                throw new IllegalArgumentException("Both companyValue and providerValue are required when sponsor is BOTH");
+            }
+            dc.setCompanyValue(request.getCompanyValue());
+            dc.setProviderValue(request.getProviderValue());
+            dc.setValue(request.getCompanyValue().add(request.getProviderValue()));
+        } else {
+            dc.setCompanyValue(null);
+            dc.setProviderValue(null);
+        }
         dc.setProviderId(request.getProviderId());
         dc.setApplicableServiceIds(emptyToNull(request.getApplicableServiceIds()));
         dc.setApplicableMenuSectionIds(emptyToNull(request.getApplicableMenuSectionIds()));
@@ -76,6 +96,7 @@ public class DiscountCodeService {
         return toResponse(saved);
     }
 
+    @Audited(action = "DISCOUNT_UPDATE", entityType = "Discount", entityIdArgIndex = 0)
     @Transactional
     public DiscountResponse update(UUID id, UpdateDiscountRequest request) {
         DiscountCode dc = discountCodeRepository.findById(id)
@@ -88,7 +109,23 @@ public class DiscountCodeService {
         if (request.getStartDate() != null) dc.setStartDate(request.getStartDate());
         if (request.getEndDate() != null) dc.setEndDate(request.getEndDate());
         if (request.getUsageLimit() != null) dc.setUsageLimit(request.getUsageLimit());
-        if (request.getSponsor() != null) dc.setSponsor(normalizeSponsor(request.getSponsor()));
+        if (request.getSponsor() != null) {
+            String updatedSponsor = normalizeSponsor(request.getSponsor());
+            dc.setSponsor(updatedSponsor);
+            if ("BOTH".equals(updatedSponsor)) {
+                if (request.getCompanyValue() != null) dc.setCompanyValue(request.getCompanyValue());
+                if (request.getProviderValue() != null) dc.setProviderValue(request.getProviderValue());
+                if (dc.getCompanyValue() != null && dc.getProviderValue() != null) {
+                    dc.setValue(dc.getCompanyValue().add(dc.getProviderValue()));
+                }
+            } else {
+                dc.setCompanyValue(null);
+                dc.setProviderValue(null);
+            }
+        } else {
+            if (request.getCompanyValue() != null) dc.setCompanyValue(request.getCompanyValue());
+            if (request.getProviderValue() != null) dc.setProviderValue(request.getProviderValue());
+        }
         if (request.getProviderId() != null) dc.setProviderId(request.getProviderId());
         if (request.getApplicableServiceIds() != null) dc.setApplicableServiceIds(emptyToNull(request.getApplicableServiceIds()));
         if (request.getApplicableMenuSectionIds() != null) {
@@ -110,6 +147,7 @@ public class DiscountCodeService {
         return toResponse(discountCodeRepository.save(dc));
     }
 
+    @Audited(action = "DISCOUNT_DELETE", entityType = "Discount", entityIdArgIndex = 0)
     @Transactional
     public void deleteById(UUID id) {
         if (!discountCodeRepository.findById(id).isPresent()) {
@@ -118,20 +156,34 @@ public class DiscountCodeService {
         discountCodeRepository.deleteById(id);
     }
 
+    @Audited(action = "DISCOUNT_APPROVE", entityType = "Discount", entityIdArgIndex = 0)
     @Transactional
     public DiscountResponse approve(UUID id) {
         if (!SecurityRoleUtils.canActivateOrApproveDiscounts()) {
             throw new IllegalArgumentException("Only Super Admin or CEO can approve discounts");
         }
-        DiscountCode dc = discountCodeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Discount not found"));
-        if (dc.getStatus() != DiscountStatus.PENDING_APPROVAL) {
-            throw new IllegalArgumentException("Only discounts pending approval can be approved");
+        UUID reviewerId = SecurityContextUserId.currentUserId().orElse(null);
+        var result = new ApproveDiscountCodeUseCase(discountCodeRepository)
+                .execute(new ApproveDiscountCodeUseCase.Input(id, true, reviewerId));
+        if (!result.success()) throw new BusinessException(result.error());
+        // Also activate the discount code after approval
+        DiscountCode dc = result.discountCode();
+        if (dc.getStatus() != DiscountStatus.ACTIVE) {
+            dc.setStatus(DiscountStatus.ACTIVE);
+            discountCodeRepository.save(dc);
         }
-        dc.setStatus(DiscountStatus.ACTIVE);
-        return toResponse(discountCodeRepository.save(dc));
+
+        webhookEventPublisher.publishAfterCommit("content.approved", Map.of(
+                "discountId", dc.getId().toString(),
+                "code", dc.getCode(),
+                "type", dc.getType() != null ? dc.getType() : "UNKNOWN",
+                "status", dc.getStatus().name()
+        ));
+
+        return toResponse(dc);
     }
 
+    @Audited(action = "DISCOUNT_DEACTIVATE", entityType = "Discount", entityIdArgIndex = 0)
     @Transactional
     public DiscountResponse deactivate(UUID id) {
         DiscountCode dc = discountCodeRepository.findById(id)
@@ -141,7 +193,7 @@ public class DiscountCodeService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<DiscountCode> validateCode(ApplyDiscountRequest request, BigDecimal bookingAmount) {
+    public Optional<DiscountResponse> validateCode(ApplyDiscountRequest request, BigDecimal bookingAmount) {
         String code = request.getCode();
         log.info("Validating discount code: {}", code);
         Optional<DiscountCode> base = discountCodeRepository.findByCode(code)
@@ -170,7 +222,7 @@ public class DiscountCodeService {
                 return Optional.empty();
             }
         }
-        return Optional.of(dc);
+        return Optional.of(toResponse(dc));
     }
 
     @Transactional
@@ -290,6 +342,8 @@ public class DiscountCodeService {
                 .createdAt(dc.getCreatedAt())
                 .updatedAt(dc.getUpdatedAt())
                 .sponsor(dc.getSponsor())
+                .companyValue(dc.getCompanyValue())
+                .providerValue(dc.getProviderValue())
                 .providerId(dc.getProviderId())
                 .applicableServiceIds(dc.getApplicableServiceIds())
                 .applicableMenuSectionIds(dc.getApplicableMenuSectionIds())

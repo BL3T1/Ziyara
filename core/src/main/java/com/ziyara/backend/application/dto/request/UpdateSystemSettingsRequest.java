@@ -24,4 +24,7 @@ public class UpdateSystemSettingsRequest {
 
     @Schema(description = "When true, clients may show a maintenance banner (interpreted by frontends)")
     private Boolean maintenanceMode;
+
+    @Schema(description = "When true, the provider portal is locked for maintenance (providers cannot log in or submit data)")
+    private Boolean providerMaintenanceMode;
 }

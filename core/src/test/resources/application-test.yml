@@ -1,4 +1,8 @@
 spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
   docker:
     compose:
       enabled: false
@@ -17,16 +21,47 @@ spring:
 
   flyway:
     enabled: true
+    baseline-on-migrate: false  # Testcontainers: fresh DB runs every migration from V0 forward
+    validate-on-migrate: true
 
 server:
   servlet:
     context-path: /api/v1
+
+jwt:
+  secret: test-jwt-secret-key-for-integration-tests-only-min-256-bits-long
+  cookie:
+    enabled: false
 
 springdoc:
   api-docs:
     path: /api-docs
 
 app:
+  rbac-catalog-validation:
+    enabled: false
   demo:
     super-admin:
       enabled: false
+
+ziyara:
+  cors:
+    allowed-origins: "http://localhost"
+    allow-local-defaults: false
+  password-policy:
+    min-zxcvbn-score: 0
+  data-retention:
+    enabled: false
+  rate-limit:
+    login:
+      enabled: false
+  reporting:
+    materialized-view-refresh-enabled: false
+  notifications:
+    kafka:
+      enabled: false
+
+management:
+  tracing:
+    sampling:
+      probability: 0

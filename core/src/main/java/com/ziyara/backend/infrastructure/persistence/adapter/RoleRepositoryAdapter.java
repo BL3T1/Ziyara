@@ -44,6 +44,27 @@ public class RoleRepositoryAdapter implements RoleRepository {
     }
 
     @Override
+    public List<Role> findByGroupIdOrderByName(UUID groupId) {
+        return jpaRepository.findByGroupIdOrderByNameAsc(groupId).stream()
+                .map(mapper::toDomainEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Role> findByGroupIdIsNullOrderByName() {
+        return jpaRepository.findByGroupIdIsNullOrderByNameAsc().stream()
+                .map(mapper::toDomainEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Role> findByProviderRoleTrueOrderByName() {
+        return jpaRepository.findByProviderRoleTrueAndStatusOrderByNameAsc(com.ziyara.backend.domain.enums.RoleStatus.ACTIVE).stream()
+                .map(mapper::toDomainEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public boolean existsByCode(String code) {
         return jpaRepository.existsByCode(code);
     }

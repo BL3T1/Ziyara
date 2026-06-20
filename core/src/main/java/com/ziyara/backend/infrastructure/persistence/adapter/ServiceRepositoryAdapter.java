@@ -143,4 +143,31 @@ public class ServiceRepositoryAdapter implements ServiceRepository {
     public boolean existsById(UUID id) {
         return jpaRepository.existsById(id);
     }
+
+    @Override
+    public List<Service> findActiveWithCoordinates(List<String> types) {
+        if (types == null || types.isEmpty()) {
+            return jpaRepository.findActiveWithCoordinatesAll()
+                    .stream().map(mapper::toDomainEntity).collect(Collectors.toList());
+        }
+        List<ServiceType> enumTypes = types.stream()
+                .map(t -> {
+                    try { return ServiceType.valueOf(t.toUpperCase()); }
+                    catch (IllegalArgumentException e) { return null; }
+                })
+                .filter(t -> t != null)
+                .collect(Collectors.toList());
+        if (enumTypes.isEmpty()) {
+            return jpaRepository.findActiveWithCoordinatesAll()
+                    .stream().map(mapper::toDomainEntity).collect(Collectors.toList());
+        }
+        return jpaRepository.findActiveWithCoordinatesByTypes(enumTypes)
+                .stream().map(mapper::toDomainEntity).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Service> findByProviderIdWithCoordinates(UUID providerId) {
+        return jpaRepository.findByProviderIdWithCoordinates(providerId)
+                .stream().map(mapper::toDomainEntity).collect(Collectors.toList());
+    }
 }

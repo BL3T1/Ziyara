@@ -222,7 +222,7 @@ export function GlobalSearchModal({ open, onClose }: { open: boolean; onClose: (
           navigate(`/management/bookings?bookingId=${encodeURIComponent(h.id)}`)
           break
         case 'provider':
-          navigate('/management/providers')
+          navigate(`/management/providers/${encodeURIComponent(h.id)}`)
           break
         case 'service':
           navigate(`/services/${serviceTypeToListingsPath(h.serviceType)}/${h.id}`)
@@ -244,14 +244,15 @@ export function GlobalSearchModal({ open, onClose }: { open: boolean; onClose: (
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 pt-[12vh]"
+      className="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-[12vh] [animation:modal-overlay-in_180ms_ease_both]"
+      style={{ background: 'rgb(2 4 9 / 0.65)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' }}
       role="dialog"
       aria-modal="true"
       aria-label={t('globalSearch.title')}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+        className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-2xl [animation:modal-panel-in_240ms_cubic-bezier(0.34,1.2,0.64,1)_both] dark:border-white/[0.08] dark:bg-slate-900"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
@@ -385,14 +386,15 @@ export function DeletedArchiveSearchModal({ open, onClose }: { open: boolean; on
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 pt-[12vh]"
+      className="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-[12vh] [animation:modal-overlay-in_180ms_ease_both]"
+      style={{ background: 'rgb(2 4 9 / 0.65)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' }}
       role="dialog"
       aria-modal="true"
       aria-label={t('globalSearch.deletedTitle')}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+        className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200/60 bg-white p-5 shadow-2xl [animation:modal-panel-in_240ms_cubic-bezier(0.34,1.2,0.64,1)_both] dark:border-white/[0.08] dark:bg-slate-900"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('globalSearch.deletedTitle')}</h2>

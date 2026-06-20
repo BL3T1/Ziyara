@@ -26,6 +26,14 @@ public class AuditLogMapper {
         auditLog.setNewValue(entity.getNewValue());
         auditLog.setIpAddress(entity.getIpAddress());
         auditLog.setUserAgent(entity.getUserAgent());
+        auditLog.setCorrelationId(entity.getCorrelationId());
+        auditLog.setRequestId(entity.getRequestId());
+        auditLog.setSessionId(entity.getSessionId());
+        auditLog.setProviderId(entity.getProviderId());
+        auditLog.setTenantId(entity.getTenantId());
+        auditLog.setRiskScore(entity.getRiskScore());
+        auditLog.setDurationMs(entity.getDurationMs());
+        auditLog.setTags(entity.getTags());
         auditLog.setCreatedAt(entity.getCreatedAt());
         
         return auditLog;
@@ -47,6 +55,14 @@ public class AuditLogMapper {
                 .newValue(auditLog.getNewValue())
                 .ipAddress(auditLog.getIpAddress())
                 .userAgent(auditLog.getUserAgent())
+                .correlationId(auditLog.getCorrelationId())
+                .requestId(auditLog.getRequestId())
+                .sessionId(auditLog.getSessionId())
+                .providerId(auditLog.getProviderId())
+                .tenantId(auditLog.getTenantId())
+                .riskScore(auditLog.getRiskScore())
+                .durationMs(auditLog.getDurationMs())
+                .tags(auditLog.getTags())
                 .createdAt(auditLog.getCreatedAt())
                 .build();
     }

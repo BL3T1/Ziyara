@@ -7,8 +7,12 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useDisplayCurrency } from '../../context/DisplayCurrencyContext'
 import { useLanguage } from '../../context/LanguageContext'
+import { usePermission } from '../../hooks/usePermission'
 import { adminSuperAPI, getApiErrorMessage, usersAPI } from '../../services/api'
 import type { BookingDto, PageDto, PaymentDto, UserDto } from '../../types/api'
+import { Modal } from '../../components/Modal'
+import { FormField } from '../../components/FormField'
+import { PasswordInput } from '../../components/PasswordInput'
 
 function asPage<T>(data: unknown): PageDto<T> | null {
   if (data && typeof data === 'object' && Array.isArray((data as PageDto<T>).content)) {
@@ -28,11 +32,14 @@ export function CustomerProfilePage() {
   const { t } = useLanguage()
   const { displayInDefault } = useDisplayCurrency()
   const { user } = useAuth()
-  const isSuperAdmin = user?.role === 'super_admin'
+  const canAccess = usePermission('customers:read')
+  const canWrite = usePermission('customers:write')
 
   const [profile, setProfile] = useState<UserDto | null>(null)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [loadingProfile, setLoadingProfile] = useState(true)
+  const [, setBookingsError] = useState<string | null>(null)
+  const [, setPaymentsError] = useState<string | null>(null)
 
   const [bookings, setBookings] = useState<BookingDto[]>([])
   const [bookingsPage, setBookingsPage] = useState(0)
@@ -43,6 +50,13 @@ export function CustomerProfilePage() {
   const [paymentsPage, setPaymentsPage] = useState(0)
   const [paymentsTotalPages, setPaymentsTotalPages] = useState(0)
   const [loadingPayments, setLoadingPayments] = useState(false)
+
+  // Reset password
+  const [resetPwdModal, setResetPwdModal] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [resetPwdLoading, setResetPwdLoading] = useState(false)
+  const [resetPwdSuccess, setResetPwdSuccess] = useState(false)
+  const [resetPwdError, setResetPwdError] = useState<string | null>(null)
 
   useEffect(() => {
     setBookingsPage(0)
@@ -81,7 +95,9 @@ export function CustomerProfilePage() {
         setBookings(p?.content ?? [])
         setBookingsTotalPages(p?.totalPages ?? 0)
       })
-      .catch(() => {
+      .catch((e: unknown) => {
+        const status = (e as { response?: { status?: number } })?.response?.status
+        setBookingsError(status === 403 ? t('ui.accessDenied') : getApiErrorMessage(e))
         setBookings([])
         setBookingsTotalPages(0)
       })
@@ -98,7 +114,9 @@ export function CustomerProfilePage() {
         setPayments(p?.content ?? [])
         setPaymentsTotalPages(p?.totalPages ?? 0)
       })
-      .catch(() => {
+      .catch((e: unknown) => {
+        const status = (e as { response?: { status?: number } })?.response?.status
+        setPaymentsError(status === 403 ? t('ui.accessDenied') : getApiErrorMessage(e))
         setPayments([])
         setPaymentsTotalPages(0)
       })
@@ -107,7 +125,7 @@ export function CustomerProfilePage() {
 
   if (!user) return null
 
-  if (!isSuperAdmin) {
+  if (!canAccess) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-800 dark:bg-amber-900/20">
         <h2 className="text-xl font-semibold text-amber-800 dark:text-amber-200">{t('access.restrictedTitle')}</h2>
@@ -196,8 +214,75 @@ export function CustomerProfilePage() {
               </dd>
             </div>
           </dl>
+          {canWrite && (
+            <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => { setResetPwdModal(true); setNewPassword(''); setResetPwdSuccess(false); setResetPwdError(null) }}
+                className="dashboard-btn-secondary text-sm"
+              >
+                {t('customerProfilePage.resetPassword')}
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
+
+      {/* Reset Password Modal */}
+      <Modal
+        open={resetPwdModal}
+        onClose={() => setResetPwdModal(false)}
+        title={t('customerProfilePage.resetPasswordTitle')}
+        size="sm"
+        footer={
+          <>
+            <button type="button" onClick={() => setResetPwdModal(false)} className="dashboard-btn-secondary">
+              {t('ui.cancel')}
+            </button>
+            <button
+              type="button"
+              disabled={resetPwdLoading || newPassword.length < 8}
+              onClick={async () => {
+                if (!userId || newPassword.length < 8) return
+                setResetPwdLoading(true)
+                setResetPwdError(null)
+                try {
+                  await usersAPI.resetPassword(userId, { newPassword })
+                  setResetPwdSuccess(true)
+                  setNewPassword('')
+                } catch (e) {
+                  setResetPwdError(getApiErrorMessage(e))
+                } finally {
+                  setResetPwdLoading(false)
+                }
+              }}
+              className="dashboard-btn-primary disabled:opacity-50"
+            >
+              {resetPwdLoading ? t('ui.submitting') : t('customerProfilePage.resetPasswordConfirm')}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          {resetPwdSuccess ? (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+              {t('customerProfilePage.resetPasswordSuccess')}
+            </p>
+          ) : (
+            <FormField label={t('customerProfilePage.resetPasswordNew')} hint={t('customerProfilePage.resetPasswordHint')} required>
+              <PasswordInput
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              />
+            </FormField>
+          )}
+          {resetPwdError && (
+            <p className="text-sm text-red-600 dark:text-red-400">{resetPwdError}</p>
+          )}
+        </div>
+      </Modal>
 
       {customerOk && (
         <>

@@ -21,6 +21,10 @@ public class CreateReviewRequest {
     @NotNull(message = "Booking ID is required")
     @Schema(description = "Associated booking ID")
     private UUID bookingId;
+
+    @NotNull(message = "Service ID is required")
+    @Schema(description = "ID of the service being reviewed")
+    private UUID serviceId;
     
     @NotNull(message = "Rating is required")
     @Min(value = 1, message = "Rating must be at least 1")

@@ -1,0 +1,1 @@
+"pgbouncer" "SCRAM-SHA-256$4096:HDJn1AI7B7t/HoPRr68BGw==$b8kNIsEmUFBqctxdrBd19xfCTG6Bd4EI9GEJjpYo5aY=:jSj8F6gyKUx2aZVCcjVRO6m9IghczHtwb+h8kUsBZy8="

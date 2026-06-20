@@ -86,6 +86,20 @@ export function PortalEarningsPage() {
                 ? data.totalEarnings.toLocaleString()
                 : Number(data.totalEarnings ?? 0).toLocaleString()}
             </p>
+            {(data.providerNet !== undefined || data.availableForPayout !== undefined) && (
+              <div className="mt-4 flex flex-col gap-1">
+                {data.providerNet !== undefined && (
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    {t('portalPages.providerNet')}: {data.currency ?? 'USD'} {Number(data.providerNet).toLocaleString()}
+                  </p>
+                )}
+                {data.availableForPayout !== undefined && (
+                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                    {t('portalPages.availableForPayout')}: {data.currency ?? 'USD'} {Number(data.availableForPayout).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

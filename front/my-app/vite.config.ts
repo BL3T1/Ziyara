@@ -6,11 +6,27 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react':  ['react', 'react-dom', 'react-router-dom'],
+          'vendor-query':  ['@tanstack/react-query'],
+          'vendor-charts': ['recharts'],
+          'vendor-map':    ['leaflet', 'react-leaflet'],
+          'vendor-stomp':  ['@stomp/stompjs', 'sockjs-client'],
+          'vendor-pdf':    ['jspdf'],
+          'vendor-gsap':   ['gsap'],
+          'vendor-ui':     ['lucide-react', 'zod', 'axios'],
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
-        // Keep Host as localhost:5173 so Springdoc doesn’t emit redirects to :8080 (iframe "refused to connect").
+        // Keep Host as localhost:5173 so Springdoc doesn't emit redirects to :8080
         changeOrigin: false,
         configure: (proxy) => {
           proxy.on('proxyReq', (proxyReq, req) => {
@@ -21,6 +37,14 @@ export default defineConfig({
             }
           })
         },
+      },
+      '/api-docs': {
+        target: 'http://localhost:8080',
+        changeOrigin: false,
+      },
+      '/v3/api-docs': {
+        target: 'http://localhost:8080',
+        changeOrigin: false,
       },
     },
   },

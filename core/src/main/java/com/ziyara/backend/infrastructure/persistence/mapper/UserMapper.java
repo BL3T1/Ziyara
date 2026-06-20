@@ -19,6 +19,9 @@ public class UserMapper {
         User user = new User();
         user.setId(entity.getId());
         user.setEmail(entity.getEmail());
+        user.setUsername(entity.getUsername());
+        user.setFirstName(entity.getFirstName());
+        user.setLastName(entity.getLastName());
         user.setPhone(entity.getPhone());
         user.setPasswordHash(entity.getPasswordHash());
         user.setRole(entity.getRole());
@@ -32,7 +35,23 @@ public class UserMapper {
         user.setCreatedAt(entity.getCreatedAt());
         user.setUpdatedAt(entity.getUpdatedAt());
         user.setDeletedAt(entity.getDeletedAt());
-        
+        user.setTokenVersion(entity.getTokenVersion() != null ? entity.getTokenVersion() : 0);
+        user.setLastPasswordChange(entity.getLastPasswordChange());
+        user.setPasswordExpiresAt(entity.getPasswordExpiresAt());
+        user.setMfaEnabled(Boolean.TRUE.equals(entity.getMfaEnabled()));
+        user.setMfaType(entity.getMfaType());
+        user.setMfaSecretCipher(entity.getMfaSecretCipher());
+        user.setMfaBackupCodesCipher(entity.getMfaBackupCodesCipher());
+        user.setMfaLastUsedAt(entity.getMfaLastUsedAt());
+        user.setMfaEnrolledAt(entity.getMfaEnrolledAt());
+        user.setGdprConsentGiven(Boolean.TRUE.equals(entity.getGdprConsentGiven()));
+        user.setGdprConsentDate(entity.getGdprConsentDate());
+        user.setMarketingOptIn(Boolean.TRUE.equals(entity.getMarketingOptIn()));
+        user.setRightToErasureRequested(Boolean.TRUE.equals(entity.getRightToErasureRequested()));
+        user.setRightToErasureCompletedAt(entity.getRightToErasureCompletedAt());
+        user.setMustChangePassword(Boolean.TRUE.equals(entity.getMustChangePassword()));
+        user.setFcmToken(entity.getFcmToken());
+
         return user;
     }
     
@@ -44,6 +63,9 @@ public class UserMapper {
         return UserJpaEntity.builder()
                 .id(user.getId())
                 .email(user.getEmail())
+                .username(user.getUsername())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
                 .phone(user.getPhone())
                 .passwordHash(user.getPasswordHash())
                 .role(user.getRole())
@@ -57,6 +79,22 @@ public class UserMapper {
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .deletedAt(user.getDeletedAt())
+                .tokenVersion(user.getTokenVersion())
+                .lastPasswordChange(user.getLastPasswordChange())
+                .passwordExpiresAt(user.getPasswordExpiresAt())
+                .mfaEnabled(user.isMfaEnabled())
+                .mfaType(user.getMfaType())
+                .mfaSecretCipher(user.getMfaSecretCipher())
+                .mfaBackupCodesCipher(user.getMfaBackupCodesCipher())
+                .mfaLastUsedAt(user.getMfaLastUsedAt())
+                .mfaEnrolledAt(user.getMfaEnrolledAt())
+                .gdprConsentGiven(user.isGdprConsentGiven())
+                .gdprConsentDate(user.getGdprConsentDate())
+                .marketingOptIn(user.isMarketingOptIn())
+                .rightToErasureRequested(user.isRightToErasureRequested())
+                .rightToErasureCompletedAt(user.getRightToErasureCompletedAt())
+                .mustChangePassword(user.isMustChangePassword())
+                .fcmToken(user.getFcmToken())
                 .build();
     }
 }
