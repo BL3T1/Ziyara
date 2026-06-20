@@ -6,11 +6,11 @@
   --bg-warm:       #f5f2ec;
   --bg-mid:        #e6e1d7;
   --bg-deep:       #4a5e68;
-  --accent-tan:    #b8966e;
-  --accent-tan-mid: #a07b56;
-  --accent-tan-dark: #7a5e42;
-  --accent-teal:   #3d7080;
-  --accent-teal-light: #5a8e9e;
+  --accent-tan:    #C8893A;
+  --accent-tan-mid: #A35F20;
+  --accent-tan-dark: #8C4A18;
+  --accent-teal:   #1A7A8F;
+  --accent-teal-light: #2B9AAF;
   --sky:           #7ec4e8;
   --sky-soft:      rgba(126, 196, 232, 0.3);
   --ink-heading:   #0b1320;
@@ -234,14 +234,14 @@
 .lp-btn-primary {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(145deg, #cfab82 0%, var(--accent-tan-mid) 45%, #8a6648 100%);
+  background: linear-gradient(145deg, #E8B870 0%, var(--accent-tan) 45%, var(--accent-tan-dark) 100%);
   color: #fff;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.28),
     inset 0 -1px 0 rgba(0, 0, 0, 0.08),
-    0 1px 2px rgba(0, 0, 0, 0.1),
-    0 8px 24px rgba(120, 92, 64, 0.28),
-    0 20px 48px rgba(120, 92, 64, 0.16);
+    0 1px 2px rgba(0, 0, 0, 0.10),
+    0 8px 24px rgba(200, 137, 58, 0.30),
+    0 20px 48px rgba(200, 137, 58, 0.18);
   text-shadow: 0 1px 2px rgba(60, 36, 12, 0.25);
 }
 
@@ -260,13 +260,13 @@
 
 .lp-btn-primary:hover {
   transform: translateY(-2.5px);
-  background: linear-gradient(145deg, #d8b88e 0%, #b38460 45%, #9a7458 100%);
+  background: linear-gradient(145deg, #F0C880 0%, #D9A055 45%, #A35F20 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.1),
-    0 1px 2px rgba(0, 0, 0, 0.1),
-    0 12px 32px rgba(120, 92, 64, 0.36),
-    0 28px 56px rgba(120, 92, 64, 0.2);
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.10),
+    0 1px 2px rgba(0, 0, 0, 0.10),
+    0 12px 32px rgba(200, 137, 58, 0.38),
+    0 28px 56px rgba(200, 137, 58, 0.22);
 }
 
 .lp-btn-primary:not(:disabled):hover::after {
@@ -486,7 +486,7 @@
   line-height: 1.07;
   color: var(--ink-heading);
   text-wrap: balance;
-  background: linear-gradient(175deg, #0b1320 0%, #1c3a50 100%);
+  background: linear-gradient(175deg, #18130C 0%, #38311F 55%, #6B3510 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;

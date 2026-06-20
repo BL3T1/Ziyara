@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { setStoredToken } from '../context/AuthContext'
 import { isCompanySurface, isProviderSurface } from '../config/appSurface'
-import { authAPI, usersAPI, providersAPI, getApiErrorMessage } from '../services/api'
+import { authAPI, usersAPI, getApiErrorMessage } from '../services/api'
 import { backendRoleToFrontend, isCompanyStaffRole, isProviderPortalRole } from '../types/auth'
 import { getDashboardRouteForRole } from '../utils/routes'
 import { safeRedirect } from '../utils/safeRedirect'
@@ -28,6 +28,16 @@ const LockIcon = () => (
     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
   </svg>
 )
+
+/** Returns true when a JWT contains a provider-scope pid claim (admin-issued handoff token). */
+function parseJwtHasPid(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return Boolean(payload?.pid)
+  } catch {
+    return false
+  }
+}
 
 const PORTAL_ERROR_MESSAGES: Record<PortalLoginError, string> = {
   wrong_portal: 'This account cannot sign in here. Use the correct portal for your role.',
@@ -68,13 +78,14 @@ export function LoginPage() {
     window.history.replaceState(null, '', window.location.pathname + window.location.search)
     setLoading(true)
     setStoredToken(handoffToken)
-    Promise.allSettled([usersAPI.getMe(), providersAPI.getMe()])
-      .then(([meResult, providerResult]) => {
-        if (meResult.status !== 'fulfilled') throw new Error('invalid')
-        const me = meResult.value.data as { id?: string; email?: string; role?: string; firstName?: string; lastName?: string }
+    // Determine provider scope from the JWT pid claim directly — avoids depending on
+    // portal:access DB permission which may not be set for the provider manager's user.
+    const hasProviderScope = parseJwtHasPid(handoffToken)
+    usersAPI.getMe()
+      .then((meResult) => {
+        const me = meResult.data as { id?: string; email?: string; role?: string; firstName?: string; lastName?: string }
         if (!me?.role) throw new Error('invalid')
-        const hasPortalAccess = providerResult.status === 'fulfilled'
-        const role = backendRoleToFrontend(me.role, hasPortalAccess)
+        const role = backendRoleToFrontend(me.role, hasProviderScope)
         setUser({
           id: String(me.id ?? ''),
           email: me.email ?? '',

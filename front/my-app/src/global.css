@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "./styles/tokens/palette.css";
+@import "./styles/tokens/theme.css";
 
 /* Manual theme: dark:* utilities follow <html class="dark"> (not only prefers-color-scheme) */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -23,23 +25,23 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     @apply text-slate-600 transition-colors duration-300 ease-out;
-    background: linear-gradient(160deg, #ffffff 0%, #fffef5 30%, #fef9d8 65%, #fef0a8 100%);
+    background: linear-gradient(160deg, #FFFFFF 0%, #FDF6E8 40%, #F8EAC8 72%, #F0D098 100%);
     min-height: 100dvh;
   }
 
   .dark body {
     @apply text-slate-300;
-    background-color: #111827;
+    background-color: #14110B;
   }
 
   ::selection {
-    background-color: rgb(30 77 107 / 0.2);
-    color: #0f172a;
+    background-color: rgb(200 137 58 / 0.22);
+    color: #18130C;
   }
 
   .dark ::selection {
-    background-color: rgb(36 95 145 / 0.55);
-    color: #e8f1ff;
+    background-color: rgb(200 137 58 / 0.35);
+    color: #F0EBE0;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -54,15 +56,15 @@
   .layout-main-surface {
     @apply relative flex-1 overflow-x-hidden px-4 py-8 transition-colors duration-300 sm:px-6 sm:py-10 lg:px-10 lg:py-12;
     background-color: transparent;
-    background-image: radial-gradient(rgb(180 140 60 / 0.10) 1px, transparent 1px);
+    background-image: radial-gradient(rgb(200 137 58 / 0.08) 1px, transparent 1px);
     background-size: 28px 28px;
   }
 
   .dark .layout-main-surface {
-    background-color: #111827;
+    background-color: #14110B;
     background-image:
-      radial-gradient(rgb(255 255 255 / 0.018) 1px, transparent 1px),
-      linear-gradient(145deg, #162438 0%, #111827 55%, #191613 100%);
+      radial-gradient(rgb(255 245 220 / 0.018) 1px, transparent 1px),
+      linear-gradient(145deg, #1C1915 0%, #14110B 55%, #1A1710 100%);
     background-size: 28px 28px, 100% 100%;
   }
 
@@ -112,14 +114,14 @@
 
   /* ── Primary button ── */
   .dashboard-btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-[#163d56] px-4 py-2 text-sm font-semibold text-white transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#eef2f7] active:scale-[0.97] dark:border-[#2a5f82] dark:focus-visible:ring-offset-[#0c1018];
-    background: linear-gradient(175deg, #245f85 0%, #1b4568 100%);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.18), 0 3px 10px -2px rgb(30 77 107 / 0.38), inset 0 1px 0 rgb(255 255 255 / 0.1);
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-[#A35F20] px-4 py-2 text-sm font-semibold text-white transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8893A]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F8F5EE] active:scale-[0.97] dark:border-[#D9A055] dark:focus-visible:ring-offset-[#14110B];
+    background: linear-gradient(175deg, #D9A055 0%, #C8893A 100%);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 3px 10px -2px rgb(200 137 58 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.15);
   }
 
   /* ── Secondary button ── */
   .dashboard-btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm shadow-slate-900/[0.04] transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 hover:shadow-md hover:shadow-slate-900/[0.06] dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-slate-200 dark:hover:border-white/[0.15] dark:hover:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/30 focus-visible:ring-offset-2 active:scale-[0.97];
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm shadow-slate-900/[0.04] transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 hover:shadow-md hover:shadow-slate-900/[0.06] dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-slate-200 dark:hover:border-white/[0.15] dark:hover:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8893A]/30 focus-visible:ring-offset-2 active:scale-[0.97];
   }
 
   .dashboard-btn-secondary:disabled {
@@ -127,7 +129,7 @@
   }
 
   .dashboard-btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 transition-all duration-150 hover:bg-slate-100/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-white/[0.07] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/30 active:scale-[0.97];
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-slate-500 transition-all duration-150 hover:bg-slate-100/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-white/[0.07] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8893A]/30 active:scale-[0.97];
   }
 
   /* Filter / tab pills */
@@ -136,13 +138,13 @@
   }
 
   .dashboard-pill--active {
-    @apply border-[#1e4d6b] text-white hover:opacity-95 dark:border-[#2a5f82];
-    background: linear-gradient(175deg, #245f85 0%, #1b4568 100%);
-    box-shadow: 0 1px 4px rgb(30 77 107 / 0.3), 0 4px 12px -2px rgb(30 77 107 / 0.35);
+    @apply border-[#C8893A] text-white hover:opacity-95 dark:border-[#D9A055];
+    background: linear-gradient(175deg, #D9A055 0%, #C8893A 100%);
+    box-shadow: 0 1px 4px rgb(200 137 58 / 0.30), 0 4px 12px -2px rgb(200 137 58 / 0.35);
   }
 
   .dashboard-btn-text {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-[#1e4d6b] underline-offset-4 transition-all hover:underline dark:text-[#60b4f8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/30;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-[#B8742C] underline-offset-4 transition-all hover:underline dark:text-[#E8B870] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8893A]/30;
   }
 
   .dashboard-card-actions {
@@ -150,7 +152,7 @@
   }
 
   .dashboard-date-input {
-    @apply rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition-all focus:border-[#1e4d6b] focus:outline-none focus:ring-2 focus:ring-[#1e4d6b]/20 focus:shadow-md dark:border-white/[0.09] dark:bg-white/[0.05] dark:text-slate-100 dark:focus:ring-[#1e4d6b]/30;
+    @apply rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition-all focus:border-[#C8893A] focus:outline-none focus:ring-2 focus:ring-[#C8893A]/20 focus:shadow-md dark:border-white/[0.09] dark:bg-white/[0.05] dark:text-slate-100 dark:focus:ring-[#D9A055]/25;
   }
 
   /* ── Status badges ── */
@@ -175,7 +177,7 @@
   }
 
   .badge-primary {
-    @apply bg-[#1e4d6b]/10 text-[#1e4d6b] ring-1 ring-inset ring-[#1e4d6b]/20 dark:bg-[#1e4d6b]/20 dark:text-[#90caff] dark:ring-[#1e4d6b]/30;
+    @apply bg-[#C8893A]/10 text-[#A35F20] ring-1 ring-inset ring-[#C8893A]/25 dark:bg-[#C8893A]/15 dark:text-[#E8B870] dark:ring-[#C8893A]/30;
   }
 
   /* ── Empty state ── */
@@ -199,7 +201,7 @@
 /* ─── Tables ─────────────────────────────────────────────────────────────── */
 @layer components {
   .table-shell {
-    @apply overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-900/[0.05] dark:border-white/[0.07] dark:bg-[#131922];
+    @apply overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-900/[0.05] dark:border-white/[0.07] dark:bg-[#1C1915];
   }
 
   .table-shell table,
@@ -382,13 +384,13 @@
 }
 
 .dashboard-btn-primary:not(:disabled):hover {
-  background: linear-gradient(175deg, #2b70a0 0%, #22567e 100%);
-  box-shadow: 0 2px 4px rgb(0 0 0 / 0.18), 0 6px 18px -3px rgb(30 77 107 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.12);
+  background: linear-gradient(175deg, #E8B870 0%, #D9A055 100%);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.14), 0 6px 18px -3px rgb(200 137 58 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.18);
 }
 
 .dashboard-btn-primary:not(:disabled):active {
-  background: linear-gradient(175deg, #1f547a 0%, #193e60 100%);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2), 0 2px 6px -1px rgb(30 77 107 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  background: linear-gradient(175deg, #B8742C 0%, #A35F20 100%);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.16), 0 2px 6px -1px rgb(200 137 58 / 0.30), inset 0 1px 0 rgb(255 255 255 / 0.08);
 }
 
 .dashboard-btn-primary:not(:disabled):hover::after {
@@ -427,7 +429,7 @@
   .modal-panel {
     @apply relative flex w-full flex-col overflow-hidden rounded-2xl bg-white;
     @apply border border-slate-200/60;
-    @apply dark:border-white/[0.08] dark:bg-[#161e2e];
+    @apply dark:border-white/[0.08] dark:bg-[#2C281E];
     max-height: min(90dvh, 720px);
     box-shadow:
       0 0 0 1px rgb(0 0 0 / 0.03),
@@ -465,7 +467,7 @@
     @apply text-slate-400 transition-all duration-150;
     @apply hover:bg-slate-100 hover:text-slate-700;
     @apply dark:hover:bg-white/[0.08] dark:hover:text-slate-200;
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e4d6b]/40;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8893A]/40;
   }
 
   .modal-body {
@@ -506,19 +508,19 @@
     @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm transition-all duration-150;
     @apply placeholder:text-slate-400;
     @apply hover:border-slate-300;
-    @apply focus:border-[#1e4d6b] focus:outline-none focus:ring-2 focus:ring-[#1e4d6b]/20 focus:shadow-md;
+    @apply focus:border-[#C8893A] focus:outline-none focus:ring-2 focus:ring-[#C8893A]/20 focus:shadow-md;
     @apply dark:border-white/[0.09] dark:bg-white/[0.06] dark:text-slate-100 dark:placeholder:text-slate-500;
     @apply dark:hover:border-white/[0.14];
-    @apply dark:focus:border-[#3080b8] dark:focus:ring-[#1e4d6b]/25;
+    @apply dark:focus:border-[#D9A055] dark:focus:ring-[#D9A055]/20;
   }
 
   .modal-select {
     @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm transition-all duration-150;
     @apply hover:border-slate-300;
-    @apply focus:border-[#1e4d6b] focus:outline-none focus:ring-2 focus:ring-[#1e4d6b]/20 focus:shadow-md;
-    @apply dark:border-white/[0.09] dark:bg-[#1a2236] dark:text-slate-100;
+    @apply focus:border-[#C8893A] focus:outline-none focus:ring-2 focus:ring-[#C8893A]/20 focus:shadow-md;
+    @apply dark:border-white/[0.09] dark:bg-[#232019] dark:text-slate-100;
     @apply dark:hover:border-white/[0.14];
-    @apply dark:focus:border-[#3080b8] dark:focus:ring-[#1e4d6b]/25;
+    @apply dark:focus:border-[#D9A055] dark:focus:ring-[#D9A055]/20;
     @apply cursor-pointer appearance-none;
     color-scheme: light;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -529,17 +531,17 @@
 
   .dark .modal-select {
     color-scheme: dark;
-    background-color: #1a2236;
+    background-color: #232019;
   }
 
   .modal-textarea {
     @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm transition-all duration-150;
     @apply placeholder:text-slate-400;
     @apply hover:border-slate-300;
-    @apply focus:border-[#1e4d6b] focus:outline-none focus:ring-2 focus:ring-[#1e4d6b]/20 focus:shadow-md;
+    @apply focus:border-[#C8893A] focus:outline-none focus:ring-2 focus:ring-[#C8893A]/20 focus:shadow-md;
     @apply dark:border-white/[0.09] dark:bg-white/[0.06] dark:text-slate-100 dark:placeholder:text-slate-500;
     @apply dark:hover:border-white/[0.14];
-    @apply dark:focus:border-[#3080b8] dark:focus:ring-[#1e4d6b]/25;
+    @apply dark:focus:border-[#D9A055] dark:focus:ring-[#D9A055]/20;
     @apply resize-none;
   }
 }
