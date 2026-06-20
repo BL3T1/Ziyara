@@ -4,7 +4,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useSessionExpiryWarning } from '../hooks/useSessionExpiryWarning'
-import { DashboardFooter, DashboardHeader, Sidebar } from '../components'
+import { DashboardHeader, Sidebar } from '../components'
 import { CompanyNavBootstrap } from './CompanyNavBootstrap'
 
 interface MainLayoutProps {
@@ -44,7 +44,6 @@ function MainLayoutInner({ children, pageTitle }: MainLayoutProps) {
           </div>
           <div className="layout-main-surface__content">{children}</div>
         </main>
-        <DashboardFooter />
       </div>
     </div>
   )

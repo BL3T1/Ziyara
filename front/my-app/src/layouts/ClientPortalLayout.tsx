@@ -7,7 +7,7 @@ import { PORTAL_SIDEBAR_SECTIONS } from '../config/sidebar'
 import type { SidebarItem } from '../config/sidebar'
 import { getPageTitleKeyForPath } from '../config/routes'
 import { Logo } from '../components/Logo'
-import { DashboardFooter, DashboardHeader, RoutePageFallback } from '../components'
+import { DashboardHeader, RoutePageFallback } from '../components'
 import { SidebarIcons, type SidebarIconId } from '../components/SidebarIcons'
 
 const PORTAL_ITEM_ICON: Partial<Record<string, SidebarIconId>> = {
@@ -203,7 +203,6 @@ function ClientPortalLayoutInner() {
             </Suspense>
           </div>
         </main>
-        <DashboardFooter />
       </div>
     </div>
   )

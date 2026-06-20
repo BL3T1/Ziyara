@@ -84,7 +84,7 @@ services:
   #   psql -h pgbouncer -p 5432 -U pgbouncer pgbouncer
   # =============================================================================
   pgbouncer:
-    image: pgbouncer/pgbouncer:1.23.1
+    image: pgbouncer/pgbouncer@sha256:aa8a38b7b33e5fe70c679053f97a8e55c74d52b00c195f0880845e52b50ce516
     container_name: ziyarah-pgbouncer
     restart: unless-stopped
     environment:
