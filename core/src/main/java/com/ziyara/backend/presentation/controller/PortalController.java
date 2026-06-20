@@ -4,13 +4,16 @@ import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.BookingResponse;
 import com.ziyara.backend.application.dto.request.CreateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.CreateMenuSectionRequest;
+import com.ziyara.backend.application.dto.request.CreatePortalDiscountRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuSectionRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceRequest;
+import com.ziyara.backend.application.dto.response.DiscountResponse;
 import com.ziyara.backend.application.dto.response.PortalDashboardResponse;
+import com.ziyara.backend.application.dto.response.PortalDiscountBalanceResponse;
 import com.ziyara.backend.application.dto.response.PortalEarningsResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuItemResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuResponse;
@@ -26,6 +29,7 @@ import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -59,6 +63,7 @@ public class PortalController {
     private final PortalService portalService;
     private final ServiceProviderService providerService;
     private final MapService mapService;
+    private final HttpServletRequest httpRequest;
 
     @GetMapping("/map/pins")
     @PreAuthorize(ApiAuthorizationExpressions.PROVIDER_PORTAL)
@@ -246,6 +251,41 @@ public class PortalController {
         return ResponseEntity.ok(ApiResponse.success("Item deleted", null));
     }
 
+    @GetMapping("/discount-balance")
+    @Operation(summary = "Provider discount balance")
+    public ResponseEntity<ApiResponse<PortalDiscountBalanceResponse>> getDiscountBalance() {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.getDiscountBalance(providerId)));
+    }
+
+    @GetMapping("/discounts")
+    @Operation(summary = "List provider discounts")
+    public ResponseEntity<ApiResponse<Page<DiscountResponse>>> listDiscounts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.listProviderDiscounts(providerId, page, size)));
+    }
+
+    @PostMapping("/discounts")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_DISCOUNTS_MANAGE)
+    @Operation(summary = "Create provider discount")
+    public ResponseEntity<ApiResponse<DiscountResponse>> createDiscount(
+            @Valid @RequestBody CreatePortalDiscountRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(portalService.createProviderDiscount(providerId, request)));
+    }
+
+    @DeleteMapping("/discounts/{id}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_DISCOUNTS_MANAGE)
+    @Operation(summary = "Deactivate provider discount")
+    public ResponseEntity<ApiResponse<Void>> deactivateDiscount(@PathVariable UUID id) {
+        UUID providerId = requireCurrentProviderId();
+        portalService.deactivateProviderDiscount(providerId, id);
+        return ResponseEntity.ok(ApiResponse.success("Discount deactivated", null));
+    }
+
     @GetMapping("/bookings")
     @PreAuthorize(ApiAuthorizationExpressions.PORTAL_BOOKINGS_READ)
     @Operation(summary = "My bookings", description = "List bookings for current provider's services")
@@ -271,7 +311,14 @@ public class PortalController {
         }
         return providerService.getProviderByUserId(userId)
                 .map(p -> p.getId())
-                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("No provider profile for this user"));
+                .orElseGet(() -> {
+                    // Admin impersonation: JwtAuthenticationFilter stores the pid claim as a request attribute
+                    Object attr = httpRequest.getAttribute("portalProviderId");
+                    if (attr instanceof String s) {
+                        try { return UUID.fromString(s); } catch (IllegalArgumentException ignored) {}
+                    }
+                    throw new org.springframework.security.access.AccessDeniedException("No provider profile for this user");
+                });
     }
 
     private UUID getCurrentUserId() {

@@ -63,20 +63,23 @@ import type {
 export function getApiErrorMessage(err: unknown, fallback = 'Request failed'): string {
   if (err == null) return fallback
   const ax = err as { response?: { status?: number; data?: unknown }; message?: string }
+  const status = ax.response?.status
+  // For 5xx errors always use a generic message — never expose backend internals or reference UUIDs
+  if (status != null && status >= 500) {
+    if (status === 502 || status === 503)
+      return 'The API server is unreachable (bad gateway). Check that the backend is running and that the API URL / proxy matches your setup.'
+    if (status === 504) return 'The API server took too long to respond. Try again, or check backend and database health.'
+    return 'Server error. Please try again later.'
+  }
   const data = ax.response?.data
   if (data != null && typeof data === 'object') {
     const obj = data as Record<string, unknown>
     const msg = obj.message ?? obj.error
     if (typeof msg === 'string' && msg) return msg
   }
-  const status = ax.response?.status
   if (status === 403) return 'Access denied'
   if (status === 429) return 'Too many requests. Please wait a moment and try again.'
   if (status === 404) return 'Not found'
-  if (status === 502 || status === 503)
-    return 'The API server is unreachable (bad gateway). Check that the backend is running and that the API URL / proxy matches your setup.'
-  if (status === 504) return 'The API server took too long to respond. Try again, or check backend and database health.'
-  if (status === 500) return 'Server error. Please try again later.'
   if (typeof ax.message === 'string' && ax.message) return ax.message
   return fallback
 }
