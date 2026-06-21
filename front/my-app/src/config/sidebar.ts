@@ -174,6 +174,7 @@ export const PORTAL_SIDEBAR_SECTIONS: SidebarSection[] = [
       { id: 'portal_cash', label: 'Cash Sheet', href: '/portal/cash' },
       { id: 'staff', label: 'Staff', href: '/portal/staff' },
       { id: 'earnings', label: 'Earnings', href: '/portal/earnings' },
+      { id: 'portal_payouts', label: 'Payouts', href: '/portal/payouts' },
       { id: 'discounts', label: 'Discounts', href: '/portal/discounts' },
       { id: 'media', label: 'Media', href: '/portal/media' },
       { id: 'portal_map', label: 'Map', href: '/portal/map' },
@@ -188,9 +189,10 @@ export const PORTAL_SIDEBAR_SECTIONS: SidebarSection[] = [
  * Undefined = always visible. Mirrors the route-level RequirePermission guards.
  */
 export const PORTAL_NAV_PERMISSIONS: Record<string, string | undefined> = {
-  portal_cash: 'portal:finance',
-  earnings:    'portal:finance',
-  discounts:   'portal:finance',
+  portal_cash:   'portal:finance',
+  earnings:      'portal:finance',
+  portal_payouts:'portal:finance',
+  discounts:     'portal:finance',
 }
 
 /** Filter portal sections to only items the current user has permission to see. */

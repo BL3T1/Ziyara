@@ -54,6 +54,9 @@ const PortalRoomsPage = lazy(() =>
 const PortalMenuPage = lazy(() =>
   import('../../pages/portal/PortalMenuPage').then((m) => ({ default: m.PortalMenuPage })),
 )
+const PortalPayoutsPage = lazy(() =>
+  import('../../pages/portal/PortalPayoutsPage').then((m) => ({ default: m.PortalPayoutsPage })),
+)
 
 export function AppProviderRoutes() {
   return (
@@ -74,6 +77,7 @@ export function AppProviderRoutes() {
             <Route path="/portal/bookings" element={<PortalBookingsPage />} />
             <Route path="/portal/staff" element={<PortalStaffPage />} />
             <Route path="/portal/earnings" element={<RequirePermission code="portal:finance"><PortalEarningsPage /></RequirePermission>} />
+            <Route path="/portal/payouts" element={<RequirePermission code="portal:finance"><PortalPayoutsPage /></RequirePermission>} />
             <Route path="/portal/discounts" element={<RequirePermission code="portal:finance"><PortalDiscountsPage /></RequirePermission>} />
             <Route path="/portal/profile" element={<PortalProfilePage />} />
             <Route path="/portal/support" element={<PortalSupportPage />} />

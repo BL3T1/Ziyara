@@ -19,6 +19,8 @@ import com.ziyara.backend.application.dto.response.HotelRoomResponse;
 import com.ziyara.backend.application.dto.response.PortalDashboardResponse;
 import com.ziyara.backend.application.dto.response.PortalDiscountBalanceResponse;
 import com.ziyara.backend.application.dto.response.PortalEarningsResponse;
+import com.ziyara.backend.application.dto.request.PayoutRequestPayload;
+import com.ziyara.backend.application.dto.response.PayoutRequestResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuItemResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuSectionResponse;
@@ -365,6 +367,26 @@ public class PortalController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
         UUID providerId = requireCurrentProviderId();
         return ResponseEntity.ok(ApiResponse.success(portalService.getEarnings(providerId, start, end)));
+    }
+
+    @PostMapping("/payout-request")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_PAYOUTS_REQUEST)
+    @Operation(summary = "Request payout", description = "Provider submits a withdrawal request against their available balance")
+    public ResponseEntity<ApiResponse<PayoutRequestResponse>> requestPayout(
+            @Valid @RequestBody PayoutRequestPayload payload) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Payout request submitted", portalService.createPayoutRequest(providerId, payload)));
+    }
+
+    @GetMapping("/payout-requests")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_PAYOUTS_REQUEST)
+    @Operation(summary = "My payout requests", description = "Paginated history of payout requests for this provider")
+    public ResponseEntity<ApiResponse<Page<PayoutRequestResponse>>> listPayoutRequests(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.listPayoutRequests(providerId, page, size)));
     }
 
     private UUID requireCurrentProviderId() {
