@@ -7,6 +7,7 @@ import com.ziyara.backend.application.dto.request.RefundRequest;
 import com.ziyara.backend.application.dto.response.PaymentResponse;
 import com.ziyara.backend.application.dto.response.PaymentSummaryResponse;
 import com.ziyara.backend.application.dto.response.RefundResponse;
+import com.ziyara.backend.application.service.InvoiceService;
 import com.ziyara.backend.domain.enums.PaymentStatus;
 import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import com.ziyara.backend.modules.payment.api.PaymentServiceApi;
@@ -23,6 +24,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -35,8 +37,9 @@ import java.util.UUID;
 @Tag(name = "Payments", description = "Payment processing APIs")
 @SecurityRequirement(name = "bearerAuth")
 public class PaymentController {
-    
+
     private final PaymentServiceApi paymentService;
+    private final InvoiceService invoiceService;
     
     @PostMapping
     @PreAuthorize("isAuthenticated()")
@@ -151,5 +154,25 @@ public class PaymentController {
     @Operation(summary = "Get by transaction ref", description = "Get payment by gateway transaction reference — finance staff only")
     public ResponseEntity<ApiResponse<PaymentResponse>> getByTransactionRef(@PathVariable String ref) {
         return ResponseEntity.ok(ApiResponse.success(paymentService.getByTransactionRef(ref)));
+    }
+
+    @GetMapping("/{id}/invoice")
+    @PreAuthorize(PAYMENTS_READ)
+    @Operation(summary = "Download PDF invoice", description = "Generate a PDF receipt for a payment — finance staff only")
+    public ResponseEntity<byte[]> getInvoice(@PathVariable UUID id) {
+        byte[] pdf = invoiceService.generateInvoicePdf(id);
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition", "attachment; filename=\"invoice-" + id + ".pdf\"")
+                .body(pdf);
+    }
+
+    @PostMapping("/forfeit-deposit/{bookingId}")
+    @PreAuthorize(BOOKINGS_WRITE)
+    @Operation(summary = "Forfeit no-show deposit", description = "Mark COMPLETED payments on a no-show booking as forfeited; cancel PENDING ones. Admin only.")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> forfeitDeposit(@PathVariable UUID bookingId) {
+        UUID adminUserId = getCurrentUserId();
+        List<PaymentResponse> updated = paymentService.forfeitNoShowDeposit(bookingId, adminUserId);
+        return ResponseEntity.ok(ApiResponse.success("Deposit forfeited", updated));
     }
 }

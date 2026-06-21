@@ -425,21 +425,23 @@ public class PortalService {
         String sql =
             "SELECT hs.id::text AS service_id, hs.name AS service_name, " +
             "COUNT(DISTINCT b.id) AS booking_count, " +
-            "COALESCE(SUM(CASE WHEN p.status = 'COMPLETED' THEN p.amount ELSE 0 END), 0) AS gross_revenue " +
+            "COALESCE(SUM(CASE WHEN p.status = 'COMPLETED' THEN p.amount ELSE 0 END), 0) AS gross_revenue, " +
+            "COALESCE(SUM(CASE WHEN p.status = 'COMPLETED' THEN b.commission_amount ELSE 0 END), 0) AS commission_total " +
             "FROM hotel_services hs " +
             "LEFT JOIN bkg_bookings b ON b.service_id = hs.id" + dateJoin + " " +
             "LEFT JOIN pay_payments p ON p.booking_id = b.id " +
             "WHERE hs.provider_id = ? AND hs.deleted_at IS NULL " +
             "GROUP BY hs.id, hs.name ORDER BY gross_revenue DESC LIMIT 20";
 
-        final BigDecimal cpct = commissionPct;
         List<PortalEarningsResponse.ServiceEarningRow> rows = jdbcTemplate.query(
                 sql, params.toArray(),
                 (rs, rowNum) -> {
                     BigDecimal gross = rs.getBigDecimal("gross_revenue");
                     if (gross == null) gross = BigDecimal.ZERO;
-                    BigDecimal fee = gross.multiply(cpct)
-                            .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+                    // Use the stored commission_amount from the booking (set by PricingService at booking time)
+                    // to avoid double-counting: payment.amount already includes the commission markup.
+                    BigDecimal fee = rs.getBigDecimal("commission_total");
+                    if (fee == null) fee = BigDecimal.ZERO;
                     return PortalEarningsResponse.ServiceEarningRow.builder()
                             .serviceId(java.util.UUID.fromString(rs.getString("service_id")))
                             .serviceName(rs.getString("service_name"))
@@ -454,8 +456,10 @@ public class PortalService {
         BigDecimal grossTotal = rows.stream()
                 .map(PortalEarningsResponse.ServiceEarningRow::getGrossRevenue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal feeTotal = grossTotal.multiply(commissionPct)
-                .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+        // Sum stored commission amounts directly — avoids recomputing from gross which double-counts
+        BigDecimal feeTotal = rows.stream()
+                .map(PortalEarningsResponse.ServiceEarningRow::getPlatformFee)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal netTotal = grossTotal.subtract(feeTotal);
         int bookingCount = rows.stream().mapToInt(PortalEarningsResponse.ServiceEarningRow::getBookingCount).sum();
 
@@ -540,6 +544,14 @@ public class PortalService {
     @Transactional
     public PayoutRequestResponse createPayoutRequest(UUID providerId, PayoutRequestPayload payload) {
         ensureProviderExists(providerId);
+        // Advisory lock serializes concurrent payout requests per provider, preventing overdraw
+        jdbcTemplate.execute("SELECT pg_advisory_xact_lock(hashtext('" + providerId + "'))");
+        PortalEarningsResponse earnings = getEarnings(providerId, null, null);
+        BigDecimal available = earnings.getAvailableForPayout();
+        if (payload.getAmount().compareTo(available) > 0) {
+            throw new com.ziyara.backend.application.exception.BusinessException(
+                    "Requested amount " + payload.getAmount() + " exceeds available balance " + available);
+        }
         UUID id = UUID.randomUUID();
         java.time.Instant now = java.time.Instant.now();
         jdbcTemplate.update(

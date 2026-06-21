@@ -42,7 +42,7 @@ public class PortalPaymentService {
         Booking booking = verifyBookingOwnership(bookingId, providerId);
 
         PaymentMethod method = booking.getPaymentMethod();
-        if (method == null || !method.name().startsWith("CASH")) {
+        if (method == null || method != PaymentMethod.CASH) {
             throw new BusinessException("Booking payment method is not cash");
         }
         if (!booking.isPaymentPending()) {

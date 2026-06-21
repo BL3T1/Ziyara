@@ -119,6 +119,15 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
     }
 
     @Override
+    public java.util.Map<String, BigDecimal> sumByStatusGroupedByCurrency(PaymentStatus status) {
+        return paymentJpaRepository.sumByStatusGroupedByCurrencyRaw(status).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        row -> (String) row[0],
+                        row -> row[1] instanceof BigDecimal ? (BigDecimal) row[1] : BigDecimal.ZERO
+                ));
+    }
+
+    @Override
     public List<Payment> findCompletedByBookingIdsSince(List<UUID> bookingIds, LocalDateTime since) {
         if (bookingIds == null || bookingIds.isEmpty()) return List.of();
         return paymentJpaRepository

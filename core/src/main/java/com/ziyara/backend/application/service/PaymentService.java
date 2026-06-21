@@ -21,6 +21,7 @@ import com.ziyara.backend.domain.usecase.payment.CompletePaymentUseCase;
 import com.ziyara.backend.domain.usecase.payment.ConfirmCashBookingUseCase;
 import com.ziyara.backend.domain.usecase.payment.FailPaymentUseCase;
 import com.ziyara.backend.domain.usecase.payment.InitiatePaymentUseCase;
+import com.ziyara.backend.domain.usecase.payment.ForfeitNoShowDepositUseCase;
 import com.ziyara.backend.domain.usecase.payment.ReconcileCashCollectionUseCase;
 import com.ziyara.backend.domain.usecase.payment.RecordCashCollectionUseCase;
 import com.ziyara.backend.domain.usecase.refund.RequestRefundUseCase;
@@ -433,7 +434,22 @@ public class PaymentService implements PaymentServiceApi {
                 .totalPending(pending   != null ? pending   : BigDecimal.ZERO)
                 .totalRefunded(refunded != null ? refunded  : BigDecimal.ZERO)
                 .currency("USD")
+                .collectedByCurrency(paymentRepository.sumByStatusGroupedByCurrency(PaymentStatus.COMPLETED))
+                .pendingByCurrency(paymentRepository.sumByStatusGroupedByCurrency(PaymentStatus.PENDING))
+                .refundedByCurrency(paymentRepository.sumByStatusGroupedByCurrency(PaymentStatus.REFUNDED))
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public java.util.List<PaymentResponse> forfeitNoShowDeposit(UUID bookingId, UUID adminUserId) {
+        var result = new ForfeitNoShowDepositUseCase(paymentRepository)
+                .execute(new ForfeitNoShowDepositUseCase.Input(bookingId, adminUserId));
+        if (!result.success()) throw new BusinessException(result.error());
+        auditLogService.logAction("PAYMENT_FORFEIT", "Booking", bookingId.toString(),
+                adminUserId, null,
+                "forfeitedCount=" + result.updatedPayments().size(), null, null);
+        return result.updatedPayments().stream().map(this::mapToResponse).toList();
     }
 }
 

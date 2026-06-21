@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 @Data
 @Builder
@@ -20,6 +21,15 @@ public class PaymentSummaryResponse {
     @Schema(description = "Sum of all REFUNDED payments")
     private BigDecimal totalRefunded;
 
-    @Schema(description = "Currency code (ISO 4217)")
+    @Schema(description = "Currency code (ISO 4217) — primary currency for scalar totals")
     private String currency;
+
+    @Schema(description = "Collected amounts broken down by currency code")
+    private Map<String, BigDecimal> collectedByCurrency;
+
+    @Schema(description = "Pending amounts broken down by currency code")
+    private Map<String, BigDecimal> pendingByCurrency;
+
+    @Schema(description = "Refunded amounts broken down by currency code")
+    private Map<String, BigDecimal> refundedByCurrency;
 }
