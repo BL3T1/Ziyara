@@ -3,7 +3,8 @@ import { Outlet, useLocation, Link, NavLink } from 'react-router-dom'
 import { useLayout } from '../context/LayoutContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useAuth } from '../context/AuthContext'
-import { PORTAL_SIDEBAR_SECTIONS } from '../config/sidebar'
+import { usePermissions } from '../context/PermissionsContext'
+import { filterPortalSectionsByPermissions } from '../config/sidebar'
 import type { SidebarItem } from '../config/sidebar'
 import { getPageTitleKeyForPath } from '../config/routes'
 import { Logo } from '../components/Logo'
@@ -84,7 +85,9 @@ const CollapseIcon = ({ collapsed, rtl }: { collapsed: boolean; rtl: boolean }) 
 function PortalSidebar() {
   const { sidebarCollapsed, setSidebarCollapsed } = useLayout()
   const { t, locale } = useLanguage()
+  const { has } = usePermissions()
   const isRtl = locale === 'ar'
+  const filteredSections = filterPortalSectionsByPermissions(has)
 
   const railBorder = isRtl ? 'right-0 border-l' : 'left-0 border-r'
   const railShadow = isRtl
@@ -125,7 +128,7 @@ function PortalSidebar() {
         className="sidebar-nav relative z-[1] min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 py-5 sm:px-2.5"
         aria-label="Portal navigation"
       >
-        {PORTAL_SIDEBAR_SECTIONS.map((section) => (
+        {filteredSections.map((section) => (
           <div key={section.id} className="mb-6 last:mb-2">
             {!sidebarCollapsed && (
               <div className="mb-1.5 flex items-center gap-2 px-3">

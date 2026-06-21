@@ -664,6 +664,22 @@ export function PortalListingFormPage() {
               >
                 {t('ui.cancel')}
               </Link>
+              {isHotelOrResort && !isNew && (
+                <Link
+                  to={`/portal/listings/${id}/rooms`}
+                  className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-white/[0.03]"
+                >
+                  {t('portalPages.manageRooms')} →
+                </Link>
+              )}
+              {isRestaurant && !isNew && (
+                <Link
+                  to={`/portal/listings/${id}/menu`}
+                  className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-white/[0.03]"
+                >
+                  {t('portalPages.manageMenu')} →
+                </Link>
+              )}
             </div>
 
           </form>
