@@ -5,6 +5,7 @@ import com.ziyara.backend.application.dto.request.AddPortalStaffRequest;
 import com.ziyara.backend.application.dto.request.CreatePortalStaffUserRequest;
 import com.ziyara.backend.application.dto.request.UpdatePortalStaffRequest;
 import com.ziyara.backend.application.dto.response.LinkableUserResponse;
+import com.ziyara.backend.application.dto.response.PortalAssignableRoleResponse;
 import com.ziyara.backend.application.dto.response.PortalStaffMemberResponse;
 import com.ziyara.backend.application.service.PortalStaffService;
 import com.ziyara.backend.application.service.ServiceProviderService;
@@ -48,6 +49,12 @@ public class PortalStaffController {
         UUID providerId = requireCurrentProviderId();
         PortalStaffMemberResponse created = portalStaffService.addStaff(providerId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Staff member added", created));
+    }
+
+    @GetMapping("/roles")
+    @Operation(summary = "Assignable roles", description = "All is_provider_role=true sys_roles — use code as roleCode when creating staff")
+    public ResponseEntity<ApiResponse<List<PortalAssignableRoleResponse>>> listRoles() {
+        return ResponseEntity.ok(ApiResponse.success(portalStaffService.listAssignableRoles()));
     }
 
     @GetMapping("/linkable")

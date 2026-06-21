@@ -340,7 +340,7 @@ export const portalStaffAPI = {
   list: () => client.get<PortalStaffMemberDto[]>('/portal/staff'),
   add: (body: { userId: string; title?: string }) =>
     client.post<PortalStaffMemberDto>('/portal/staff', body),
-  createUser: (body: { email: string; password: string; roleId: string; phone?: string; title?: string }) =>
+  createUser: (body: { email: string; password: string; roleCode: string; phone?: string; title?: string }) =>
     client.post<PortalStaffMemberDto>('/portal/staff/users', body),
   listAssignableRoles: () =>
     client.get<{ id: string; code: string; name: string }[]>('/portal/staff/roles'),
