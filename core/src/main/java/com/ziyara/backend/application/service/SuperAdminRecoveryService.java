@@ -5,7 +5,7 @@ import com.ziyara.backend.application.dto.response.DeletedItemResponse;
 import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.repository.UserRepository;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -31,6 +32,7 @@ public class SuperAdminRecoveryService {
     private static final String USERS = "sys_users";
     private static final String CUSTOMERS = "customers";
     private static final String SERVICES = "hotel_services";
+    private static final String PROVIDERS = "hotel_service_providers";
 
     private static final Field<UUID> U_ID = DSL.field(DSL.name(USERS, "id"), UUID.class);
     private static final Field<String> U_EMAIL = DSL.field(DSL.name(USERS, "email"), String.class);
@@ -53,6 +55,12 @@ public class SuperAdminRecoveryService {
     private static final Field<String> S_NAME = DSL.field(DSL.name(SERVICES, "name"), String.class);
     private static final Field<String> S_STATUS = DSL.field(DSL.name(SERVICES, "status"), String.class);
     private static final Field<LocalDateTime> S_DELETED = DSL.field(DSL.name(SERVICES, "deleted_at"), LocalDateTime.class);
+
+    private static final Field<UUID> P_ID = DSL.field(DSL.name(PROVIDERS, "id"), UUID.class);
+    private static final Field<String> P_NAME = DSL.field(DSL.name(PROVIDERS, "company_name"), String.class);
+    private static final Field<String> P_TYPE = DSL.field(DSL.name(PROVIDERS, "provider_type"), String.class);
+    private static final Field<String> P_EMAIL = DSL.field(DSL.name(PROVIDERS, "contact_email"), String.class);
+    private static final Field<LocalDateTime> P_DELETED = DSL.field(DSL.name(PROVIDERS, "deleted_at"), LocalDateTime.class);
 
     private final DSLContext dsl;
     private final UserRepository userRepository;
@@ -89,7 +97,7 @@ public class SuperAdminRecoveryService {
         return out;
     }
 
-    public List<DeletedItemResponse> searchDeleted(String q, int limit) {
+    public List<DeletedItemResponse> searchDeleted(String q, int limit, Set<String> allowedTypes) {
         if (q == null || q.isBlank()) {
             return List.of();
         }
@@ -129,22 +137,54 @@ public class SuperAdminRecoveryService {
                         .deletedAt(r.get(S_DELETED))
                         .build()));
 
-        return out.stream().limit(lim).toList();
+        Condition providerMatch = P_DELETED.isNotNull().and(
+                DSL.lower(P_NAME).contains(DSL.lower(DSL.inline(term)))
+                        .or(DSL.lower(P_EMAIL).contains(DSL.lower(DSL.inline(term)))));
+        dsl.select(P_ID, P_NAME, P_TYPE, P_EMAIL, P_DELETED)
+                .from(DSL.table(DSL.name(PROVIDERS)))
+                .where(providerMatch)
+                .orderBy(P_DELETED.desc())
+                .limit(half)
+                .fetch()
+                .forEach(r -> out.add(DeletedItemResponse.builder()
+                        .entityType("PROVIDER")
+                        .id(r.get(P_ID))
+                        .label(r.get(P_NAME))
+                        .detail("type=" + r.get(P_TYPE) + ", email=" + r.get(P_EMAIL))
+                        .deletedAt(r.get(P_DELETED))
+                        .build()));
+
+        return out.stream()
+                .filter(r -> isEntityAllowed(r, allowedTypes))
+                .limit(lim)
+                .toList();
+    }
+
+    private static boolean isEntityAllowed(DeletedItemResponse r, Set<String> allowedTypes) {
+        if (allowedTypes.isEmpty()) return false;
+        if (allowedTypes.contains("SERVICE") && "SERVICE".equals(r.getEntityType())) return true;
+        if (allowedTypes.contains("PROVIDER") && "PROVIDER".equals(r.getEntityType())) return true;
+        if ("USER".equals(r.getEntityType())) {
+            boolean isCustomer = r.getDetail() != null && r.getDetail().contains("role=CUSTOMER");
+            if (isCustomer) return allowedTypes.contains("USER_CUSTOMER");
+            return allowedTypes.contains("USER_COMPANY");
+        }
+        return false;
     }
 
     /**
      * Latest soft-deleted users and services (by {@code deleted_at}), merged and sorted newest first.
      */
-    public List<DeletedItemResponse> listRecentDeleted(int limit) {
+    public List<DeletedItemResponse> listRecentDeleted(int limit, Set<String> allowedTypes) {
         int lim = Math.min(Math.max(limit, 1), 100);
-        int half = Math.max(1, lim / 2);
+        int third = Math.max(1, lim / 3);
         List<DeletedItemResponse> out = new ArrayList<>();
 
         dsl.select(U_ID, U_EMAIL, U_ROLE, U_DELETED)
                 .from(DSL.table(DSL.name(USERS)))
                 .where(U_DELETED.isNotNull())
                 .orderBy(U_DELETED.desc())
-                .limit(half)
+                .limit(third)
                 .fetch()
                 .forEach(r -> out.add(DeletedItemResponse.builder()
                         .entityType("USER")
@@ -158,7 +198,7 @@ public class SuperAdminRecoveryService {
                 .from(DSL.table(DSL.name(SERVICES)))
                 .where(S_DELETED.isNotNull())
                 .orderBy(S_DELETED.desc())
-                .limit(half)
+                .limit(third)
                 .fetch()
                 .forEach(r -> out.add(DeletedItemResponse.builder()
                         .entityType("SERVICE")
@@ -168,8 +208,25 @@ public class SuperAdminRecoveryService {
                         .deletedAt(r.get(S_DELETED))
                         .build()));
 
+        dsl.select(P_ID, P_NAME, P_TYPE, P_EMAIL, P_DELETED)
+                .from(DSL.table(DSL.name(PROVIDERS)))
+                .where(P_DELETED.isNotNull())
+                .orderBy(P_DELETED.desc())
+                .limit(third)
+                .fetch()
+                .forEach(r -> out.add(DeletedItemResponse.builder()
+                        .entityType("PROVIDER")
+                        .id(r.get(P_ID))
+                        .label(r.get(P_NAME))
+                        .detail("type=" + r.get(P_TYPE) + ", email=" + r.get(P_EMAIL))
+                        .deletedAt(r.get(P_DELETED))
+                        .build()));
+
         out.sort(Comparator.comparing(DeletedItemResponse::getDeletedAt, Comparator.nullsLast(Comparator.reverseOrder())));
-        return out.stream().limit(lim).toList();
+        return out.stream()
+                .filter(r -> isEntityAllowed(r, allowedTypes))
+                .limit(lim)
+                .toList();
     }
 
     /**
@@ -199,10 +256,211 @@ public class SuperAdminRecoveryService {
                     .set(S_DELETED, (LocalDateTime) null)
                     .where(S_ID.eq(id).and(S_DELETED.isNotNull()))
                     .execute();
-            default -> throw new IllegalArgumentException("entityType must be USER or SERVICE");
+            case "PROVIDER" -> updated = dsl.update(DSL.table(DSL.name(PROVIDERS)))
+                    .set(P_DELETED, (LocalDateTime) null)
+                    .where(P_ID.eq(id).and(P_DELETED.isNotNull()))
+                    .execute();
+            default -> throw new IllegalArgumentException("entityType must be USER, SERVICE, or PROVIDER");
         }
         if (updated == 0) {
             throw new ResourceNotFoundException("No deleted " + t + " found with id " + id);
+        }
+    }
+
+    /**
+     * Hard-deletes a row that has already been soft-deleted. Only operates on rows with deleted_at IS NOT NULL
+     * as a safety guard — non-deleted rows cannot be permanently destroyed through this path.
+     *
+     * For USER: nullifies nullable FKs, deletes dependent rows in FK order, then removes the user row.
+     */
+    @Transactional
+    public void permanentDelete(String entityType, UUID id) {
+        if (id == null) {
+            throw new IllegalArgumentException("id is required");
+        }
+        String t = entityType == null ? "" : entityType.trim().toUpperCase(Locale.ROOT);
+        int deleted;
+        switch (t) {
+            case "USER" -> {
+                boolean exists = dsl.fetchExists(
+                        dsl.selectOne()
+                                .from(DSL.table(DSL.name(USERS)))
+                                .where(U_ID.eq(id).and(U_DELETED.isNotNull())));
+                if (!exists) {
+                    throw new ResourceNotFoundException("No soft-deleted USER found with id " + id);
+                }
+                // 1. Null out nullable FKs that reference this user (no ON DELETE action)
+                for (String col : new String[]{"created_by", "approved_by"}) {
+                    dsl.update(DSL.table(DSL.name("hotel_service_providers")))
+                            .set(DSL.field(DSL.name(col), UUID.class), (UUID) null)
+                            .where(DSL.field(DSL.name(col), UUID.class).eq(id))
+                            .execute();
+                    dsl.update(DSL.table(DSL.name("disc_discount_codes")))
+                            .set(DSL.field(DSL.name(col), UUID.class), (UUID) null)
+                            .where(DSL.field(DSL.name(col), UUID.class).eq(id))
+                            .execute();
+                }
+                dsl.update(DSL.table(DSL.name("sys_feature_flags")))
+                        .set(DSL.field(DSL.name("updated_by"), UUID.class), (UUID) null)
+                        .where(DSL.field(DSL.name("updated_by"), UUID.class).eq(id))
+                        .execute();
+                dsl.update(DSL.table(DSL.name("sys_consent_audit_log")))
+                        .set(DSL.field(DSL.name("changed_by"), UUID.class), (UUID) null)
+                        .where(DSL.field(DSL.name("changed_by"), UUID.class).eq(id))
+                        .execute();
+                dsl.update(DSL.table(DSL.name("portal_payout_requests")))
+                        .set(DSL.field(DSL.name("processed_by"), UUID.class), (UUID) null)
+                        .where(DSL.field(DSL.name("processed_by"), UUID.class).eq(id))
+                        .execute();
+                // Null booking FK on complaints before deleting bookings (nullable FK, no cascade)
+                dsl.update(DSL.table(DSL.name("support_complaints")))
+                        .set(DSL.field(DSL.name("booking_id"), UUID.class), (UUID) null)
+                        .where(DSL.field(DSL.name("booking_id"), UUID.class).in(
+                                dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                                        .from(DSL.table(DSL.name("bkg_bookings")))
+                                        .where(DSL.field(DSL.name("customer_id"), UUID.class).eq(id))
+                        ))
+                        .execute();
+                // 2. Delete NOT-NULL FK dependents (leaf → root)
+                // pay_refunds → pay_payments → bkg_bookings
+                dsl.deleteFrom(DSL.table(DSL.name("pay_refunds")))
+                        .where(DSL.field(DSL.name("payment_id"), UUID.class).in(
+                                dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                                        .from(DSL.table(DSL.name("pay_payments")))
+                                        .where(DSL.field(DSL.name("booking_id"), UUID.class).in(
+                                                dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                                                        .from(DSL.table(DSL.name("bkg_bookings")))
+                                                        .where(DSL.field(DSL.name("customer_id"), UUID.class).eq(id))
+                                        ))
+                        ))
+                        .execute();
+                dsl.deleteFrom(DSL.table(DSL.name("pay_payments")))
+                        .where(DSL.field(DSL.name("booking_id"), UUID.class).in(
+                                dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                                        .from(DSL.table(DSL.name("bkg_bookings")))
+                                        .where(DSL.field(DSL.name("customer_id"), UUID.class).eq(id))
+                        ))
+                        .execute();
+                dsl.deleteFrom(DSL.table(DSL.name("bkg_bookings")))
+                        .where(DSL.field(DSL.name("customer_id"), UUID.class).eq(id))
+                        .execute();
+                dsl.deleteFrom(DSL.table(DSL.name("hotel_reviews")))
+                        .where(DSL.field(DSL.name("customer_id"), UUID.class).eq(id))
+                        .execute();
+                // Comments by this user on any complaint must be removed before own complaints cascade
+                dsl.deleteFrom(DSL.table(DSL.name("support_complaint_comments")))
+                        .where(DSL.field(DSL.name("user_id"), UUID.class).eq(id))
+                        .execute();
+                // Own complaints (child comments cascade via ON DELETE CASCADE)
+                dsl.deleteFrom(DSL.table(DSL.name("support_complaints")))
+                        .where(DSL.field(DSL.name("customer_id"), UUID.class).eq(id))
+                        .execute();
+                // Comments by this user on any ticket before own tickets cascade
+                dsl.deleteFrom(DSL.table(DSL.name("support_ticket_comments")))
+                        .where(DSL.field(DSL.name("user_id"), UUID.class).eq(id))
+                        .execute();
+                // Own tickets (child comments cascade via ON DELETE CASCADE)
+                dsl.deleteFrom(DSL.table(DSL.name("support_internal_tickets")))
+                        .where(DSL.field(DSL.name("reporter_id"), UUID.class).eq(id))
+                        .execute();
+                // Employee record has ON DELETE RESTRICT (V14) — must be removed before user
+                dsl.deleteFrom(DSL.table(DSL.name("sys_employees")))
+                        .where(DSL.field(DSL.name("user_id"), UUID.class).eq(id))
+                        .execute();
+                // 3. Hard-delete the user row
+                deleted = dsl.deleteFrom(DSL.table(DSL.name(USERS)))
+                        .where(U_ID.eq(id))
+                        .execute();
+            }
+            case "SERVICE" -> {
+                // bkg_bookings.service_id has no ON DELETE CASCADE — must clear dependents first.
+                // 1. Nullify nullable booking FK on complaints
+                dsl.update(DSL.table(DSL.name("support_complaints")))
+                        .set(DSL.field(DSL.name("booking_id"), UUID.class), (UUID) null)
+                        .where(DSL.field(DSL.name("booking_id"), UUID.class).in(
+                                dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                                        .from(DSL.table(DSL.name("bkg_bookings")))
+                                        .where(DSL.field(DSL.name("service_id"), UUID.class).eq(id))))
+                        .execute();
+                // 2. pay_refunds → pay_payments → bkg_bookings
+                dsl.deleteFrom(DSL.table(DSL.name("pay_refunds")))
+                        .where(DSL.field(DSL.name("payment_id"), UUID.class).in(
+                                dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                                        .from(DSL.table(DSL.name("pay_payments")))
+                                        .where(DSL.field(DSL.name("booking_id"), UUID.class).in(
+                                                dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                                                        .from(DSL.table(DSL.name("bkg_bookings")))
+                                                        .where(DSL.field(DSL.name("service_id"), UUID.class).eq(id))))))
+                        .execute();
+                dsl.deleteFrom(DSL.table(DSL.name("pay_payments")))
+                        .where(DSL.field(DSL.name("booking_id"), UUID.class).in(
+                                dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                                        .from(DSL.table(DSL.name("bkg_bookings")))
+                                        .where(DSL.field(DSL.name("service_id"), UUID.class).eq(id))))
+                        .execute();
+                dsl.deleteFrom(DSL.table(DSL.name("bkg_bookings")))
+                        .where(DSL.field(DSL.name("service_id"), UUID.class).eq(id))
+                        .execute();
+                // 3. hotel_reviews.service_id has no CASCADE
+                dsl.deleteFrom(DSL.table(DSL.name("hotel_reviews")))
+                        .where(DSL.field(DSL.name("service_id"), UUID.class).eq(id))
+                        .execute();
+                deleted = dsl.deleteFrom(DSL.table(DSL.name(SERVICES)))
+                        .where(S_ID.eq(id).and(S_DELETED.isNotNull()))
+                        .execute();
+            }
+            case "PROVIDER" -> {
+                // Subquery for all service IDs under this provider (reused in booking cleanup)
+                var svcIds = dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                        .from(DSL.table(DSL.name(SERVICES)))
+                        .where(S_PROVIDER.eq(id));
+                // 1. Nullify nullable booking FK on complaints
+                dsl.update(DSL.table(DSL.name("support_complaints")))
+                        .set(DSL.field(DSL.name("booking_id"), UUID.class), (UUID) null)
+                        .where(DSL.field(DSL.name("booking_id"), UUID.class).in(
+                                dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                                        .from(DSL.table(DSL.name("bkg_bookings")))
+                                        .where(DSL.field(DSL.name("service_id"), UUID.class).in(svcIds))))
+                        .execute();
+                // 2. pay_refunds → pay_payments → bkg_bookings
+                dsl.deleteFrom(DSL.table(DSL.name("pay_refunds")))
+                        .where(DSL.field(DSL.name("payment_id"), UUID.class).in(
+                                dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                                        .from(DSL.table(DSL.name("pay_payments")))
+                                        .where(DSL.field(DSL.name("booking_id"), UUID.class).in(
+                                                dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                                                        .from(DSL.table(DSL.name("bkg_bookings")))
+                                                        .where(DSL.field(DSL.name("service_id"), UUID.class).in(svcIds))))))
+                        .execute();
+                dsl.deleteFrom(DSL.table(DSL.name("pay_payments")))
+                        .where(DSL.field(DSL.name("booking_id"), UUID.class).in(
+                                dsl.select(DSL.field(DSL.name("id"), UUID.class))
+                                        .from(DSL.table(DSL.name("bkg_bookings")))
+                                        .where(DSL.field(DSL.name("service_id"), UUID.class).in(svcIds))))
+                        .execute();
+                dsl.deleteFrom(DSL.table(DSL.name("bkg_bookings")))
+                        .where(DSL.field(DSL.name("service_id"), UUID.class).in(svcIds))
+                        .execute();
+                // 3. hotel_reviews.service_id has no CASCADE
+                dsl.deleteFrom(DSL.table(DSL.name("hotel_reviews")))
+                        .where(DSL.field(DSL.name("service_id"), UUID.class).in(svcIds))
+                        .execute();
+                // 4. hotel_services (images/rooms/menu cascade via ON DELETE CASCADE)
+                dsl.deleteFrom(DSL.table(DSL.name(SERVICES)))
+                        .where(S_PROVIDER.eq(id))
+                        .execute();
+                // 5. provider_subscriptions (no FK constraint, but clean up the orphan)
+                dsl.deleteFrom(DSL.table(DSL.name("provider_subscriptions")))
+                        .where(DSL.field(DSL.name("provider_id"), UUID.class).eq(id))
+                        .execute();
+                deleted = dsl.deleteFrom(DSL.table(DSL.name(PROVIDERS)))
+                        .where(P_ID.eq(id).and(P_DELETED.isNotNull()))
+                        .execute();
+            }
+            default -> throw new IllegalArgumentException("entityType must be USER, SERVICE, or PROVIDER");
+        }
+        if (deleted == 0) {
+            throw new ResourceNotFoundException("No soft-deleted " + t + " found with id " + id);
         }
     }
 

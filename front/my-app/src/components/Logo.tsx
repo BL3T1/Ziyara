@@ -13,7 +13,7 @@ interface LogoProps {
 
 const DEFAULT_LOGO = '/logo.png'
 
-const logoImgClass = (compact: boolean) => (compact ? 'h-10 w-auto' : 'h-14 w-auto')
+const logoImgClass = (compact: boolean) => (compact ? 'h-16 w-auto' : 'h-20 w-auto')
 
 export function Logo({ className = '', logoImageSrc = DEFAULT_LOGO, compact = false, expandAction }: LogoProps) {
   if (expandAction) {

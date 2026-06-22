@@ -4,15 +4,13 @@ import com.ziyara.backend.domain.enums.UserRole;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
-/**
- * Request DTO for user registration (public).
- */
+import java.time.LocalDate;
+
 @Data
-@Schema(description = "Registration request")
+@Schema(description = "Registration request (public — mobile app and landing page)")
 public class RegisterRequest {
 
     @NotBlank
@@ -25,10 +23,23 @@ public class RegisterRequest {
     @Schema(description = "Password", requiredMode = Schema.RequiredMode.REQUIRED, minLength = 6)
     private String password;
 
+    @NotBlank
+    @Schema(description = "First name", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String firstName;
+
+    @NotBlank
+    @Schema(description = "Last name", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String lastName;
+
     @Schema(description = "Phone number")
     private String phone;
 
-    @NotNull
-    @Schema(description = "Role (public registration supports CUSTOMER only; provider roles must use provider onboarding)", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Date of birth (ISO date, e.g. 1990-05-20)")
+    private LocalDate dateOfBirth;
+
+    @Schema(description = "Nationality")
+    private String nationality;
+
+    @Schema(description = "Role — always CUSTOMER for public registration; defaults to CUSTOMER when omitted")
     private UserRole role;
 }

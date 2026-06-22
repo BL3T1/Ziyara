@@ -22,4 +22,8 @@ public interface ServiceImageRepository {
     long countByServiceId(UUID serviceId);
 
     void deleteById(UUID id);
+
+    int clearPrimaryByServiceId(UUID serviceId);
+
+    int clearPrimaryByServiceIdExcept(UUID serviceId, UUID excludeId);
 }

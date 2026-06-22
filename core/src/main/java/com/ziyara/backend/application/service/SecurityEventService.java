@@ -1,7 +1,7 @@
 package com.ziyara.backend.application.service;
 
-import com.ziyara.backend.infrastructure.persistence.entity.SecurityEventJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.repository.SecurityEventJpaRepository;
+import com.ziyara.backend.domain.entity.SecurityEvent;
+import com.ziyara.backend.domain.repository.SecurityEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,19 +14,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SecurityEventService {
 
-    private final SecurityEventJpaRepository securityEventJpaRepository;
+    private final SecurityEventRepository securityEventRepository;
 
     @Transactional
     public void record(UUID userId, String eventType, String severity, String ip, String userAgent, Map<String, Object> details) {
         Map<String, Object> payload = details == null ? null : new HashMap<>(details);
-        SecurityEventJpaEntity e = SecurityEventJpaEntity.builder()
-                .userId(userId)
-                .eventType(eventType)
-                .severity(severity)
-                .ipAddress(ip)
-                .userAgent(userAgent)
-                .details(payload == null || payload.isEmpty() ? null : payload)
-                .build();
-        securityEventJpaRepository.save(e);
+        SecurityEvent event = new SecurityEvent();
+        event.setUserId(userId);
+        event.setEventType(eventType);
+        event.setSeverity(severity);
+        event.setIpAddress(ip);
+        event.setUserAgent(userAgent);
+        event.setDetails(payload == null || payload.isEmpty() ? null : payload);
+        securityEventRepository.save(event);
     }
 }

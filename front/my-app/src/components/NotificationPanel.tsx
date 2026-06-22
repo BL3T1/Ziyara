@@ -3,8 +3,9 @@
  */
 
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
-import { notificationsAPI } from '../services/api'
+import { notificationsAPI, adminMediaAPI } from '../services/api'
 import type { NotificationDto, NotificationInboxDto } from '../types/api'
 
 const PAGE_SIZE = 20
@@ -30,11 +31,13 @@ interface NotificationPanelProps {
 
 export function NotificationPanel({ isOpen, onClose, anchorRef, onMarkAllRead, onUnreadCount }: NotificationPanelProps) {
   const { t } = useLanguage()
+  const navigate = useNavigate()
   const [notifications, setNotifications] = useState<NotificationDto[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
+  const [mediaProcessing, setMediaProcessing] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
   const fetchPage = useCallback(
@@ -119,6 +122,22 @@ export function NotificationPanel({ isOpen, onClose, anchorRef, onMarkAllRead, o
     }
   }
 
+  const handleMediaApprove = async (n: NotificationDto) => {
+    if (!n.referenceId) return
+    setMediaProcessing(n.id)
+    try {
+      await adminMediaAPI.approve(n.referenceId)
+      await handleMarkAsRead(n.id)
+      setNotifications((prev) =>
+        prev.map((x) => (x.id === n.id ? { ...x, readAt: x.readAt ?? new Date().toISOString() } : x))
+      )
+    } catch {
+      // ignore — full page has detailed error handling
+    } finally {
+      setMediaProcessing(null)
+    }
+  }
+
   const unreadCount = notifications.filter((n) => !n.readAt).length
 
   if (!isOpen) return null
@@ -176,6 +195,25 @@ export function NotificationPanel({ isOpen, onClose, anchorRef, onMarkAllRead, o
                   <p className="mt-0.5 line-clamp-2 text-xs text-slate-600 dark:text-slate-300">
                     {n.message}
                   </p>
+                )}
+                {n.type === 'MEDIA_SUBMISSION_PENDING' && n.referenceId && (
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={mediaProcessing === n.id}
+                      onClick={() => handleMediaApprove(n)}
+                      className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                    >
+                      {t('mediaSubmissionsPage.approve')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { onClose(); navigate('/admin/media-submissions') }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {t('notifications.review')}
+                    </button>
+                  </div>
                 )}
                 <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                   {formatTime(n.sentAt ?? n.createdAt, t)}

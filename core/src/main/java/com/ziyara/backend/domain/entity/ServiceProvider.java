@@ -2,6 +2,7 @@ package com.ziyara.backend.domain.entity;
 
 import com.ziyara.backend.domain.enums.ProviderStatus;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -25,8 +26,10 @@ public class ServiceProvider {
     private String logoUrl;
     private String description;
     private String descriptionAr;
-    private double rating;
+    private BigDecimal rating;
     private int reviewCount;
+    /** Official classification assigned by admin (e.g. 3.0 = 3-star hotel). 0 = unset. */
+    private BigDecimal globalRate;
     private ProviderStatus status;
     private boolean verified;
     /** Commission rate override (e.g. 10 = 10%). Null = use platform default 10%. */
@@ -36,13 +39,17 @@ public class ServiceProvider {
     /** User who approved activation (Super Admin / CEO workflow). */
     private UUID approvedBy;
     private LocalDateTime approvedAt;
+    private Double latitude;
+    private Double longitude;
+    /** Date when the partner account access expires. Null = no expiry enforced (legacy records). */
+    private LocalDate expiryDate;
 
     // Constructors
     public ServiceProvider() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         this.status = ProviderStatus.PENDING_APPROVAL;
-        this.rating = 0.0;
+        this.rating = BigDecimal.ZERO;
         this.reviewCount = 0;
     }
 
@@ -75,10 +82,12 @@ public class ServiceProvider {
     public void setDescription(String description) { this.description = description; }
     public String getDescriptionAr() { return descriptionAr; }
     public void setDescriptionAr(String descriptionAr) { this.descriptionAr = descriptionAr; }
-    public double getRating() { return rating; }
-    public void setRating(double rating) { this.rating = rating; }
+    public BigDecimal getRating() { return rating; }
+    public void setRating(BigDecimal rating) { this.rating = rating; }
     public int getReviewCount() { return reviewCount; }
     public void setReviewCount(int reviewCount) { this.reviewCount = reviewCount; }
+    public BigDecimal getGlobalRate() { return globalRate; }
+    public void setGlobalRate(BigDecimal globalRate) { this.globalRate = globalRate; }
     public ProviderStatus getStatus() { return status; }
     public void setStatus(ProviderStatus status) { this.status = status; }
     public boolean isVerified() { return verified; }
@@ -93,4 +102,20 @@ public class ServiceProvider {
     public void setApprovedBy(UUID approvedBy) { this.approvedBy = approvedBy; }
     public LocalDateTime getApprovedAt() { return approvedAt; }
     public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
+    public LocalDate getExpiryDate() { return expiryDate; }
+    public void setExpiryDate(LocalDate expiryDate) { this.expiryDate = expiryDate; }
+
+    public boolean isExpired() {
+        return expiryDate != null && expiryDate.isBefore(LocalDate.now());
+    }
+
+    public boolean isNearExpiry(int warningDays) {
+        if (expiryDate == null) return false;
+        LocalDate today = LocalDate.now();
+        return !expiryDate.isBefore(today) && !expiryDate.isAfter(today.plusDays(warningDays));
+    }
 }

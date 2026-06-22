@@ -69,7 +69,19 @@ public class EmployeeRepositoryAdapter implements EmployeeRepository {
                 .map(employeeMapper::toDomainEntity)
                 .collect(Collectors.toList());
     }
-    
+
+    @Override
+    public List<Employee> findAllActive() {
+        return employeeJpaRepository.findByOffboardedAtIsNull().stream()
+                .map(employeeMapper::toDomainEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countActive() {
+        return employeeJpaRepository.countByOffboardedAtIsNull();
+    }
+
     @Override
     public void deleteById(UUID id) {
         employeeJpaRepository.findById(id).ifPresent(employeeJpaRepository::delete);

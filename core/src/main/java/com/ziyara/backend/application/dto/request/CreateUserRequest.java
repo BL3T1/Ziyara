@@ -1,6 +1,5 @@
 package com.ziyara.backend.application.dto.request;
 
-import com.ziyara.backend.domain.enums.UserRole;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -9,11 +8,6 @@ import lombok.Data;
 
 import java.util.UUID;
 
-/**
- * Request DTO for creating a user (admin/HR).
- * Provide <strong>exactly one</strong> of {@code role} (enum) or {@code primaryRbacRoleId} ({@code sys_roles.id} from
- * GET /users/staff-role-options {@code rbacRoleId}).
- */
 @Data
 @Schema(description = "Create user request")
 public class CreateUserRequest {
@@ -23,6 +17,15 @@ public class CreateUserRequest {
     @Schema(description = "User email", requiredMode = Schema.RequiredMode.REQUIRED)
     private String email;
 
+    @Schema(description = "Login username for company staff (unique, required for company dashboard accounts)")
+    private String username;
+
+    @Schema(description = "First name")
+    private String firstName;
+
+    @Schema(description = "Last name")
+    private String lastName;
+
     @NotBlank
     @Size(min = 6, max = 100, message = "Password must be between 6 and 100 characters")
     @Schema(description = "Password", requiredMode = Schema.RequiredMode.REQUIRED, minLength = 6)
@@ -31,14 +34,7 @@ public class CreateUserRequest {
     @Schema(description = "Phone number")
     private String phone;
 
-    @Schema(
-            description = "Internal company UserRole (legacy). Omit when primaryRbacRoleId is set.",
-            requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-    private UserRole role;
-
-    @Schema(
-            description = "Primary sys_roles row (from staff-role-options.rbacRoleId). Omit when role is set.",
-            requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+    @Schema(description = "Primary sys_roles row (from staff-role-options.rbacRoleId)", requiredMode = Schema.RequiredMode.REQUIRED)
     private UUID primaryRbacRoleId;
 
     @Schema(description = "Initial status; default ACTIVE when omitted (staff can sign in immediately)")

@@ -4,6 +4,8 @@ import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.infrastructure.persistence.entity.ServiceProviderJpaEntity;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+
 /**
  * Mapper: ServiceProviderMapper
  */
@@ -29,8 +31,9 @@ public class ServiceProviderMapper {
         provider.setType(entity.getProviderType());
         provider.setRegistrationNumber(entity.getRegistrationNumber());
         provider.setUserId(entity.getCreatedBy());
-        provider.setRating(entity.getRating() != null ? entity.getRating() : 0.0);
+        provider.setRating(entity.getRating() != null ? entity.getRating() : BigDecimal.ZERO);
         provider.setReviewCount(entity.getReviewCount() != null ? entity.getReviewCount() : 0);
+        provider.setGlobalRate(entity.getGlobalRate() != null ? entity.getGlobalRate() : BigDecimal.ZERO);
         provider.setStatus(entity.getStatus());
         provider.setVerified(entity.getVerified() != null && entity.getVerified());
         provider.setCommissionRate(entity.getCommissionRate());
@@ -38,6 +41,7 @@ public class ServiceProviderMapper {
         provider.setUpdatedAt(entity.getUpdatedAt());
         provider.setApprovedBy(entity.getApprovedBy());
         provider.setApprovedAt(entity.getApprovedAt());
+        provider.setExpiryDate(entity.getExpiryDate());
 
         return provider;
     }
@@ -63,6 +67,7 @@ public class ServiceProviderMapper {
                 .createdBy(provider.getUserId())
                 .rating(provider.getRating())
                 .reviewCount(provider.getReviewCount())
+                .globalRate(provider.getGlobalRate() != null ? provider.getGlobalRate() : BigDecimal.ZERO)
                 .status(provider.getStatus())
                 .verified(provider.isVerified())
                 .commissionRate(provider.getCommissionRate())
@@ -70,6 +75,7 @@ public class ServiceProviderMapper {
                 .approvedAt(provider.getApprovedAt())
                 .createdAt(provider.getCreatedAt())
                 .updatedAt(provider.getUpdatedAt())
+                .expiryDate(provider.getExpiryDate())
                 .build();
     }
 }

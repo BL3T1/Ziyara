@@ -21,7 +21,15 @@ public enum NotificationType {
     /** Company staff account was created (HR visibility). */
     STAFF_USER_CREATED("Staff User Created"),
     /** Booking moved to confirmed (ops visibility). */
-    BOOKING_CONFIRMED_STAFF("Booking Confirmed (Staff)");
+    BOOKING_CONFIRMED_STAFF("Booking Confirmed (Staff)"),
+    /** Provider portal support request submitted to Ziyara staff. */
+    PORTAL_SUPPORT_REQUEST("Provider Support Request"),
+    /** Provider submitted media (image) awaiting admin review. */
+    MEDIA_SUBMISSION_PENDING("Media Submission Pending"),
+    /** Partner account will expire within 7 days — admin action needed. */
+    PROVIDER_EXPIRY_WARNING("Partner Expiry Warning"),
+    /** Partner account has expired today — login blocked until renewed. */
+    PROVIDER_EXPIRED("Partner Account Expired");
 
     private final String displayName;
 

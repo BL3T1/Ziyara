@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
@@ -28,4 +29,22 @@ public class AddTaxiRequest {
 
     @Schema(description = "Scheduled time")
     private LocalDateTime scheduledAt;
+
+    @Schema(description = "Pickup latitude")
+    private Double pickupLatitude;
+
+    @Schema(description = "Pickup longitude")
+    private Double pickupLongitude;
+
+    @Schema(description = "Destination latitude")
+    private Double destinationLatitude;
+
+    @Schema(description = "Destination longitude")
+    private Double destinationLongitude;
+
+    @Schema(description = "Estimated distance in km")
+    private BigDecimal estimatedDistance;
+
+    @Schema(description = "Estimated price")
+    private BigDecimal estimatedPrice;
 }

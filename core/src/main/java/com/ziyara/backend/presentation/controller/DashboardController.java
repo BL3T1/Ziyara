@@ -11,7 +11,7 @@ import com.ziyara.backend.application.dto.response.ServiceHealthResponse;
 import com.ziyara.backend.application.query.DashboardQueryHandler;
 import com.ziyara.backend.application.service.DashboardBootstrapService;
 import com.ziyara.backend.application.service.DashboardService;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,7 +31,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/dashboard")
 @RequiredArgsConstructor
-@PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+@PreAuthorize(COMPANY_STAFF)
 @Tag(name = "Dashboard", description = "Dashboard KPIs and activity feed")
 @SecurityRequirement(name = "bearerAuth")
 public class DashboardController {
@@ -81,7 +81,7 @@ public class DashboardController {
     }
 
     @GetMapping("/bootstrap")
-    @Operation(summary = "Dashboard bootstrap", description = "Returns KPIs, activity, service health, commission, and payouts in one response (parallel assembly on server)")
+    @Operation(summary = "Dashboard bootstrap", description = "Returns KPIs, activity, service health, commission, and payouts in one response (parallel assembly on server, cached 30 s)")
     public ResponseEntity<ApiResponse<DashboardBootstrapResponse>> getBootstrap(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
@@ -90,7 +90,7 @@ public class DashboardController {
     }
 
     @GetMapping("/live")
-    @Operation(summary = "Dashboard live refresh", description = "KPIs, activity, and service health only (for polling without recomputing commission/payouts)")
+    @Operation(summary = "Dashboard live refresh", description = "KPIs, activity, and service health only (for polling without recomputing commission/payouts, cached 15 s)")
     public ResponseEntity<ApiResponse<DashboardLiveResponse>> getLive(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,

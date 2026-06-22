@@ -1,25 +1,51 @@
 # Run from the repo root (folder with this file) so Docker Compose loads `.env` next to this file.
-# If POSTGRES_PASSWORD changes, use `docker compose ... down -v` once so Postgres re-inits the volume.
+# If POSTGRES_PASSWORD changes, use `docker compose down -v` once so Postgres re-inits the volume.
+#
+# ─── PROFILES ──────────────────────────────────────────────────────────────────
+#  (none)     – core stack only: postgres, redis, kafka, backend, api-nginx
+#
+#  portmode   – ★ RECOMMENDED FOR LOCAL DEV ★  All 3 surfaces on separate HTTP ports
+#               + monitoring stack + pgAdmin + NPM. One command starts everything.
+#               docker compose --profile portmode up -d --build
+#               http://localhost:7050   → Company dashboard
+#               http://localhost:7060   → Provider portal
+#               http://localhost:7070   → Landing page
+#               http://localhost:7005   → API (direct, only if BACKEND_BIND_IP=0.0.0.0)
+#               http://localhost:7083   → Prometheus
+#               http://localhost:7085   → Grafana
+#               http://localhost:7065   → pgAdmin
+#               http://localhost:7081   → NPM admin UI
+#               From LAN: set PORTMODE_HOST=<your-lan-ip> in .env and rebuild.
+#
+#  ipmode     – PRODUCTION. Single gateway nginx with TLS termination on BIND_IP.
+#               Includes monitoring (Prometheus/Grafana) reachable on BIND_IP over HTTPS.
+#               pgAdmin is NOT in this profile — use SSH tunnel: ssh -L 7065:127.0.0.1:7065 user@server
+#               Requires: cd infra/certs && sh generate.sh   (first time only)
+#               Required .env vars: BIND_IP, BACKEND_BIND_IP=127.0.0.1,
+#                 API_EXTERNAL_URL=https://IP:7005/api/v1, ZIYARA_CORS_ALLOWED_ORIGINS,
+#                 GRAFANA_PASSWORD
+# ───────────────────────────────────────────────────────────────────────────────
 services:
+
   # =============================================================================
-  # DATABASE SERVICE - PostgreSQL
+  # POSTGRES
   # =============================================================================
   postgres:
-    build:
-      context: ./database
-      dockerfile: Dockerfile
-    image: ziyarah-db:latest
+    image: postgres:15.17-alpine3.23
     container_name: ziyarah-db
     restart: unless-stopped
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
     environment:
       POSTGRES_DB: ziyarah
       POSTGRES_USER: ziyarah_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5432:5432"
+      - "127.0.0.1:7001:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./infra/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     networks:
       - ziyarah-network
     healthcheck:
@@ -28,6 +54,105 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # =============================================================================
+  # PGBOUNCER — connection pooler in SESSION mode (required by RLS)
+  #
+  # Pool mode is SESSION (not transaction): the app's RlsAwareDataSource sets
+  # session-level GUCs (app.current_user_id etc.) at connection acquire time.
+  # Transaction-mode would silently clear these between statements, breaking RLS.
+  #
+  # userlist.txt only needs the 'pgbouncer' admin user hash. App users are looked
+  # up dynamically via pgbouncer.get_auth() (V62 migration). To refresh the
+  # pgbouncer admin hash after a password change:
+  #   docker exec -it ziyarah-db psql -U ziyarah_user -d ziyarah \
+  #     -c "SELECT concat('\"', usename, '\" \"', passwd, '\"') FROM pg_shadow WHERE usename = 'pgbouncer';"
+  #   # Paste result into infra/pgbouncer/userlist.txt, then:
+  #   docker compose up pgbouncer -d --force-recreate
+  #
+  # Admin console (inside Docker network):
+  #   psql -h pgbouncer -p 5432 -U pgbouncer pgbouncer
+  # =============================================================================
+  pgbouncer:
+    image: pgbouncer/pgbouncer@sha256:aa8a38b7b33e5fe70c679053f97a8e55c74d52b00c195f0880845e52b50ce516
+    container_name: ziyarah-pgbouncer
+    restart: unless-stopped
+    environment:
+      # Database routing
+      DATABASES_HOST: postgres
+      DATABASES_PORT: 5432
+      DATABASES_DBNAME: ziyarah
+      # SESSION mode — required: RlsAwareDataSource sets session-level GUCs
+      # (app.current_user_id etc.) that must survive for the connection lifetime.
+      PGBOUNCER_POOL_MODE: session
+      PGBOUNCER_MAX_CLIENT_CONN: 400
+      # Session mode is 1-client-to-1-server. Sized to cover HikariCP max-pool-size (80)
+      # across all backend replicas (2 × 80 = 160) plus headroom for admin / health-check.
+      PGBOUNCER_DEFAULT_POOL_SIZE: 170
+      # Pre-warm: 2 replicas × 10 minimum-idle each.
+      PGBOUNCER_MIN_POOL_SIZE: 20
+      # Auth — userlist.txt holds only the pgbouncer admin user's SCRAM hash.
+      # App users (ziyarah_user etc.) are authenticated dynamically via auth_query:
+      # PgBouncer connects to PostgreSQL as AUTH_USER and calls get_auth($1) to
+      # retrieve the current SCRAM hash. No manual hash sync needed on password rotation.
+      PGBOUNCER_LISTEN_PORT: 5432
+      PGBOUNCER_AUTH_TYPE: scram-sha-256
+      PGBOUNCER_AUTH_FILE: /etc/pgbouncer/userlist.txt
+      PGBOUNCER_AUTH_USER: pgbouncer
+      PGBOUNCER_AUTH_QUERY: "SELECT * FROM pgbouncer.get_auth($1)"
+      PGBOUNCER_ADMIN_USERS: pgbouncer
+      PGBOUNCER_STATS_USERS: pgbouncer
+      # Spring JDBC sends application_name + extra_float_digits on connect
+      PGBOUNCER_IGNORE_STARTUP_PARAMETERS: extra_float_digits,application_name
+      PGBOUNCER_SERVER_CONNECT_TIMEOUT: 15
+      # Release freed server connections 60 s after HikariCP's own idle-timeout (300 s) evicts them.
+      PGBOUNCER_SERVER_IDLE_TIMEOUT: 360
+      # Fail fast if the pool is temporarily exhausted instead of queuing for 120 s (default).
+      PGBOUNCER_QUERY_WAIT_TIMEOUT: 15
+      # Fire OS-level TCP keepalive probes on the PgBouncer→Postgres socket.
+      # Docker bridge networks can silently drop idle connections; without this,
+      # the first query after an idle period hits a dead socket and fails.
+      PGBOUNCER_TCP_KEEPALIVE: 1
+      PGBOUNCER_LOG_CONNECTIONS: 0
+      PGBOUNCER_LOG_DISCONNECTIONS: 0
+      PGBOUNCER_LOG_POOLER_ERRORS: 1
+    volumes:
+      # The image generates pgbouncer.ini from env vars above — do NOT mount it.
+      # Only mount userlist.txt; the image never overwrites it.
+      - ./infra/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    ports:
+      - "127.0.0.1:7002:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 5432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
 
   # =============================================================================
   # KAFKA (KRaft single node) — staff notification pipeline
@@ -49,13 +174,75 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx256m"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # Retain messages 48 h; cap at 512 MB per topic to prevent unbounded disk growth
+      KAFKA_LOG_RETENTION_HOURS: 48
+      KAFKA_LOG_RETENTION_BYTES: 536870912
     ports:
-      - "9092:9092"
+      - "127.0.0.1:7004:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
     networks:
       - ziyarah-network
+    healthcheck:
+      test: ["CMD-SHELL",
+             "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 384m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # =============================================================================
-  # BACKEND SERVICE - Spring Boot
+  # REDIS — JWT blocklist + login rate-limiting
+  # =============================================================================
+  redis:
+    image: redis:7.2-alpine
+    container_name: ziyarah-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --save 60 1
+      --appendonly yes
+      --appendfsync everysec
+      --loglevel warning
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
+    ports:
+      - "127.0.0.1:7003:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 384m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # =============================================================================
+  # BACKEND — Spring Boot
   # =============================================================================
   backend:
     build:
@@ -65,31 +252,50 @@ services:
     container_name: ziyarah-backend
     restart: unless-stopped
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ziyarah
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://pgbouncer:5432/ziyarah
       SPRING_DATASOURCE_USERNAME: ziyarah_user
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
-      # Schema comes from database image init scripts (see database/Dockerfile). Hibernate update is slow and can time out Hikari during metadata.
       SPRING_JPA_HIBERNATE_DDL_AUTO: none
       SPRING_JPA_SHOW_SQL: "false"
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
-      APP_DEMO_PASSWORD: ${APP_DEMO_PASSWORD:-Demo123!}
-      JWT_EXPIRATION: 86400000
+      ZIYARA_PII_ENCRYPTION_KEY_BASE64: ${ZIYARA_PII_ENCRYPTION_KEY_BASE64:?ZIYARA_PII_ENCRYPTION_KEY_BASE64 must be set (openssl rand -base64 32)}
+      # Required: bootstrap password for the super-admin account on first startup.
+      APP_DEMO_PASSWORD: ${APP_DEMO_PASSWORD:?APP_DEMO_PASSWORD must be set}
       SERVER_PORT: 8080
-      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics
-      # Use underscores; hyphens break relaxed binding for show-details
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus
       MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: when_authorized
       APP_MEDIA_STORAGE_ROOT: /data/media
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      ZIYARA_RATE_LIMIT_LOGIN_REDIS_ENABLED: "true"
+      # Connection pool — 80 connections per replica; 2 replicas → 160 total server slots.
+      # PgBouncer pool_size=170 and postgres max_connections=180 accommodate this.
+      SPRING_DATASOURCE_HIKARI_MAX_POOL_SIZE: "80"
+      SPRING_DATASOURCE_HIKARI_MIN_IDLE: "10"
+      # Set ZIYARA_CORS_ALLOWED_ORIGINS in .env to your real domain(s).
+      ZIYARA_CORS_ALLOWED_ORIGINS: ${ZIYARA_CORS_ALLOWED_ORIGINS:-}
+      # JWT cookie flags: Secure must be false on plain-HTTP (portmode/LAN).
+      # Set JWT_COOKIE_SECURE=true in .env only when running behind HTTPS.
+      JWT_COOKIE_SECURE: ${JWT_COOKIE_SECURE:-false}
+      JWT_COOKIE_SAME_SITE: ${JWT_COOKIE_SAME_SITE:-Lax}
+      # Return the token in the JSON body AND set the cookie so both auth
+      # strategies (Bearer header and HttpOnly cookie) work simultaneously.
+      JWT_ALSO_RETURN_TOKEN_IN_BODY: ${JWT_ALSO_RETURN_TOKEN_IN_BODY:-true}
     ports:
-      - "8080:8080"
+      # Direct debug access — api-nginx (port 7005) should be the normal entry point.
+      # Use this port only for swagger/debugging when the nginx service is not running.
+      - "${BACKEND_BIND_IP:-127.0.0.1}:${BACKEND_DIRECT_PORT:-7008}:8080"
     volumes:
       - media_data:/data/media
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - ziyarah-network
     healthcheck:
@@ -98,82 +304,135 @@ services:
       timeout: 10s
       retries: 10
       start_period: 120s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1536m
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   # =============================================================================
-  # FRONTEND (CRA) - Legacy React app on port 80 (optional: build may need node/package fix)
+  # BACKEND REPLICA 2 — identical to 'backend'; no direct debug port exposed.
+  # Both replicas share the same media_data volume (same host, safe for
+  # single-host deployments; migrate to NFS/S3 for multi-host).
   # =============================================================================
-  frontend:
-    profiles:
-      - full
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        REACT_APP_API_URL: http://localhost:8080/api/v1
-    image: ziyarah-frontend:latest
-    container_name: ziyarah-frontend
+  backend-2:
+    image: ziyarah-backend:latest
+    container_name: ziyarah-backend-2
     restart: unless-stopped
-    ports:
-      - "80:80"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://pgbouncer:5432/ziyarah
+      SPRING_DATASOURCE_USERNAME: ziyarah_user
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: none
+      SPRING_JPA_SHOW_SQL: "false"
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      ZIYARA_PII_ENCRYPTION_KEY_BASE64: ${ZIYARA_PII_ENCRYPTION_KEY_BASE64:?ZIYARA_PII_ENCRYPTION_KEY_BASE64 must be set (openssl rand -base64 32)}
+      APP_DEMO_PASSWORD: ${APP_DEMO_PASSWORD:?APP_DEMO_PASSWORD must be set}
+      SERVER_PORT: 8080
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus
+      MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: when_authorized
+      APP_MEDIA_STORAGE_ROOT: /data/media
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      ZIYARA_RATE_LIMIT_LOGIN_REDIS_ENABLED: "true"
+      SPRING_DATASOURCE_HIKARI_MAX_POOL_SIZE: "80"
+      SPRING_DATASOURCE_HIKARI_MIN_IDLE: "10"
+      ZIYARA_CORS_ALLOWED_ORIGINS: ${ZIYARA_CORS_ALLOWED_ORIGINS:-}
+      JWT_COOKIE_SECURE: ${JWT_COOKIE_SECURE:-false}
+      JWT_COOKIE_SAME_SITE: ${JWT_COOKIE_SAME_SITE:-Lax}
+      JWT_ALSO_RETURN_TOKEN_IN_BODY: ${JWT_ALSO_RETURN_TOKEN_IN_BODY:-true}
+    volumes:
+      - media_data:/data/media
     depends_on:
-      backend:
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - ziyarah-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
-      interval: 30s
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/actuator/health"]
+      interval: 15s
       timeout: 10s
-      retries: 3
-      start_period: 10s
+      retries: 10
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1536m
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   # =============================================================================
-  # DASHBOARD (Vite) — legacy local port :3000 (opt-in profile only; not used for prod-like tests)
+  # API NGINX — load-balancing reverse proxy in front of the backend replicas.
+  # Distributes REST traffic with least-conn across backend + backend-2.
+  # Routes WebSocket (STOMP) with ip_hash so subscriptions stay on one JVM.
+  # Sheds overloaded requests with a fast 503 + Retry-After.
   # =============================================================================
-  dashboard:
+  api-nginx:
+    image: nginx:1.28.2-alpine
+    container_name: ziyarah-api-nginx
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_BIND_IP:-127.0.0.1}:${BACKEND_PORT:-7005}:80"
+    volumes:
+      - ./infra/nginx/api-nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      backend-2:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:80/api/v1/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 64m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # =============================================================================
+  # PORT MODE — 3 surfaces on separate HTTP ports (profile: portmode)
+  # ★ RECOMMENDED FOR LOCAL DEV ★
+  # =============================================================================
+  company-portmode:
     profiles:
-      - legacy
+      - portmode
     build:
       context: ./front/my-app
       dockerfile: Dockerfile
       args:
         VITE_API_URL: /api/v1
         VITE_APP_SURFACE: company
-    image: ziyarah-dashboard:latest
-    container_name: ziyarah-dashboard
+        VITE_PROVIDER_APP_URL: http://${PORTMODE_HOST:-localhost}:${PROVIDER_PORT:-7060}
+    image: ziyarah-company-portmode:latest
+    container_name: ziyarah-company-portmode
     restart: unless-stopped
     ports:
-      - "3000:80"
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - ziyarah-network
-    healthcheck:
-      # 127.0.0.1 avoids IPv6 localhost (::1) failing when nginx is IPv4-only
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-
-  # =============================================================================
-  # MULTI-DOMAIN (profile: multidomain) — edge proxy + company / provider / landing bundles
-  # =============================================================================
-  dashboard-company:
-    profiles:
-      - multidomain
-    build:
-      context: ./front/my-app
-      dockerfile: Dockerfile
-      args:
-        VITE_API_URL: /api/v1
-        VITE_APP_SURFACE: company
-    image: ziyarah-dashboard-company:latest
-    container_name: ziyarah-dashboard-company
-    restart: unless-stopped
-    expose:
-      - "80"
+      - "${BIND_IP:-0.0.0.0}:${COMPANY_PORT:-7050}:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -185,21 +444,26 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
 
-  dashboard-provider:
+  provider-portmode:
     profiles:
-      - multidomain
+      - portmode
     build:
       context: ./front/my-app
       dockerfile: Dockerfile
       args:
         VITE_API_URL: /api/v1
         VITE_APP_SURFACE: provider
-    image: ziyarah-dashboard-provider:latest
-    container_name: ziyarah-dashboard-provider
+    image: ziyarah-provider-portmode:latest
+    container_name: ziyarah-provider-portmode
     restart: unless-stopped
-    expose:
-      - "80"
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${PROVIDER_PORT:-7060}:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -211,23 +475,28 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
 
-  landing:
+  landing-portmode:
     profiles:
-      - multidomain
+      - portmode
     build:
       context: ./front/my-app
       dockerfile: Dockerfile
       args:
         VITE_API_URL: /api/v1
         VITE_APP_SURFACE: landing
-        VITE_COMPANY_APP_URL: http://app.local
-        VITE_PROVIDER_APP_URL: http://partners.local
-    image: ziyarah-landing:latest
-    container_name: ziyarah-landing
+        VITE_COMPANY_APP_URL: http://${PORTMODE_HOST:-localhost}:${COMPANY_PORT:-7050}
+        VITE_PROVIDER_APP_URL: http://${PORTMODE_HOST:-localhost}:${PROVIDER_PORT:-7060}
+    image: ziyarah-landing-portmode:latest
+    container_name: ziyarah-landing-portmode
     restart: unless-stopped
-    expose:
-      - "80"
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${LANDING_PORT:-7070}:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -239,49 +508,469 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
 
-  proxy:
+  # =============================================================================
+  # IP MODE — TLS gateway; all surfaces behind it (profile: ipmode)
+  # cd infra/certs && sh generate.sh   (first time only)
+  # =============================================================================
+  company-ipmode:
     profiles:
-      - multidomain
-    image: nginx:1.28.2-alpine
-    container_name: ziyarah-proxy
+      - ipmode
+    build:
+      context: ./front/my-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${API_EXTERNAL_URL:-https://10.45.30.145:7005/api/v1}
+        VITE_APP_SURFACE: company
+        VITE_PROVIDER_APP_URL: ${PROVIDER_URL:-https://10.45.30.145:7060}
+    image: ziyarah-company-ipmode:latest
+    container_name: ziyarah-company-ipmode
     restart: unless-stopped
-    ports:
-      - "80:80"
-    volumes:
-      - ./infra/nginx/multi-domain.conf:/etc/nginx/conf.d/default.conf:ro
+    expose:
+      - "80"
     depends_on:
-      dashboard-company:
-        condition: service_healthy
-      dashboard-provider:
-        condition: service_healthy
-      landing:
-        condition: service_healthy
       backend:
         condition: service_healthy
     networks:
       - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  provider-ipmode:
+    profiles:
+      - ipmode
+    build:
+      context: ./front/my-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${API_EXTERNAL_URL:-https://10.45.30.145:7005/api/v1}
+        VITE_APP_SURFACE: provider
+    image: ziyarah-provider-ipmode:latest
+    container_name: ziyarah-provider-ipmode
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  landing-ipmode:
+    profiles:
+      - ipmode
+    build:
+      context: ./front/my-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${API_EXTERNAL_URL:-https://10.45.30.145:7005/api/v1}
+        VITE_APP_SURFACE: landing
+        VITE_COMPANY_APP_URL: ${COMPANY_URL:-https://10.45.30.145:7050}
+        VITE_PROVIDER_APP_URL: ${PROVIDER_URL:-https://10.45.30.145:7060}
+    image: ziyarah-landing-ipmode:latest
+    container_name: ziyarah-landing-ipmode
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  gateway:
+    profiles:
+      - ipmode
+    image: nginx:1.28.2-alpine
+    container_name: ziyarah-gateway
+    restart: unless-stopped
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${BACKEND_PORT:-7005}:${BACKEND_PORT:-7005}"
+      - "${BIND_IP:-127.0.0.1}:${COMPANY_PORT:-7050}:${COMPANY_PORT:-7050}"
+      - "${BIND_IP:-127.0.0.1}:${PROVIDER_PORT:-7060}:${PROVIDER_PORT:-7060}"
+      - "${BIND_IP:-127.0.0.1}:${LANDING_PORT:-7070}:${LANDING_PORT:-7070}"
+      - "${BIND_IP:-127.0.0.1}:${PROMETHEUS_PORT:-7083}:${PROMETHEUS_PORT:-7083}"
+      - "${BIND_IP:-127.0.0.1}:${GRAFANA_PORT:-7085}:${GRAFANA_PORT:-7085}"
+    volumes:
+      - ./infra/nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./infra/certs/server.crt:/etc/nginx/certs/server.crt:ro
+      - ./infra/certs/server.key:/etc/nginx/certs/server.key:ro
+    depends_on:
+      api-nginx:
+        condition: service_healthy
+      company-ipmode:
+        condition: service_healthy
+      provider-ipmode:
+        condition: service_healthy
+      landing-ipmode:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
 
   # =============================================================================
-  # PGADMIN - PostgreSQL admin UI (optional: docker compose up ... pgadmin)
-  # Login: PGADMIN_DEFAULT_EMAIL / PGADMIN_DEFAULT_PASSWORD (defaults below).
-  # Add server: Host=postgres, Port=5432, DB=ziyarah, User=ziyarah_user, Password=${POSTGRES_PASSWORD}
+  # CADVISOR — per-container CPU / RAM / network / I/O metrics (profile: monitoring)
+  # Access: http://localhost:7086/metrics  (loopback only)
+  # =============================================================================
+  cadvisor:
+    profiles:
+      - portmode
+      - ipmode
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: ziyarah-cadvisor
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    ports:
+      - "127.0.0.1:7086:8080"
+    networks:
+      - ziyarah-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # =============================================================================
+  # NODE EXPORTER — host CPU / RAM / disk / network metrics (profile: monitoring)
+  # Access: http://localhost:7084/metrics  (loopback only)
+  # =============================================================================
+  node-exporter:
+    profiles:
+      - portmode
+      - ipmode
+    image: prom/node-exporter:v1.8.2
+    container_name: ziyarah-node-exporter
+    restart: unless-stopped
+    pid: "host"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "127.0.0.1:7084:9100"
+    networks:
+      - ziyarah-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # =============================================================================
+  # LOKI — log aggregation backend (profile: monitoring)
+  # Collects container logs shipped by Promtail.
+  # Access: http://localhost:7087  (loopback only — use SSH tunnel for remote)
+  # =============================================================================
+  loki:
+    profiles:
+      - portmode
+      - ipmode
+    image: grafana/loki:3.4.2
+    pull_policy: missing
+    container_name: ziyarah-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./infra/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    ports:
+      - "127.0.0.1:7087:3100"
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # =============================================================================
+  # PROMTAIL — log shipper: reads Docker json-file logs and pushes to Loki
+  # (profile: monitoring)
+  # =============================================================================
+  promtail:
+    profiles:
+      - portmode
+      - ipmode
+    image: grafana/promtail:3.4.2
+    pull_policy: missing
+    container_name: ziyarah-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail.yml
+    volumes:
+      - ./infra/promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      loki:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # =============================================================================
+  # PROMETHEUS — metrics scraper (profile: monitoring)
+  # Access: http://localhost:7083  (loopback only — SSH tunnel for remote access)
+  # =============================================================================
+  prometheus:
+    profiles:
+      - portmode
+      - ipmode
+    image: ubuntu/prometheus:3.11-26.04_stable
+    pull_policy: missing
+    container_name: ziyarah-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/rules:/etc/prometheus/rules:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-7083}:9090"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "/bin/promtool", "check", "healthy", "--url=http://localhost:9090"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # =============================================================================
+  # GRAFANA — dashboards (profile: monitoring)
+  # Access: http://localhost:7085  (loopback only — SSH tunnel for remote access)
+  # Set GRAFANA_PASSWORD in .env before starting.
+  # =============================================================================
+  grafana:
+    profiles:
+      - portmode
+      - ipmode
+    image: grafana/grafana:11.6.0
+    pull_policy: missing
+    container_name: ziyarah-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?GRAFANA_PASSWORD must be set}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # In ipmode, Grafana is served behind the TLS gateway — set root URL so
+      # redirects and asset paths resolve to the public HTTPS origin, not localhost:3000.
+      GF_SERVER_ROOT_URL: ${GF_SERVER_ROOT_URL:-http://localhost:7085}
+      GF_SERVER_SERVE_FROM_SUB_PATH: "false"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_BIND_IP:-0.0.0.0}:${GRAFANA_PORT:-7085}:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # =============================================================================
+  # PGADMIN — PostgreSQL admin UI (profile: admin)
+  # Access: http://localhost:7065  (loopback only)
+  # Server: Host=postgres  Port=5432  DB=ziyarah  User=ziyarah_user
   # =============================================================================
   pgadmin:
+    profiles:
+      - portmode
     image: dpage/pgadmin4:9
     container_name: ziyarah-pgadmin
     restart: unless-stopped
     environment:
-      # pgAdmin 9+ rejects .local as invalid (reserved TLD); use a normal domain for the default login email.
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@ziyara.local}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?PGADMIN_DEFAULT_PASSWORD must be set}
       PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
     ports:
-      - "5050:80"
+      # Loopback only — DB admin UI must never be public-facing.
+      - "${PGADMIN_BIND_IP:-127.0.0.1}:${PGADMIN_PORT:-7065}:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+      - ./infra/pgadmin/servers.json:/pgadmin4/servers.json:ro
     depends_on:
       postgres:
+        condition: service_healthy
+    networks:
+      - ziyarah-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # =============================================================================
+  # NGINX PROXY MANAGER — domain-based reverse proxy with Let's Encrypt (profile: npm)
+  # HTTP: 7080 (public)   HTTPS: 7082 (public)   Admin UI: 127.0.0.1:7081 (loopback only)
+  # First login: admin@example.com / changeme  — change immediately after first boot.
+  # =============================================================================
+  nginx-proxy-manager:
+    profiles:
+      - portmode
+    image: jc21/nginx-proxy-manager:2.15.1
+    container_name: ziyarah-npm
+    restart: unless-stopped
+    ports:
+      - "7080:80"
+      - "7082:443"
+      - "127.0.0.1:7081:81"
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
+    networks:
+      - ziyarah-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:81/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  npm-init:
+    profiles:
+      - portmode
+    image: alpine:3.20
+    container_name: ziyarah-npm-init
+    restart: "no"
+    command: sh -c "apk add -q --no-cache curl && sh /init.sh"
+    volumes:
+      - ./infra/npm/init.sh:/init.sh:ro
+    environment:
+      NPM_ADMIN_EMAIL: ${NPM_ADMIN_EMAIL:-admin@ziyara.local}
+      NPM_ADMIN_PASS: ${NPM_ADMIN_PASS:-changeme}
+    depends_on:
+      nginx-proxy-manager:
         condition: service_healthy
     networks:
       - ziyarah-network
@@ -292,9 +981,23 @@ services:
 volumes:
   postgres_data:
     driver: local
+  redis_data:
+    driver: local
   media_data:
     driver: local
+  kafka_data:
+    driver: local
   pgadmin_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  loki_data:
+    driver: local
+  grafana_data:
+    driver: local
+  npm_data:
+    driver: local
+  npm_letsencrypt:
     driver: local
 
 # =============================================================================

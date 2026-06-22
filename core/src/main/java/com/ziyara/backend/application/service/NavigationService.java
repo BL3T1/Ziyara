@@ -7,8 +7,9 @@ import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.repository.RoleRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.domain.repository.UserRoleAssignmentRepository;
-import com.ziyara.backend.presentation.exception.BusinessException;
+import com.ziyara.backend.application.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ public class NavigationService {
     private final UserRoleAssignmentRepository userRoleAssignmentRepository;
     private final RoleRepository roleRepository;
 
+    @Cacheable(value = "userNavigation", key = "#userId")
     @Transactional(readOnly = true)
     public UserNavigationResponse resolveNavigationForUser(UUID userId) {
         User user = userRepository.findById(userId)
@@ -32,16 +34,16 @@ public class NavigationService {
         Optional<UUID> assignedRoleId = userRoleAssignmentRepository.findNewestRoleIdForUser(userId);
         if (assignedRoleId.isPresent()) {
             Role rbacRole = roleRepository.findById(assignedRoleId.get()).orElse(null);
-            if (rbacRole != null && rbacRole.getNavigationItemIds() != null && !rbacRole.getNavigationItemIds().isEmpty()) {
+            // Non-null (including empty list) means the nav was explicitly set by an admin — respect it exactly.
+            // null means never customized — fall through to defaults below.
+            if (rbacRole != null && rbacRole.getNavigationItemIds() != null) {
                 List<String> ids = CompanySidebarCatalog.sanitizeVisibleItemIds(rbacRole.getNavigationItemIds());
-                if (!ids.isEmpty()) {
-                    return UserNavigationResponse.builder()
-                            .visibleItemIds(ids)
-                            .source("rbac_role")
-                            .rbacRoleId(rbacRole.getId())
-                            .rbacRoleCode(rbacRole.getCode())
-                            .build();
-                }
+                return UserNavigationResponse.builder()
+                        .visibleItemIds(ids)
+                        .source("rbac_role")
+                        .rbacRoleId(rbacRole.getId())
+                        .rbacRoleCode(rbacRole.getCode())
+                        .build();
             }
         }
 

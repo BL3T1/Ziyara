@@ -3,32 +3,45 @@ package com.ziyara.backend.application.service;
 import com.ziyara.backend.application.dto.AuthRequest;
 import com.ziyara.backend.application.dto.AuthResponse;
 import com.ziyara.backend.application.dto.request.*;
+import com.ziyara.backend.domain.entity.Customer;
+import com.ziyara.backend.domain.entity.OtpVerification;
+import com.ziyara.backend.domain.entity.PasswordResetToken;
 import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.enums.ProviderStatus;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
+import com.ziyara.backend.domain.repository.CustomerRepository;
+import com.ziyara.backend.domain.repository.OtpVerificationRepository;
+import com.ziyara.backend.domain.repository.PasswordResetTokenRepository;
+import com.ziyara.backend.domain.repository.ProviderStaffRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.infrastructure.security.crypto.PiiCryptoService;
 import com.ziyara.backend.infrastructure.security.crypto.TotpService;
-import com.ziyara.backend.infrastructure.persistence.entity.OtpVerificationJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.entity.PasswordResetTokenJpaEntity;
-import com.ziyara.backend.infrastructure.persistence.repository.OtpVerificationJpaRepository;
-import com.ziyara.backend.infrastructure.persistence.repository.PasswordResetTokenJpaRepository;
-import com.ziyara.backend.infrastructure.persistence.repository.ProviderStaffJpaRepository;
 import com.ziyara.backend.infrastructure.security.JwtService;
+import com.ziyara.backend.application.annotation.Audited;
+import com.ziyara.backend.application.exception.MfaEnrollmentRequiredException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 /**
  * Service: AuthService
@@ -44,54 +57,70 @@ public class AuthService {
     private static final int OTP_EXPIRY_MINUTES = 10;
     private static final int OTP_LENGTH = 6;
 
+    /**
+     * Comma-separated {@link UserRole} names that require TOTP enrollment before login.
+     * Controlled by {@code ZIYARA_SECURITY_MFA_REQUIRED_ROLES}. Empty = no enforcement (dev default).
+     */
+    @Value("${ziyara.security.mfa-required-roles:}")
+    private String mfaRequiredRolesRaw;
+
     private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
     private final ServiceProviderRepository serviceProviderRepository;
-    private final ProviderStaffJpaRepository providerStaffJpaRepository;
+    private final ProviderStaffRepository providerStaffRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
-    private final PasswordResetTokenJpaRepository passwordResetTokenRepository;
-    private final OtpVerificationJpaRepository otpVerificationRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final OtpVerificationRepository otpVerificationRepository;
     private final PasswordHistoryService passwordHistoryService;
     private final TotpService totpService;
     private final PiiCryptoService piiCryptoService;
     private final JwtTokenBlocklistService jwtTokenBlocklistService;
     private final PasswordPolicyService passwordPolicyService;
     private final AuthEmailNotificationService authEmailNotificationService;
-    
+    private final LoginAuditService loginAuditService;
+
+    // Non-final: requires @Qualifier which is incompatible with @RequiredArgsConstructor.
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("bcryptExecutor")
+    private Executor bcryptExecutor;
+
+    @Audited(action = "USER_LOGIN", entityType = "Auth")
     @Transactional
     public AuthResponse authenticate(AuthRequest request, String ipAddress) {
-        String emailNorm = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase(Locale.ROOT);
-        log.info("Authenticating user: {}", emailNorm);
-        
-        // Find user by email (normalized; staff creation stores lowercase)
-        User user = userRepository.findByEmail(emailNorm)
-                .orElseThrow(() -> new AuthenticationException("Invalid email or password"));
-        
-        // Check if user can login
+        String identifier = request.getEmail() == null ? "" : request.getEmail().trim();
+        log.info("Authenticating user: {}", identifier);
+
+        User user = userRepository.findByUsername(identifier)
+                .or(() -> userRepository.findByEmail(identifier.toLowerCase(Locale.ROOT)))
+                .orElseThrow(() -> new AuthenticationException("Invalid credentials"));
+
         if (!user.getStatus().canLogin()) {
             throw new AuthenticationException("Account is not active. Status: " + user.getStatus());
         }
 
-        if (isPartnerPortalRole(user.getRole())) {
-            serviceProviderRepository.findByUserId(user.getId()).ifPresent(sp -> {
-                if (sp.getStatus() != ProviderStatus.ACTIVE) {
-                    throw new AuthenticationException(
-                            "Partner account is not active yet. Provider status: " + sp.getStatus().name());
-                }
-            });
-        }
+        // Fix 5: capture once — reused below for JWT scope to avoid a duplicate DB round-trip.
+        Optional<ServiceProvider> ownedProvider = serviceProviderRepository.findByUserId(user.getId());
+        ownedProvider.ifPresent(sp -> {
+            if (sp.getStatus() != ProviderStatus.ACTIVE) {
+                throw new AuthenticationException(
+                        "Partner account is not active yet. Provider status: " + sp.getStatus().name());
+            }
+            if (sp.isExpired()) {
+                throw new AuthenticationException(
+                        "Partner account has expired. Please contact your administrator to renew.");
+            }
+        });
 
-        // Check if account is locked
         if (user.isLocked()) {
             throw new AuthenticationException("Account is temporarily locked. Please try again later.");
         }
-        
-        // Verify password
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            // Increment failed attempts
+
+        // Fix 4: BCrypt runs on a bounded pool so it cannot pin all virtual-thread carrier threads.
+        if (!verifyPassword(request.getPassword(), user.getPasswordHash())) {
             user.incrementFailedLoginAttempts();
             userRepository.save(user);
-            throw new AuthenticationException("Invalid email or password");
+            throw new AuthenticationException("Invalid credentials");
         }
 
         if (user.isMfaEnabled()) {
@@ -109,18 +138,29 @@ public class AuthService {
             }
             user.setMfaLastUsedAt(LocalDateTime.now());
         }
-        
-        // Record successful login
-        user.recordSuccessfulLogin(ipAddress);
-        userRepository.save(user);
-        
-        UUID providerScope = resolveProviderScopeForJwt(user);
-        // Generate tokens
+
+        // Enforce TOTP enrollment for roles listed in ZIYARA_SECURITY_MFA_REQUIRED_ROLES
+        if (!user.isMfaEnabled() && mfaRequiredRoles().contains(user.getRole())) {
+            throw new MfaEnrollmentRequiredException(
+                    "Your role (" + user.getRole() + ") requires TOTP enrollment before login. " +
+                    "Please enrol via POST /users/me/mfa/enroll/start using a temporary session, " +
+                    "or contact your administrator.");
+        }
+
+        // Fix 5: reuse the already-fetched provider Optional instead of calling the repo again.
+        UUID providerScope = ownedProvider.map(ServiceProvider::getId).orElseGet(() ->
+                providerStaffRepository.findByUserId(user.getId())
+                        .map(link -> link.getProviderId())
+                        .orElse(null));
         String accessToken = jwtService.generateAccessToken(user, providerScope);
         String refreshToken = jwtService.generateRefreshToken(user);
-        
+
+        // Fix 2: write lastLoginAt / reset failedLoginAttempts after the JWT is ready — client
+        // gets the token immediately without waiting for the users-table row lock.
+        loginAuditService.recordSuccessfulLogin(user.getId(), ipAddress);
+
         log.info("User authenticated successfully: {}", user.getEmail());
-        
+
         return AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -128,10 +168,14 @@ public class AuthService {
                 .expiresIn(jwtService.getExpirationTime())
                 .userId(user.getId())
                 .email(user.getEmail())
+                .fullName(buildFullName(user))
                 .role(user.getRole())
+                .mustChangePassword(user.isMustChangePassword())
+                .hasPortalAccess(providerScope != null)
                 .build();
     }
-    
+
+    @Audited(action = "USER_LOGOUT", entityType = "Auth")
     @Transactional
     public void logout(String accessToken, String refreshToken) {
         revokeTokenIfPresent(accessToken);
@@ -159,7 +203,7 @@ public class AuthService {
             if (jti != null) {
                 jwtTokenBlocklistService.revokeUntilExpiry(jti, jwtService.extractExpirationInstant(token));
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.debug("Logout revoke skipped: {}", e.getMessage());
         }
     }
@@ -175,7 +219,7 @@ public class AuthService {
         }
 
         String userId = jwtService.extractUserId(refreshToken);
-        User user = userRepository.findById(java.util.UUID.fromString(userId))
+        User user = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new AuthenticationException("User not found"));
 
         int tv = jwtService.extractTokenVersion(refreshToken);
@@ -202,39 +246,50 @@ public class AuthService {
                 .expiresIn(jwtService.getExpirationTime())
                 .userId(user.getId())
                 .email(user.getEmail())
+                .fullName(buildFullName(user))
                 .role(user.getRole())
+                .mustChangePassword(user.isMustChangePassword())
+                .hasPortalAccess(providerScope != null)
                 .build();
     }
 
+    @Audited(action = "USER_REGISTER", entityType = "Auth")
     @Transactional
     public void register(RegisterRequest request) {
         passwordPolicyService.assertAcceptable(request.getPassword());
-        if (isProviderPortalRole(request.getRole())) {
+        UserRole role = request.getRole() != null ? request.getRole() : UserRole.CUSTOMER;
+        if (role != UserRole.CUSTOMER) {
             throw new IllegalArgumentException(
-                    "Provider accounts must be created from provider onboarding so the provider profile is created and linked.");
+                    "Public self-registration is for customer accounts only.");
         }
         String emailNorm = normalizeEmail(request.getEmail());
         if (userRepository.existsByEmail(emailNorm)) {
             throw new IllegalArgumentException("Email already registered");
         }
-        if (request.getPhone() != null && !request.getPhone().isBlank() && userRepository.existsByPhone(request.getPhone())) {
+        if (request.getPhone() != null && !request.getPhone().isBlank()
+                && userRepository.existsByPhone(request.getPhone())) {
             throw new IllegalArgumentException("Phone already registered");
         }
         User user = new User();
-        // Do not set id; let JPA persist generate it so save() uses persist() not merge()
         user.setEmail(emailNorm);
         user.setPhone(request.getPhone());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setRole(request.getRole());
-        // Self-registered customers are ACTIVE so they can log in immediately; other flows can require verification
-        user.setStatus(request.getRole() == com.ziyara.backend.domain.enums.UserRole.CUSTOMER
-                ? UserStatus.ACTIVE
-                : UserStatus.PENDING_VERIFICATION);
+        user.setRole(role);
+        user.setStatus(role == UserRole.CUSTOMER ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION);
         userRepository.save(user);
+
+        if (role == UserRole.CUSTOMER) {
+            Customer customer = new Customer(user.getId(), request.getFirstName(), request.getLastName());
+            customer.setDateOfBirth(request.getDateOfBirth());
+            customer.setNationality(request.getNationality());
+            customerRepository.save(customer);
+        }
+
         log.info("User registered: {}", user.getEmail());
         storeAndEmailOtp(emailNorm, true);
     }
 
+    @Audited(action = "PASSWORD_FORGOT", entityType = "Auth")
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
         String emailNorm = normalizeEmail(request.getEmail());
@@ -246,20 +301,22 @@ public class AuthService {
         passwordResetTokenRepository.deleteByUserId(user.getId());
         String token = UUID.randomUUID().toString();
         Instant expiresAt = Instant.now().plusSeconds(PASSWORD_RESET_EXPIRY_MINUTES * 60L);
-        passwordResetTokenRepository.save(PasswordResetTokenJpaEntity.builder()
-                .userId(user.getId())
-                .token(token)
-                .expiresAt(expiresAt)
-                .build());
+        PasswordResetToken resetToken = new PasswordResetToken();
+        resetToken.setUserId(user.getId());
+        resetToken.setToken(token);
+        resetToken.setExpiresAt(expiresAt);
+        passwordResetTokenRepository.save(resetToken);
         authEmailNotificationService.sendPasswordReset(user.getEmail(), token);
         log.info("Password reset token generated for {}", user.getEmail());
     }
 
+    @Audited(action = "PASSWORD_RESET", entityType = "Auth")
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         passwordPolicyService.assertAcceptable(request.getNewPassword());
-        var tokenEntity = passwordResetTokenRepository.findByTokenAndExpiresAtAfter(
-                request.getToken(), Instant.now()).orElseThrow(() -> new AuthenticationException("Invalid or expired reset token"));
+        PasswordResetToken tokenEntity = passwordResetTokenRepository
+                .findValidByToken(request.getToken(), Instant.now())
+                .orElseThrow(() -> new AuthenticationException("Invalid or expired reset token"));
         User user = userRepository.findById(tokenEntity.getUserId())
                 .orElseThrow(() -> new AuthenticationException("User not found"));
         passwordHistoryService.assertPasswordNotReused(user.getId(), request.getNewPassword(), passwordEncoder, user.getPasswordHash());
@@ -268,7 +325,8 @@ public class AuthService {
         user.setLastPasswordChange(LocalDateTime.now());
         user.incrementTokenVersion();
         userRepository.save(user);
-        passwordResetTokenRepository.delete(tokenEntity);
+        // Delete all tokens for the user — the validated token is now consumed
+        passwordResetTokenRepository.deleteByUserId(tokenEntity.getUserId());
         log.info("Password reset completed for user: {}", user.getEmail());
     }
 
@@ -283,10 +341,10 @@ public class AuthService {
         if (key.contains("@")) {
             key = normalizeEmail(key);
         }
-        var entity = otpVerificationRepository.findByEmailOrPhoneAndOtpAndExpiresAtAfter(
-                key, request.getOtp(), Instant.now())
+        OtpVerification entity = otpVerificationRepository
+                .findValidByEmailOrPhoneAndOtp(key, request.getOtp(), Instant.now())
                 .orElseThrow(() -> new AuthenticationException("Invalid or expired OTP"));
-        otpVerificationRepository.delete(entity);
+        otpVerificationRepository.deleteByEmailOrPhone(entity.getEmailOrPhone());
         log.info("OTP verified for {}", key);
     }
 
@@ -319,14 +377,15 @@ public class AuthService {
         if (dest.contains("@")) {
             dest = normalizeEmail(dest);
         }
-        String otp = String.format("%0" + OTP_LENGTH + "d", new java.util.Random().nextInt((int) Math.pow(10, OTP_LENGTH)));
+        String otp = String.format("%0" + OTP_LENGTH + "d",
+                new java.util.Random().nextInt((int) Math.pow(10, OTP_LENGTH)));
         Instant expiresAt = Instant.now().plusSeconds(OTP_EXPIRY_MINUTES * 60L);
         otpVerificationRepository.deleteByEmailOrPhone(dest);
-        otpVerificationRepository.save(OtpVerificationJpaEntity.builder()
-                .emailOrPhone(dest)
-                .otp(otp)
-                .expiresAt(expiresAt)
-                .build());
+        OtpVerification otpEntity = new OtpVerification();
+        otpEntity.setEmailOrPhone(dest);
+        otpEntity.setOtp(otp);
+        otpEntity.setExpiresAt(expiresAt);
+        otpVerificationRepository.save(otpEntity);
         if (dest.contains("@")) {
             if (signupCopy) {
                 authEmailNotificationService.sendSignupOtp(dest, otp);
@@ -338,27 +397,90 @@ public class AuthService {
         log.debug("OTP value for {}: {}", dest, otp);
     }
 
-    private static boolean isPartnerPortalRole(UserRole role) {
-        return isProviderPortalRole(role);
-    }
-
-    private static boolean isProviderPortalRole(UserRole role) {
-        return role == UserRole.PROVIDER_MANAGER
-                || role == UserRole.PROVIDER_FINANCE
-                || role == UserRole.PROVIDER_STAFF
-                || role == UserRole.TAXI_OPERATOR;
+    /**
+     * Parses {@code ZIYARA_SECURITY_MFA_REQUIRED_ROLES} into a set of {@link UserRole} values.
+     * Unknown names (old enum values) are silently ignored so old configs don't crash.
+     * Returns an empty set when the property is blank (dev default — no enforcement).
+     */
+    private Set<UserRole> mfaRequiredRoles() {
+        if (mfaRequiredRolesRaw == null || mfaRequiredRolesRaw.isBlank()) {
+            return Set.of();
+        }
+        return Arrays.stream(mfaRequiredRolesRaw.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .flatMap(s -> {
+                    try {
+                        return java.util.stream.Stream.of(UserRole.valueOf(s));
+                    } catch (IllegalArgumentException e) {
+                        return java.util.stream.Stream.empty();
+                    }
+                })
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     /**
-     * Primary provider id for portal users (owner via {@code created_by} link, else first staff assignment).
+     * Generates an access token scoped to the given provider for the requesting admin.
+     * The admin retains their own identity and permissions (SUPER_ADMIN has portal:access via V17 seed),
+     * while the {@code pid} JWT claim restricts data visibility to that provider via RLS.
+     * Bypasses all normal auth checks and sends no notifications.
+     * Restricted to SUPER_ADMIN callers (enforced at the controller level).
+     */
+    @Transactional(readOnly = true)
+    public AuthResponse generateAdminProviderToken(UUID providerId, UUID adminUserId) {
+        ServiceProvider provider = serviceProviderRepository.findById(providerId)
+                .orElseThrow(() -> new IllegalArgumentException("Provider not found: " + providerId));
+        User admin = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Admin user not found: " + adminUserId));
+        String accessToken = jwtService.generateAccessToken(admin, provider.getId());
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .tokenType("Bearer")
+                .expiresIn(jwtService.getExpirationTime())
+                .userId(admin.getId())
+                .email(admin.getEmail())
+                .fullName(buildFullName(admin))
+                .role(admin.getRole())
+                .hasPortalAccess(true)
+                .build();
+    }
+
+    private static String buildFullName(User user) {
+        String first = user.getFirstName() != null ? user.getFirstName().trim() : "";
+        String last  = user.getLastName()  != null ? user.getLastName().trim()  : "";
+        String full  = (first + " " + last).trim();
+        return full.isEmpty() ? null : full;
+    }
+
+    /**
+     * Primary provider id for portal users (owner via userId link, else first staff assignment).
+     * Used by refreshToken() where no pre-fetched Optional is available.
      */
     private UUID resolveProviderScopeForJwt(User user) {
         Optional<ServiceProvider> owned = serviceProviderRepository.findByUserId(user.getId());
         if (owned.isPresent()) {
             return owned.get().getId();
         }
-        return providerStaffJpaRepository.findByUserId(user.getId())
+        return providerStaffRepository.findByUserId(user.getId())
                 .map(link -> link.getProviderId())
                 .orElse(null);
+    }
+
+    /**
+     * Runs BCrypt on a bounded executor so it cannot monopolise all JVM carrier threads.
+     * The calling virtual thread suspends (yielding its carrier) until the result is ready.
+     */
+    private boolean verifyPassword(String raw, String hash) {
+        try {
+            return CompletableFuture
+                    .supplyAsync(() -> passwordEncoder.matches(raw, hash), bcryptExecutor)
+                    .get(15, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (ExecutionException | TimeoutException e) {
+            log.warn("BCrypt verification timed out or failed: {}", e.getMessage());
+            return false;
+        }
     }
 }

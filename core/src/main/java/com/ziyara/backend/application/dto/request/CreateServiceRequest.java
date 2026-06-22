@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -18,8 +19,7 @@ import java.util.UUID;
 @Schema(description = "Request to create a service")
 public class CreateServiceRequest {
 
-    @NotNull
-    @Schema(description = "Provider ID", required = true)
+    @Schema(description = "Provider ID (required for /services; injected automatically for /portal/services)")
     private UUID providerId;
 
     @NotNull
@@ -66,4 +66,19 @@ public class CreateServiceRequest {
 
     @Schema(description = "Amenities (JSON)")
     private Map<String, Object> amenities;
+
+    @Schema(description = "Check-in time (e.g. 14:00)")
+    private LocalTime checkInTime;
+
+    @Schema(description = "Check-out time (e.g. 11:00)")
+    private LocalTime checkOutTime;
+
+    @Schema(description = "Latitude")
+    private BigDecimal latitude;
+
+    @Schema(description = "Longitude")
+    private BigDecimal longitude;
+
+    @Schema(description = "Cancellation and house policies")
+    private String policies;
 }

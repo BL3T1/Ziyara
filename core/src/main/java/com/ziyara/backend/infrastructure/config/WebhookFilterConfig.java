@@ -1,5 +1,6 @@
 package com.ziyara.backend.infrastructure.config;
 
+import com.ziyara.backend.infrastructure.payment.PaymentGatewayProperties;
 import com.ziyara.backend.infrastructure.payment.WebhookSignatureFilter;
 import com.ziyara.backend.infrastructure.payment.WebhookSignatureVerifier;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -23,3 +24,4 @@ public class WebhookFilterConfig {
         return registration;
     }
 }
+

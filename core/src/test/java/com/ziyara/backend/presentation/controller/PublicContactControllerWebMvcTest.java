@@ -6,8 +6,9 @@ import com.ziyara.backend.infrastructure.config.WebMvcConfigurationPropertiesImp
 import com.ziyara.backend.infrastructure.config.LocaleConfig;
 import com.ziyara.backend.infrastructure.config.WebMvcSecuritySliceConfiguration;
 import com.ziyara.backend.infrastructure.config.SecurityConfig;
-import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
+import com.ziyara.backend.infrastructure.security.JwtIdleTimeoutService;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +19,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -56,24 +57,21 @@ class PublicContactControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
                                                          SecurityContextRepository securityContextRepository,
                                                          JwtCookieProperties jwtCookieProperties,
-                                                         JwtTokenBlocklistService jwtTokenBlocklistService) {
+                                                         JwtTokenBlocklistService jwtTokenBlocklistService,
+                                                         JwtIdleTimeoutService jwtIdleTimeoutService) {
             return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository,
-                    jwtCookieProperties, jwtTokenBlocklistService);
+                    jwtCookieProperties, jwtTokenBlocklistService, jwtIdleTimeoutService);
         }
     }
 
     @Test
     void postContact_returns200() throws Exception {
-        mockMvc.perform(post("/public/contact")
+        mockMvc.perform(post("/public/contact").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"Test User","email":"t@example.com","company":"Acme","message":"Hello world enough chars"}
@@ -86,7 +84,7 @@ class PublicContactControllerWebMvcTest {
 
     @Test
     void postContact_validationError_returns400() throws Exception {
-        mockMvc.perform(post("/public/contact")
+        mockMvc.perform(post("/public/contact").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"","email":"bad","message":"short"}
@@ -96,10 +94,10 @@ class PublicContactControllerWebMvcTest {
 
     @Test
     void postContact_rateLimited_returns429() throws Exception {
-        doThrow(new com.ziyara.backend.presentation.exception.RateLimitedException("slow down"))
+        doThrow(new com.ziyara.backend.application.exception.RateLimitedException("slow down"))
                 .when(contactLeadService).submit(any(), anyString());
 
-        mockMvc.perform(post("/public/contact")
+        mockMvc.perform(post("/public/contact").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"Test User","email":"t@example.com","company":"Acme","message":"Hello world enough chars"}

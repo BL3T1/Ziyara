@@ -21,8 +21,8 @@ import com.ziyara.backend.application.service.UserRbacAssignmentService;
 import com.ziyara.backend.application.query.dto.UserListQuery;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
-import com.ziyara.backend.domain.repository.UserRepository;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
+import java.util.Map;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -33,11 +33,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
+
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import org.springframework.security.core.GrantedAuthority;
 
 /**
  * User management API (CQRS: GET = jOOQ query handler, writes = JPA command handler).
@@ -53,7 +57,6 @@ public class UserController {
     private final NavigationService navigationService;
     private final UserRbacAssignmentService userRbacAssignmentService;
     private final RbacAssignmentQueryService rbacAssignmentQueryService;
-    private final UserRepository userRepository;
     private final CompanyStaffRoleCatalogService companyStaffRoleCatalogService;
 
     private static UUID getCurrentUserId() {
@@ -80,40 +83,37 @@ public class UserController {
         if (email.isEmpty()) {
             throw new IllegalArgumentException("Email is required");
         }
-        return userRepository.findByEmail(email)
-                .map(u -> u.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found for email: " + email));
+        return userQueryHandler.findUserIdByEmail(email);
     }
 
     @GetMapping("/staff-role-options")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
+    @PreAuthorize(USERS_WRITE)
     @Operation(
             summary = "Company dashboard creatable roles",
-            description = "Single picklist for POST /users: SYSTEM rows (enum-backed sys_roles) plus active custom RBAC roles "
-                    + "(source=CUSTOM). Send staff-role-options.rbacRoleId as primaryRbacRoleId, or legacy role enum name. "
-                    + "Excludes CUSTOMER, provider portal roles, SUPER_ADMIN, and inactive or ineligible custom roles.")
+            description = "Roles available for POST /users: active sys_roles excluding SUPER_ADMIN. "
+                    + "Send rbacRoleId as primaryRbacRoleId.")
     public ResponseEntity<ApiResponse<List<StaffDirectoryRoleOptionResponse>>> listStaffRoleOptions() {
         return ResponseEntity.ok(ApiResponse.success(companyStaffRoleCatalogService.listDashboardCreatableRoles()));
     }
 
     @GetMapping("/rbac/custom-roles")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
+    @PreAuthorize(USERS_WRITE)
     @Operation(summary = "List custom roles for RBAC assignment", description = "Minimal rows for dropdowns (HR cannot call /roles)")
     public ResponseEntity<ApiResponse<List<RbacRoleOptionResponse>>> listCustomRbacRoles() {
         return ResponseEntity.ok(ApiResponse.success(rbacAssignmentQueryService.listCustomRolesForAssignment()));
     }
 
     @GetMapping("/by-email/{email}/rbac-role")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
+    @PreAuthorize(USERS_WRITE)
     @Operation(summary = "Get user's RBAC role assignment by email", description = "Same as GET /{id}/rbac-role; email should be URL-encoded (e.g. %40 for @)")
     public ResponseEntity<ApiResponse<UserRbacAssignmentResponse>> getUserRbacRoleByEmail(@PathVariable String email) {
         UUID id = resolveUserIdByEmail(email);
         return ResponseEntity.ok(ApiResponse.success(rbacAssignmentQueryService.getUserRbacAssignment(id)));
     }
 
-    @PutMapping("/by-email/{email}/rbac-role")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
-    @Operation(summary = "Assign RBAC role by email", description = "Same as PUT /{id}/rbac-role; email should be URL-encoded (e.g. %40 for @)")
+    @PatchMapping("/by-email/{email}/rbac-role")
+    @PreAuthorize(USERS_WRITE)
+    @Operation(summary = "Assign RBAC role by email", description = "Same as PATCH /{id}/rbac-role; email should be URL-encoded (e.g. %40 for @)")
     public ResponseEntity<ApiResponse<Void>> assignRbacRoleByEmail(
             @PathVariable String email,
             @RequestBody(required = false) AssignUserRbacRoleRequest request
@@ -129,7 +129,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}/rbac-role")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
+    @PreAuthorize(USERS_WRITE)
     @Operation(summary = "Get user's RBAC role assignment", description = "sys_user_roles primary role, if any")
     public ResponseEntity<ApiResponse<UserRbacAssignmentResponse>> getUserRbacRole(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(rbacAssignmentQueryService.getUserRbacAssignment(id)));
@@ -155,12 +155,14 @@ public class UserController {
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
         }
-        return userQueryHandler.findById(userId)
-                .map(u -> ResponseEntity.ok(ApiResponse.success(u)))
-                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("User not found")));
+        UserResponse user = userQueryHandler.findByIdCached(userId);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("User not found"));
+        }
+        return ResponseEntity.ok(ApiResponse.success(user));
     }
 
-    @PutMapping("/me")
+    @PatchMapping("/me")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Update current user", description = "Update the authenticated user's profile (email, phone)")
     public ResponseEntity<ApiResponse<UserResponse>> updateMe(@Valid @RequestBody UpdateUserRequest request) {
@@ -172,10 +174,42 @@ public class UserController {
         safe.setEmail(request.getEmail());
         safe.setPhone(request.getPhone());
         safe.setStatus(request.getStatus());
+        safe.setFirstName(request.getFirstName());
+        safe.setLastName(request.getLastName());
         userCommandHandler.update(userId, safe);
         return userQueryHandler.findById(userId)
                 .map(u -> ResponseEntity.ok(ApiResponse.success(u)))
                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("User not found")));
+    }
+
+    @GetMapping("/me/permissions")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Current user permissions", description = "Returns all permission codes granted to the authenticated user via their RBAC role")
+    public ResponseEntity<ApiResponse<List<String>>> getMyPermissions(Authentication authentication) {
+        if (authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
+        }
+        List<String> codes = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(a -> !a.startsWith("ROLE_"))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(codes));
+    }
+
+    @PostMapping("/me/fcm-token")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Register FCM push token", description = "Saves the device FCM token so the backend can send push notifications to this device")
+    public ResponseEntity<ApiResponse<Void>> registerFcmToken(@RequestBody Map<String, String> body) {
+        UUID userId = getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
+        }
+        String token = body.get("token");
+        if (token == null || token.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("token is required"));
+        }
+        userCommandHandler.updateFcmToken(userId, token);
+        return ResponseEntity.ok(ApiResponse.success("FCM token registered", null));
     }
 
     @PostMapping("/me/change-password")
@@ -195,7 +229,7 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
+    @PreAuthorize(USERS_READ)
     @Operation(summary = "List users", description = "Paginated company staff directory (excludes customers and provider accounts). Optional status/role filter. Admin/HR only.")
     public ResponseEntity<ApiResponse<Page<UserResponse>>> list(
             @RequestParam(defaultValue = "0") int page,
@@ -214,7 +248,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER') or @userSecurity.isSelf(#id)")
+    @PreAuthorize(USERS_SELF_OR_READ)
     @Operation(summary = "Get user by ID")
     public ResponseEntity<ApiResponse<UserResponse>> getById(@PathVariable UUID id) {
         return userQueryHandler.findById(id)
@@ -223,7 +257,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}/login-history")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER') or @userSecurity.isSelf(#id)")
+    @PreAuthorize(USERS_SELF_OR_READ)
     @Operation(summary = "Get user login history", description = "Returns last login(s) from users table")
     public ResponseEntity<ApiResponse<List<LoginHistoryEntryResponse>>> getLoginHistory(@PathVariable UUID id) {
         if (userQueryHandler.findById(id).isEmpty()) {
@@ -238,17 +272,17 @@ public class UserController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
+    @PreAuthorize(USERS_WRITE)
     @Operation(summary = "Create user", description = "Admin/HR only")
     public ResponseEntity<ApiResponse<UserResponse>> create(@Valid @RequestBody CreateUserRequest request) {
-        var user = userCommandHandler.create(request);
-        UserResponse response = userQueryHandler.findById(user.getId())
-                .orElse(mapToResponse(user));
+        UUID userId = userCommandHandler.create(request);
+        UserResponse response = userQueryHandler.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("User not found after creation"));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("User created", response));
     }
 
-    @PutMapping("/{id}/rbac-role")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
+    @PatchMapping("/{id}/rbac-role")
+    @PreAuthorize(USERS_WRITE)
     @Operation(summary = "Assign RBAC role for sidebar", description = "Company staff only; one primary role; omit or null roleId to clear")
     public ResponseEntity<ApiResponse<Void>> assignRbacRole(
             @PathVariable UUID id,
@@ -263,8 +297,8 @@ public class UserController {
         }
     }
 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER') or @userSecurity.isSelf(#id)")
+    @PatchMapping("/{id}")
+    @PreAuthorize(USERS_SELF_OR_READ)
     @Operation(summary = "Update user")
     public ResponseEntity<ApiResponse<UserResponse>> update(
             @PathVariable UUID id,
@@ -277,7 +311,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
+    @PreAuthorize(USERS_WRITE)
     @Operation(summary = "Soft-delete user", description = "Admin/HR only")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         userCommandHandler.softDelete(id);
@@ -285,7 +319,7 @@ public class UserController {
     }
 
     @PostMapping("/{id}/freeze")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
+    @PreAuthorize(USERS_WRITE)
     @Operation(summary = "Freeze user account")
     public ResponseEntity<ApiResponse<Void>> freeze(@PathVariable UUID id) {
         userCommandHandler.freeze(id);
@@ -293,7 +327,7 @@ public class UserController {
     }
 
     @PostMapping("/{id}/unfreeze")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
+    @PreAuthorize(USERS_WRITE)
     @Operation(summary = "Unfreeze user account")
     public ResponseEntity<ApiResponse<Void>> unfreeze(@PathVariable UUID id) {
         userCommandHandler.unfreeze(id);
@@ -301,27 +335,25 @@ public class UserController {
     }
 
     @PostMapping("/{id}/reset-password")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('HR_MANAGER')")
-    @Operation(summary = "Reset user password", description = "Admin/HR only")
+    @PreAuthorize(USERS_WRITE)
+    @Operation(summary = "Reset user password", description = "Requires 'users:write' permission; cannot reset Super Admin accounts unless caller is Super Admin")
     public ResponseEntity<ApiResponse<Void>> resetPassword(
             @PathVariable UUID id,
-            @Valid @RequestBody ResetPasswordAdminRequest request
+            @Valid @RequestBody ResetPasswordAdminRequest request,
+            org.springframework.security.core.Authentication authentication
     ) {
+        boolean callerIsSuperAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+        if (!callerIsSuperAdmin) {
+            userQueryHandler.findById(id).ifPresent(target -> {
+                if (com.ziyara.backend.domain.enums.UserRole.SUPER_ADMIN == target.getRole()) {
+                    throw new org.springframework.security.access.AccessDeniedException(
+                            "Cannot reset the password of a Super Admin account");
+                }
+            });
+        }
         userCommandHandler.resetPassword(id, request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success("Password reset", null));
     }
 
-    private static UserResponse mapToResponse(com.ziyara.backend.domain.entity.User user) {
-        return UserResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .status(user.getStatus())
-                .emailVerified(user.isEmailVerified())
-                .phoneVerified(user.isPhoneVerified())
-                .lastLoginAt(user.getLastLoginAt())
-                .createdAt(user.getCreatedAt())
-                .build();
-    }
 }

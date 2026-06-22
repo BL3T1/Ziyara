@@ -6,6 +6,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import { getApiErrorMessage, reviewsAPI } from '../../services/api'
 import type { PageDto, ReviewAdminRowDto } from '../../types/api'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { statusLabel } from '../../i18n/enumLabels'
+import { usePermission } from '../../hooks/usePermission'
 
 const STATUS_FILTER_OPTIONS: { value: string; labelKey: string }[] = [
   { value: '', labelKey: 'reviewsPage.allStatuses' },
@@ -16,14 +19,15 @@ const STATUS_FILTER_OPTIONS: { value: string; labelKey: string }[] = [
   { value: 'REPORTED', labelKey: 'reviewsPage.stReported' },
 ]
 
-const MODERATE_ACTIONS = [
-  { status: 'PUBLISHED', labelKey: 'reviewsPage.publish' as const },
-  { status: 'REJECTED', labelKey: 'reviewsPage.reject' as const },
-  { status: 'HIDDEN', labelKey: 'reviewsPage.hide' as const },
+const MODERATE_ACTIONS: { status: string; labelKey: string; variant: 'danger' | 'default' }[] = [
+  { status: 'PUBLISHED', labelKey: 'reviewsPage.publish', variant: 'default' },
+  { status: 'REJECTED', labelKey: 'reviewsPage.reject', variant: 'danger' },
+  { status: 'HIDDEN', labelKey: 'reviewsPage.hide', variant: 'danger' },
 ]
 
 export function ReviewsPage() {
   const { t } = useLanguage()
+  const canModerate = usePermission('reviews:moderate')
   const [rows, setRows] = useState<ReviewAdminRowDto[]>([])
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -31,6 +35,8 @@ export function ReviewsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [pending, setPending] = useState<{ id: string; status: string; label: string; variant: 'danger' | 'default' } | null>(null)
   const size = 15
 
   const load = useCallback(() => {
@@ -118,40 +124,58 @@ export function ReviewsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100">
-                    {r.rating ?? '—'}
-                  </td>
-                  <td className="max-w-xs truncate px-4 py-3 text-sm text-slate-600 dark:text-slate-300" title={r.comment}>
-                    {r.comment || '—'}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
-                    {r.status ?? '—'}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
-                    {r.serviceName?.trim() || t('ui.emDash')}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
-                    {r.createdAt ? String(r.createdAt).replace('T', ' ').slice(0, 16) : '—'}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
-                    <div className="flex flex-wrap justify-end gap-1">
-                      {MODERATE_ACTIONS.map((a) => (
-                        <button
-                          key={a.status}
-                          type="button"
-                          disabled={busyId === r.id}
-                          onClick={() => moderate(r.id, a.status)}
-                          className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
-                        >
-                          {t(a.labelKey)}
-                        </button>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const isExpanded = expandedId === r.id
+                return (
+                  <tr key={r.id}>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {r.rating ?? '—'}
+                    </td>
+                    <td className="max-w-xs px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                      {r.comment ? (
+                        <div>
+                          <p className={isExpanded ? '' : 'line-clamp-2'}>{r.comment}</p>
+                          {r.comment.length > 80 && (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                              className="mt-0.5 text-xs text-primary hover:underline dark:text-[#60b4f8]"
+                            >
+                              {isExpanded ? t('reviewsPage.collapse') : t('reviewsPage.expand')}
+                            </button>
+                          )}
+                        </div>
+                      ) : '—'}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                      {statusLabel(t, r.status)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                      {r.serviceName?.trim() || t('ui.emDash')}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                      {r.createdAt ? String(r.createdAt).replace('T', ' ').slice(0, 16) : '—'}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
+                      {canModerate && (
+                        <div className="flex flex-wrap justify-end gap-1">
+                          {MODERATE_ACTIONS.map((a) => (
+                            <button
+                              key={a.status}
+                              type="button"
+                              disabled={busyId === r.id}
+                              onClick={() => setPending({ id: r.id, status: a.status, label: t(a.labelKey), variant: a.variant })}
+                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                            >
+                              {t(a.labelKey)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
@@ -180,6 +204,16 @@ export function ReviewsPage() {
           </button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pending}
+        onClose={() => setPending(null)}
+        title={pending?.label ?? ''}
+        description={t('reviewsPage.moderateConfirmDesc')}
+        confirmLabel={pending?.label}
+        variant={pending?.variant ?? 'default'}
+        onConfirm={() => moderate(pending!.id, pending!.status)}
+      />
     </>
   )
 }

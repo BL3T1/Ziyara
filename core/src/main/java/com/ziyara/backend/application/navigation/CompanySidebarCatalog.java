@@ -18,7 +18,6 @@ public final class CompanySidebarCatalog {
             Map.entry(SidebarSurface.FINANCE, Set.of("main", "management")),
             Map.entry(SidebarSurface.SUPPORT, Set.of("main", "support")),
             Map.entry(SidebarSurface.EXECUTIVE, Set.of("main", "services", "management", "support")),
-            Map.entry(SidebarSurface.HR, Set.of("main", "management", "admin")),
             Map.entry(SidebarSurface.PROVIDER, Set.of("main", "services")),
             // USER = B2C consumer (backend CUSTOMER); not company staff directory.
             Map.entry(SidebarSurface.USER, Set.of("main", "services"))
@@ -39,19 +38,24 @@ public final class CompanySidebarCatalog {
             new ItemDef("providers", "management", null),
             new ItemDef("bookings", "management", null),
             new ItemDef("payments", "management", null),
+            new ItemDef("payouts", "management", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.ADMIN, SidebarSurface.FINANCE, SidebarSurface.EXECUTIVE)),
             new ItemDef("discounts", "management", null),
+            new ItemDef("media_approvals", "management", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.ADMIN)),
             new ItemDef("reports", "management", null),
             new ItemDef("taxi_trips", "management", null),
             new ItemDef("currency_rates", "management", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.EXECUTIVE, SidebarSurface.FINANCE)),
             new ItemDef("complaints", "support", null),
             new ItemDef("reviews", "support", null),
+            new ItemDef("provider_messages", "support", null),
             new ItemDef("settings", "admin", null),
-            new ItemDef("users", "admin", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.HR)),
+            new ItemDef("users", "admin", EnumSet.of(SidebarSurface.SUPER_ADMIN)),
             new ItemDef("roles", "admin", null),
             new ItemDef("logs", "admin", null),
             new ItemDef("content", "admin", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.ADMIN)),
             new ItemDef("api", "admin", EnumSet.of(SidebarSurface.SUPER_ADMIN)),
-            new ItemDef("integrations", "admin", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.EXECUTIVE, SidebarSurface.ADMIN))
+            new ItemDef("integrations", "admin", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.EXECUTIVE, SidebarSurface.ADMIN)),
+            new ItemDef("webhooks", "admin", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.EXECUTIVE, SidebarSurface.ADMIN)),
+            new ItemDef("subscriptions", "admin", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.EXECUTIVE, SidebarSurface.ADMIN))
     );
 
     private static final Set<String> ALLOWED_IDS;

@@ -66,7 +66,16 @@ public class PaymentJpaEntity {
     
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
-    
+
+    @Column(name = "entity_type", length = 30)
+    private String entityType;
+
+    @Column(name = "entity_id")
+    private UUID entityId;
+
+    @Column(name = "category", length = 50)
+    private String category;
+
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
     

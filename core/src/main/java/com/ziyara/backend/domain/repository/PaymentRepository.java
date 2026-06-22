@@ -1,9 +1,9 @@
 package com.ziyara.backend.domain.repository;
 
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.Payment;
 import com.ziyara.backend.domain.enums.PaymentStatus;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -18,21 +18,30 @@ public interface PaymentRepository {
     Payment save(Payment payment);
     Optional<Payment> findById(UUID id);
     Optional<Payment> findByBookingId(UUID bookingId);
+    List<Payment> findAllByBookingId(UUID bookingId);
     Optional<Payment> findByTransactionReference(String reference);
     Optional<Payment> findByGatewayReference(String gatewayReference);
     Optional<Payment> findByIdempotencyKey(String idempotencyKey);
     List<Payment> findByStatus(PaymentStatus status);
 
-    Page<Payment> findAll(Pageable pageable);
+    PagedResult<Payment> findAll(PageQuery pageQuery);
 
-    Page<Payment> findByStatus(PaymentStatus status, Pageable pageable);
+    PagedResult<Payment> findByStatus(PaymentStatus status, PageQuery pageQuery);
 
     /** Payments whose booking belongs to this customer user id. */
-    Page<Payment> findByCustomerUserId(UUID customerUserId, Pageable pageable);
+    PagedResult<Payment> findByCustomerUserId(UUID customerUserId, PageQuery pageQuery);
 
-    List<Payment> findAll();
     void deleteById(UUID id);
 
     BigDecimal sumCompletedAmountBetween(LocalDateTime from, LocalDateTime to);
     BigDecimal sumCompletedAmountByBookingIds(java.util.List<UUID> bookingIds);
+
+    /** Platform-wide sum of payments with the given status (no date filter). */
+    BigDecimal sumByStatus(PaymentStatus status);
+
+    /** Platform-wide sum per currency for payments with the given status. */
+    java.util.Map<String, BigDecimal> sumByStatusGroupedByCurrency(PaymentStatus status);
+
+    /** Completed payments for the given booking IDs on or after {@code since}. Used for weekly chart. */
+    List<Payment> findCompletedByBookingIdsSince(List<UUID> bookingIds, LocalDateTime since);
 }

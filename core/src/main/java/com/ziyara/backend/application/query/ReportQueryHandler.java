@@ -2,8 +2,6 @@ package com.ziyara.backend.application.query;
 
 import com.ziyara.backend.application.dto.response.BookingReportResponse;
 import com.ziyara.backend.application.dto.response.RevenueReportResponse;
-import com.ziyara.backend.application.service.CurrencyService;
-import com.ziyara.backend.application.service.SystemSettingsService;
 import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -21,9 +19,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.BiFunction;
 
 /**
  * jOOQ query handler for reports: revenue (with conversion to platform default currency) and bookings.
+ * Currency settings are passed by the caller (ReportService) to avoid a query ↔ service cycle.
  */
 @Component
 @RequiredArgsConstructor
@@ -34,18 +34,17 @@ public class ReportQueryHandler {
     private static final String SERVICES = "hotel_services";
 
     private final DSLContext dsl;
-    private final SystemSettingsService systemSettingsService;
-    private final CurrencyService currencyService;
 
     public RevenueReportResponse getRevenueReport(
             LocalDate start,
             LocalDate end,
             String scope,
             UUID providerId,
-            UUID customerId) {
+            UUID customerId,
+            String targetCurrency,
+            BiFunction<BigDecimal, String, BigDecimal> currencyConverter) {
         LocalDateTime from = (start != null ? start : LocalDate.now().minusMonths(1)).atStartOfDay();
         LocalDateTime to = (end != null ? end : LocalDate.now()).atTime(23, 59, 59);
-        String targetCurrency = systemSettingsService.getSettings().getDefaultCurrency();
 
         Field<LocalDateTime> createdAt = DSL.field(DSL.name(PAYMENTS, "created_at"), LocalDateTime.class);
         Field<BigDecimal> amount = DSL.field(DSL.name(PAYMENTS, "amount"), BigDecimal.class);
@@ -77,7 +76,7 @@ public class ReportQueryHandler {
                 fromCur = "USD";
             }
             fromCur = fromCur.trim().toUpperCase(Locale.ROOT);
-            BigDecimal converted = currencyService.convertOrKeep(amt, fromCur, targetCurrency);
+            BigDecimal converted = currencyConverter.apply(amt, fromCur);
             byDayMap.merge(day, converted, BigDecimal::add);
         }
 

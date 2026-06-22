@@ -7,8 +7,9 @@ import com.ziyara.backend.infrastructure.config.WebMvcConfigurationPropertiesImp
 import com.ziyara.backend.infrastructure.config.LocaleConfig;
 import com.ziyara.backend.infrastructure.config.WebMvcSecuritySliceConfiguration;
 import com.ziyara.backend.infrastructure.config.SecurityConfig;
-import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
+import com.ziyara.backend.infrastructure.security.JwtIdleTimeoutService;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +21,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,7 +31,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -60,23 +62,20 @@ class AdminSystemSettingsControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
                                                          SecurityContextRepository securityContextRepository,
                                                          JwtCookieProperties jwtCookieProperties,
-                                                         JwtTokenBlocklistService jwtTokenBlocklistService) {
+                                                         JwtTokenBlocklistService jwtTokenBlocklistService,
+                                                         JwtIdleTimeoutService jwtIdleTimeoutService) {
             return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository,
-                    jwtCookieProperties, jwtTokenBlocklistService);
+                    jwtCookieProperties, jwtTokenBlocklistService, jwtIdleTimeoutService);
         }
     }
 
     @Test
-    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", roles = "SUPER_ADMIN")
+    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", authorities = "settings:read")
     void getSettings_returns200() throws Exception {
         when(systemSettingsService.getSettings()).thenReturn(SystemSettingsResponse.builder()
                 .companyDisplayName("Ziyara")
@@ -94,7 +93,7 @@ class AdminSystemSettingsControllerWebMvcTest {
     }
 
     @Test
-    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", roles = "SUPPORT_AGENT")
+    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", authorities = "bookings:read")
     void getSettings_forbiddenForWrongRole() throws Exception {
         mockMvc.perform(get("/admin/settings")
                         .header("Authorization", "Bearer test"))
@@ -102,7 +101,7 @@ class AdminSystemSettingsControllerWebMvcTest {
     }
 
     @Test
-    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", roles = "SUPER_ADMIN")
+    @WithMockUser(username = "a0000000-0000-0000-0000-000000000001", authorities = "settings:write")
     void putSettings_returns200() throws Exception {
         UUID uid = UUID.fromString("a0000000-0000-0000-0000-000000000001");
         when(systemSettingsService.update(any(), eq(uid))).thenReturn(SystemSettingsResponse.builder()
@@ -111,7 +110,7 @@ class AdminSystemSettingsControllerWebMvcTest {
                 .maintenanceMode(true)
                 .build());
 
-        mockMvc.perform(put("/admin/settings")
+        mockMvc.perform(patch("/admin/settings").with(csrf())
                         .header("Authorization", "Bearer test")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

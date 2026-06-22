@@ -1,0 +1,11 @@
+# Never commit private keys or signed certificates — they contain secrets
+# or are IP-specific and must be re-generated per environment.
+*.key
+*.crt
+*.csr
+*.srl
+*.cnf
+
+# Keep this file and the generator script
+!.gitignore
+!generate.sh

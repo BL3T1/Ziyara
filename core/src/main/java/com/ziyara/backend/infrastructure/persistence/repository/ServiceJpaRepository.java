@@ -61,4 +61,19 @@ public interface ServiceJpaRepository extends JpaRepository<ServiceJpaEntity, UU
     List<ServiceJpaEntity> findByLocationNear(@Param("lat") BigDecimal latitude,
                                                @Param("lon") BigDecimal longitude,
                                                @Param("radius") double radiusKm);
+
+    @Query("SELECT s FROM ServiceJpaEntity s WHERE s.latitude IS NOT NULL AND s.longitude IS NOT NULL " +
+           "AND s.status = 'ACTIVE' AND s.deletedAt IS NULL")
+    List<ServiceJpaEntity> findActiveWithCoordinatesAll();
+
+    @Query("SELECT s FROM ServiceJpaEntity s WHERE s.latitude IS NOT NULL AND s.longitude IS NOT NULL " +
+           "AND s.status = 'ACTIVE' AND s.deletedAt IS NULL " +
+           "AND s.type IN :types")
+    List<ServiceJpaEntity> findActiveWithCoordinatesByTypes(
+            @Param("types") List<ServiceType> types);
+
+    @Query("SELECT s FROM ServiceJpaEntity s WHERE s.latitude IS NOT NULL AND s.longitude IS NOT NULL " +
+           "AND s.providerId = :providerId " +
+           "AND s.status = 'ACTIVE' AND s.deletedAt IS NULL")
+    List<ServiceJpaEntity> findByProviderIdWithCoordinates(@Param("providerId") UUID providerId);
 }

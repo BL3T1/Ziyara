@@ -1,9 +1,9 @@
 package com.ziyara.backend.domain.repository;
 
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.Review;
 import com.ziyara.backend.domain.enums.ReviewStatus;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,8 +25,8 @@ public interface ReviewRepository {
     /**
      * Admin list with optional filters. {@code createdBefore} is exclusive (use end date + 1 day at start of day).
      */
-    Page<Review> findAllForAdmin(Pageable pageable, ReviewStatus status, UUID serviceId,
-                                  LocalDateTime createdAfterInclusive, LocalDateTime createdBeforeExclusive);
+    PagedResult<Review> findAllForAdmin(PageQuery pageQuery, ReviewStatus status, UUID serviceId,
+                                        LocalDateTime createdAfterInclusive, LocalDateTime createdBeforeExclusive);
 
     void deleteById(UUID id);
 }

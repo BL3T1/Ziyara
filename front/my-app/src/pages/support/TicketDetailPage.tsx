@@ -7,6 +7,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
 import { ticketsAPI, getApiErrorMessage } from '../../services/api'
 import type { TicketDto } from '../../types/api'
+import { usePermission } from '../../hooks/usePermission'
 
 interface CommentDto {
   id?: string
@@ -17,6 +18,7 @@ interface CommentDto {
 
 export function TicketDetailPage() {
   const { t } = useLanguage()
+  const canReply = usePermission('support:write')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [ticket, setTicket] = useState<TicketDto | null>(null)
@@ -133,28 +135,30 @@ export function TicketDetailPage() {
         )}
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        {ticket.status !== 'RESOLVED' && ticket.status !== 'CLOSED' && (
-          <button
-            type="button"
-            onClick={handleResolve}
-            disabled={actionLoading}
-            className="dashboard-btn-primary disabled:opacity-50"
-          >
-            {t('ui.resolve')}
-          </button>
-        )}
-        {ticket.status !== 'CLOSED' && (
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={actionLoading}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200 disabled:opacity-50"
-          >
-            {t('ticketDetailPage.closeTicket')}
-          </button>
-        )}
-      </div>
+      {canReply && (
+        <div className="mt-6 flex flex-wrap gap-2">
+          {ticket.status !== 'RESOLVED' && ticket.status !== 'CLOSED' && (
+            <button
+              type="button"
+              onClick={handleResolve}
+              disabled={actionLoading}
+              className="dashboard-btn-primary disabled:opacity-50"
+            >
+              {t('ui.resolve')}
+            </button>
+          )}
+          {ticket.status !== 'CLOSED' && (
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={actionLoading}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200 disabled:opacity-50"
+            >
+              {t('ticketDetailPage.closeTicket')}
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="mt-8">
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t('ticketDetailPage.comments')}</h2>
@@ -168,7 +172,7 @@ export function TicketDetailPage() {
             </li>
           ))}
         </ul>
-        {ticket.status !== 'CLOSED' && (
+        {canReply && ticket.status !== 'CLOSED' && (
           <div className="mt-4 flex gap-2">
             <textarea
               value={newComment}

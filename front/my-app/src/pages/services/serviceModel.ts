@@ -19,6 +19,7 @@ export function parseServiceCategorySlug(raw: string | undefined): ServiceCatego
 
 export interface BaseService {
   id: string
+  providerId?: string
   name: string
   description: string
   images: ServiceImageDto[]
@@ -113,6 +114,7 @@ export function normalizeService(dto: ServiceDto, images: ServiceImageDto[]): Se
 
   const base: BaseService = {
     id: dto.id,
+    providerId: dto.providerId,
     name: dto.name,
     description: dto.description?.trim() || '',
     images,

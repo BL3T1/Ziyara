@@ -9,7 +9,7 @@ import com.ziyara.backend.domain.enums.ServiceType;
 import com.ziyara.backend.domain.repository.ServiceRepository;
 import com.ziyara.backend.infrastructure.persistence.repository.RestMenuItemJpaRepository;
 import com.ziyara.backend.infrastructure.persistence.repository.RestMenuSectionJpaRepository;
-import com.ziyara.backend.presentation.exception.BusinessException;
+import com.ziyara.backend.application.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

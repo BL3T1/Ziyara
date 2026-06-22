@@ -11,6 +11,22 @@ export function useLandingMotion() {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (prefersReduced) return
 
+    // On coarse-pointer (touch) devices, pointer-based parallax provides no value and wastes frames.
+    const isTouch = window.matchMedia('(pointer: coarse)').matches
+    if (isTouch) {
+      // Only track scroll — no rAF loop, no mousemove listener.
+      const onScroll = () => {
+        const v = (Math.min(window.scrollY, 1200) / 1200).toFixed(4)
+        root.style.setProperty('--landing-scroll', v)
+      }
+      window.addEventListener('scroll', onScroll, { passive: true })
+      onScroll()
+      return () => {
+        window.removeEventListener('scroll', onScroll)
+        root.style.removeProperty('--landing-scroll')
+      }
+    }
+
     let rafId = 0
     let targetX = 0
     let targetY = 0

@@ -48,4 +48,5 @@ public class ServiceResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<HotelRoomResponse> rooms;
+    private String rejectionReason;
 }

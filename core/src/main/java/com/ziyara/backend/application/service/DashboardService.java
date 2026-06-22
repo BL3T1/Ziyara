@@ -17,7 +17,8 @@ import com.ziyara.backend.infrastructure.config.DashboardExecutorConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.cache.annotation.Cacheable;
+import com.ziyara.backend.domain.common.PageQuery;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,6 +73,7 @@ public class DashboardService {
         this.dashboardExecutor = dashboardExecutor;
     }
 
+    @Cacheable(value = "dashboardKpis", key = "#start + ':' + #end")
     @Transactional(propagation = Propagation.NOT_SUPPORTED, readOnly = true)
     public DashboardKpiResponse getKpis(LocalDate start, LocalDate end) {
         try {
@@ -82,7 +84,7 @@ public class DashboardService {
                 try {
                     BigDecimal r = paymentRepository.sumCompletedAmountBetween(from, to);
                     return r != null ? r : BigDecimal.ZERO;
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     log.debug("sumCompletedAmountBetween failed: {}", e.getMessage());
                     return BigDecimal.ZERO;
                 }
@@ -94,7 +96,7 @@ public class DashboardService {
                     long active = bookingRepository.countByStatusIn(
                             Arrays.asList(BookingStatus.CONFIRMED, BookingStatus.ACTIVE));
                     return new long[]{total, active};
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     log.debug("booking counts failed: {}", e.getMessage());
                     return new long[]{0L, 0L};
                 }
@@ -103,7 +105,7 @@ public class DashboardService {
             CompletableFuture<Long> providersFut = CompletableFuture.supplyAsync(() -> {
                 try {
                     return serviceProviderRepository.count();
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     log.debug("serviceProvider count failed: {}", e.getMessage());
                     return 0L;
                 }
@@ -115,7 +117,7 @@ public class DashboardService {
                             TicketStatus.SUBMITTED, TicketStatus.ACKNOWLEDGED, TicketStatus.ASSIGNED,
                             TicketStatus.IN_PROGRESS, TicketStatus.PENDING_INFO, TicketStatus.TESTING, TicketStatus.REOPENED);
                     return internalTicketRepository.countByStatusIn(openStatuses);
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     log.debug("countByStatusIn failed: {}", e.getMessage());
                     return 0L;
                 }
@@ -127,7 +129,7 @@ public class DashboardService {
                 }
                 try {
                     return complaintRepository.countOpenComplaints();
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     log.debug("countOpenComplaints failed: {}", e.getMessage());
                     return 0L;
                 }
@@ -152,7 +154,7 @@ public class DashboardService {
                     .pendingComplaints(pendingComplaints)
                     .openTickets(openTickets)
                     .build();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("getKpis failed: {}", e.getMessage());
             return DashboardKpiResponse.builder()
                     .totalRevenue(BigDecimal.ZERO)
@@ -166,10 +168,11 @@ public class DashboardService {
         }
     }
 
+    @Cacheable(value = "dashboardActivity", key = "#limit")
     @Transactional(readOnly = true)
     public List<ActivityFeedItemResponse> getActivityFeed(int limit) {
         try {
-            List<AuditLog> logs = auditLogRepository.findRecent(PageRequest.of(0, Math.min(limit, 50))).getContent();
+            List<AuditLog> logs = auditLogRepository.findRecent(PageQuery.of(0, Math.min(limit, 50))).content();
             java.util.Set<UUID> userIds = logs.stream()
                     .map(AuditLog::getUserId)
                     .filter(Objects::nonNull)
@@ -185,7 +188,7 @@ public class DashboardService {
             return logs.stream()
                     .map(log -> toActivityItem(log, emailByUserId))
                     .collect(Collectors.toList());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.debug("getActivityFeed failed: {}", e.getMessage());
             return List.of();
         }
@@ -210,8 +213,8 @@ public class DashboardService {
 
     private String buildChangeSummary(String oldVal, String newVal) {
         if (oldVal == null && newVal == null) return "";
-        if (oldVal == null) return "â†’ " + newVal;
-        if (newVal == null) return oldVal + " â†’ ";
-        return oldVal + " â†’ " + newVal;
+        if (oldVal == null) return "→ " + newVal;
+        if (newVal == null) return oldVal + " → ";
+        return oldVal + " → " + newVal;
     }
 }

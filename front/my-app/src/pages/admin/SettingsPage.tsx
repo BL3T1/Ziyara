@@ -8,10 +8,12 @@ import { useLanguage } from '../../context/LanguageContext'
 import { getApiErrorMessage, settingsAPI } from '../../services/api'
 import type { SystemSettingsDto } from '../../types/api'
 import { Card } from '../../components/Card'
+import { usePermission } from '../../hooks/usePermission'
 
 export function SettingsPage() {
   const { t } = useLanguage()
-  const { refreshDisplayCurrency } = useDisplayCurrency()
+  const { refreshDisplayCurrency, availableCurrencies } = useDisplayCurrency()
+  const canWrite = usePermission('settings:write')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -20,6 +22,7 @@ export function SettingsPage() {
   const [companyDisplayName, setCompanyDisplayName] = useState('')
   const [defaultCurrency, setDefaultCurrency] = useState('USD')
   const [maintenanceMode, setMaintenanceMode] = useState(false)
+  const [providerMaintenanceMode, setProviderMaintenanceMode] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -33,6 +36,7 @@ export function SettingsPage() {
           setCompanyDisplayName(d.companyDisplayName ?? '')
           setDefaultCurrency((d.defaultCurrency ?? 'USD').toUpperCase())
           setMaintenanceMode(Boolean(d.maintenanceMode))
+          setProviderMaintenanceMode(Boolean(d.providerMaintenanceMode))
         }
       })
       .catch((e) => {
@@ -62,11 +66,13 @@ export function SettingsPage() {
         companyDisplayName: companyDisplayName.trim(),
         defaultCurrency: cur,
         maintenanceMode,
+        providerMaintenanceMode,
       })
       const d = updated.data as SystemSettingsDto
       setCompanyDisplayName(d.companyDisplayName ?? '')
       setDefaultCurrency((d.defaultCurrency ?? 'USD').toUpperCase())
       setMaintenanceMode(Boolean(d.maintenanceMode))
+      setProviderMaintenanceMode(Boolean(d.providerMaintenanceMode))
       setSaved(true)
       refreshDisplayCurrency()
     } catch (err) {
@@ -110,12 +116,25 @@ export function SettingsPage() {
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
                 {t('settingsPage.fieldDefaultCurrency')}
               </label>
-              <input
-                value={defaultCurrency}
-                onChange={(ev) => setDefaultCurrency(ev.target.value.toUpperCase())}
-                maxLength={3}
-                className="mt-1 w-28 rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono uppercase dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-              />
+              {availableCurrencies.length > 1 ? (
+                <select
+                  value={defaultCurrency}
+                  onChange={(ev) => setDefaultCurrency(ev.target.value)}
+                  className="mt-1 w-36 rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  {availableCurrencies.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  value={defaultCurrency}
+                  onChange={(ev) => setDefaultCurrency(ev.target.value.toUpperCase())}
+                  maxLength={3}
+                  placeholder="USD"
+                  className="mt-1 w-28 rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono uppercase dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                />
+              )}
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t('settingsPage.currencyHint')}</p>
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
@@ -127,13 +146,24 @@ export function SettingsPage() {
               />
               {t('settingsPage.fieldMaintenance')}
             </label>
-            <button
-              type="submit"
-              disabled={saving}
-              className="dashboard-btn-primary disabled:opacity-50"
-            >
-              {saving ? t('settingsPage.saving') : t('settingsPage.save')}
-            </button>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+              <input
+                type="checkbox"
+                checked={providerMaintenanceMode}
+                onChange={(ev) => setProviderMaintenanceMode(ev.target.checked)}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              {t('settingsPage.fieldProviderMaintenance')}
+            </label>
+            {canWrite && (
+              <button
+                type="submit"
+                disabled={saving}
+                className="dashboard-btn-primary disabled:opacity-50"
+              >
+                {saving ? t('settingsPage.saving') : t('settingsPage.save')}
+              </button>
+            )}
           </form>
         </Card>
       )}

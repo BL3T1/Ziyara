@@ -5,21 +5,26 @@ import com.ziyara.backend.application.dto.request.ConfirmPaymentRequest;
 import com.ziyara.backend.application.dto.request.CreatePaymentRequest;
 import com.ziyara.backend.application.dto.request.RefundRequest;
 import com.ziyara.backend.application.dto.response.PaymentResponse;
+import com.ziyara.backend.application.dto.response.PaymentSummaryResponse;
 import com.ziyara.backend.application.dto.response.RefundResponse;
+import com.ziyara.backend.application.service.InvoiceService;
 import com.ziyara.backend.domain.enums.PaymentStatus;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import com.ziyara.backend.modules.payment.api.PaymentServiceApi;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -32,10 +37,12 @@ import java.util.UUID;
 @Tag(name = "Payments", description = "Payment processing APIs")
 @SecurityRequirement(name = "bearerAuth")
 public class PaymentController {
-    
+
     private final PaymentServiceApi paymentService;
+    private final InvoiceService invoiceService;
     
     @PostMapping
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Process payment", description = "Initiate payment (idempotent when idempotencyKey is provided). For card, use token from gateway SDK.")
     public ResponseEntity<ApiResponse<PaymentResponse>> processPayment(
             @Valid @RequestBody CreatePaymentRequest request
@@ -46,6 +53,7 @@ public class PaymentController {
     }
     
     @PostMapping("/initiate")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Initiate payment", description = "Start a new payment transaction (same as POST /payments with idempotency support)")
     public ResponseEntity<ApiResponse<PaymentResponse>> initiatePayment(
             @Valid @RequestBody CreatePaymentRequest request
@@ -56,6 +64,7 @@ public class PaymentController {
     }
     
     @PostMapping("/{id}/complete")
+    @PreAuthorize(PAYMENTS_WRITE)
     @Operation(summary = "Complete payment", description = "Confirm a successful payment via gateway callback (query params)")
     public ResponseEntity<ApiResponse<PaymentResponse>> completePayment(
             @PathVariable UUID id,
@@ -67,6 +76,7 @@ public class PaymentController {
     }
 
     @PostMapping("/{id}/confirm")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Confirm payment after 3DS", description = "Confirm payment after 3DS redirect; sets gateway reference and 3DS status.")
     public ResponseEntity<ApiResponse<PaymentResponse>> confirmPayment(
             @PathVariable UUID id,
@@ -82,6 +92,7 @@ public class PaymentController {
     }
     
     @PostMapping("/{id}/fail")
+    @PreAuthorize(PAYMENTS_WRITE)
     @Operation(summary = "Fail payment", description = "Record a failed payment attempt")
     public ResponseEntity<ApiResponse<PaymentResponse>> failPayment(
             @PathVariable UUID id,
@@ -92,6 +103,7 @@ public class PaymentController {
     }
 
     @PostMapping("/{id}/refund")
+    @PreAuthorize(PAYMENTS_REFUND)
     @Operation(summary = "Refund payment", description = "Create a refund for a completed payment. Reason is mandatory for audit.")
     public ResponseEntity<ApiResponse<RefundResponse>> refund(
             @PathVariable UUID id,
@@ -112,7 +124,15 @@ public class PaymentController {
         return null;
     }
 
+    @GetMapping("/summary")
+    @PreAuthorize(PAYMENTS_READ)
+    @Operation(summary = "Payment totals", description = "Platform-wide aggregate: total collected, pending, and refunded — uses full table, not a single page")
+    public ResponseEntity<ApiResponse<PaymentSummaryResponse>> getPaymentSummary() {
+        return ResponseEntity.ok(ApiResponse.success(paymentService.getPaymentSummary()));
+    }
+
     @GetMapping
+    @PreAuthorize(PAYMENTS_READ)
     @Operation(summary = "List payments (paged)", description = "Transaction ledger for dashboard (Financials); optional status filter")
     public ResponseEntity<ApiResponse<Page<PaymentResponse>>> listPayments(
             @RequestParam(defaultValue = "0") int page,
@@ -123,14 +143,36 @@ public class PaymentController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get payment", description = "Get payment details by ID")
+    @PreAuthorize(PAYMENTS_READ)
+    @Operation(summary = "Get payment", description = "Get payment details by ID — finance staff only")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPayment(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(paymentService.getPayment(id)));
     }
 
     @GetMapping("/transaction/{ref}")
-    @Operation(summary = "Get by transaction ref", description = "Get payment by gateway transaction reference")
+    @PreAuthorize(PAYMENTS_READ)
+    @Operation(summary = "Get by transaction ref", description = "Get payment by gateway transaction reference — finance staff only")
     public ResponseEntity<ApiResponse<PaymentResponse>> getByTransactionRef(@PathVariable String ref) {
         return ResponseEntity.ok(ApiResponse.success(paymentService.getByTransactionRef(ref)));
+    }
+
+    @GetMapping("/{id}/invoice")
+    @PreAuthorize(PAYMENTS_READ)
+    @Operation(summary = "Download PDF invoice", description = "Generate a PDF receipt for a payment — finance staff only")
+    public ResponseEntity<byte[]> getInvoice(@PathVariable UUID id) {
+        byte[] pdf = invoiceService.generateInvoicePdf(id);
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition", "attachment; filename=\"invoice-" + id + ".pdf\"")
+                .body(pdf);
+    }
+
+    @PostMapping("/forfeit-deposit/{bookingId}")
+    @PreAuthorize(BOOKINGS_WRITE)
+    @Operation(summary = "Forfeit no-show deposit", description = "Mark COMPLETED payments on a no-show booking as forfeited; cancel PENDING ones. Admin only.")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> forfeitDeposit(@PathVariable UUID bookingId) {
+        UUID adminUserId = getCurrentUserId();
+        List<PaymentResponse> updated = paymentService.forfeitNoShowDeposit(bookingId, adminUserId);
+        return ResponseEntity.ok(ApiResponse.success("Deposit forfeited", updated));
     }
 }

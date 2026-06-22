@@ -34,4 +34,13 @@ public class PortalSupportRequestJpaEntity {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    @Column(name = "staff_response", columnDefinition = "TEXT")
+    private String staffResponse;
+
+    @Column(name = "responded_at")
+    private Instant respondedAt;
+
+    @Column(name = "responded_by_user_id")
+    private UUID respondedByUserId;
 }

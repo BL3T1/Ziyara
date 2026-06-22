@@ -1,6 +1,8 @@
 package com.ziyara.backend.infrastructure.persistence.entity;
 
+import com.ziyara.backend.domain.enums.BookingPaymentStatus;
 import com.ziyara.backend.domain.enums.BookingStatus;
+import com.ziyara.backend.domain.enums.PaymentMethod;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -94,10 +96,25 @@ public class BookingJpaEntity {
     
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
-    
+
     @Column(name = "cancelled_by")
     private UUID cancelledBy;
-    
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    @Column(name = "delay_reason", columnDefinition = "TEXT")
+    private String delayReason;
+
+    @Column(name = "internal_notes", columnDefinition = "TEXT")
+    private String internalNotes;
+
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+
+    @Column(name = "rejected_by")
+    private UUID rejectedBy;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
     
@@ -114,7 +131,15 @@ public class BookingJpaEntity {
 
     @Column(name = "discount_context_room_type_id")
     private UUID discountContextRoomTypeId;
-    
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", length = 50)
+    private PaymentMethod paymentMethod;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", length = 20)
+    private BookingPaymentStatus paymentStatus = BookingPaymentStatus.UNPAID;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

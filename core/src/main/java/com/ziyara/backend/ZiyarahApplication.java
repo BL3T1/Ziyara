@@ -1,7 +1,7 @@
 package com.ziyara.backend;
 
 import com.ziyara.backend.infrastructure.config.MediaStorageProperties;
-import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.config.properties.ZiyaraCorsProperties;
 import com.ziyara.backend.infrastructure.config.properties.ZiyaraPasswordPolicyProperties;
 import org.springframework.boot.SpringApplication;
@@ -35,3 +35,4 @@ public class ZiyarahApplication {
         SpringApplication.run(ZiyarahApplication.class, args);
     }
 }
+

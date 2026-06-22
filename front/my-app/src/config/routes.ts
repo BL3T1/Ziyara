@@ -22,6 +22,7 @@ export const ROUTE_TITLES: Record<string, string> = {
   '/management/reports': 'Reports',
   '/support/complaints': 'Complaints',
   '/support/reviews': 'Reviews',
+  '/support/tickets': 'Provider messages',
   '/management/taxi-trips': 'Taxi trips',
   '/management/currency-rates': 'Currency rates',
   '/admin/settings': 'Settings',
@@ -51,6 +52,7 @@ export const ROUTE_TITLE_KEYS: Record<string, string> = {
   '/management/reports': 'title.reports',
   '/support/complaints': 'title.complaints',
   '/support/reviews': 'title.reviews',
+  '/support/tickets': 'title.tickets',
   '/management/taxi-trips': 'title.taxiTrips',
   '/management/currency-rates': 'title.currencyRates',
   '/admin/settings': 'title.settings',
@@ -67,6 +69,8 @@ export const ROUTE_TITLE_KEYS: Record<string, string> = {
   '/portal/earnings': 'title.earnings',
   '/portal/profile': 'title.profile',
   '/portal/support': 'title.portalSupport',
+  '/portal/cash': 'title.portalCash',
+  '/admin/cash': 'title.adminCash',
 }
 
 /** Path to header icon (sidebar item id). Header shows this icon for the current page. */
@@ -88,6 +92,7 @@ export const ROUTE_ICONS: Record<string, SidebarIconId> = {
   '/management/reports': 'reports',
   '/support/complaints': 'complaints',
   '/support/reviews': 'reviews',
+  '/support/tickets': 'chat',
   '/management/taxi-trips': 'taxi_trips',
   '/management/currency-rates': 'sales',
   '/admin/settings': 'settings',

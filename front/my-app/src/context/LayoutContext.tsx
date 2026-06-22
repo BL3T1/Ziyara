@@ -31,6 +31,8 @@ interface LayoutContextValue {
   sidebarCollapsed: boolean
   setSidebarCollapsed: (v: boolean) => void
   toggleSidebar: () => void
+  mobileSidebarOpen: boolean
+  setMobileSidebarOpen: (v: boolean) => void
 }
 
 const LayoutContext = createContext<LayoutContextValue | null>(null)
@@ -38,6 +40,7 @@ const LayoutContext = createContext<LayoutContextValue | null>(null)
 export function LayoutProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(loadTheme)
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(loadSidebarCollapsed)
+  const [mobileSidebarOpen, setMobileSidebarOpenState] = useState(false)
 
   useEffect(() => {
     applyTheme(theme)
@@ -52,6 +55,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const toggleTheme = useCallback(() => setThemeState((t) => (t === 'dark' ? 'light' : 'dark')), [])
   const setSidebarCollapsed = useCallback((v: boolean) => setSidebarCollapsedState(v), [])
   const toggleSidebar = useCallback(() => setSidebarCollapsedState((v) => !v), [])
+  const setMobileSidebarOpen = useCallback((v: boolean) => setMobileSidebarOpenState(v), [])
 
   const value: LayoutContextValue = {
     theme,
@@ -60,6 +64,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     sidebarCollapsed,
     setSidebarCollapsed,
     toggleSidebar,
+    mobileSidebarOpen,
+    setMobileSidebarOpen,
   }
 
   return <LayoutContext.Provider value={value}>{children}</LayoutContext.Provider>

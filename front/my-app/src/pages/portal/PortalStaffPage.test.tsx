@@ -23,7 +23,7 @@ describe('PortalStaffPage', () => {
         lastName: 'Provider',
         email: 'sam@example.com',
         phone: '+10000000000',
-        role: 'PROVIDER_MANAGER',
+        role: 'STAFF',
         status: 'ACTIVE',
       },
     })

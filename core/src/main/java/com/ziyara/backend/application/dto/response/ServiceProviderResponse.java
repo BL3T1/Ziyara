@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -47,8 +48,8 @@ public class ServiceProviderResponse {
     @Schema(description = "Logo image URL")
     private String logoUrl;
     
-    @Schema(description = "Rating (0-5)")
-    private Double rating;
+    @Schema(description = "Rating 0.00–5.00 (NUMERIC precision)")
+    private BigDecimal rating;
     
     @Schema(description = "Review count")
     private Integer reviewCount;
@@ -59,8 +60,8 @@ public class ServiceProviderResponse {
     @Schema(description = "Verification status")
     private Boolean verified;
     
-    @Schema(description = "Commission rate override (e.g. 10 = 10%). Null = platform default 10%")
-    private BigDecimal commissionRate;
+    @Schema(description = "Profit margin (e.g. 10 = 10%). Null = platform default 10%")
+    private BigDecimal profitMargin;
     
     @Schema(description = "Creation timestamp")
     private LocalDateTime createdAt;
@@ -70,4 +71,19 @@ public class ServiceProviderResponse {
 
     @Schema(description = "When the provider was approved")
     private LocalDateTime approvedAt;
+
+    @Schema(description = "Subscription plan: FREE or PRO")
+    private String subscriptionPlan;
+
+    @Schema(description = "Maximum staff accounts allowed by subscription")
+    private Integer staffLimit;
+
+    @Schema(description = "Official classification (e.g. 3.0 = 3-star hotel). 0 = unset")
+    private BigDecimal globalRate;
+
+    @Schema(description = "Account expiry date. Null = no expiry enforced (legacy record).")
+    private LocalDate expiryDate;
+
+    @Schema(description = "True if the account expiry date has passed.")
+    private boolean expired;
 }

@@ -10,6 +10,8 @@ import {
   type ServiceTypeDto,
 } from '../types/api'
 import { useLanguage } from '../context/LanguageContext'
+import { FormField } from './FormField'
+import { PasswordInput } from './PasswordInput'
 
 export type CreateProviderVariant = 'management' | 'sales'
 
@@ -27,7 +29,6 @@ export function CreateProviderForm({
   successCloseMs?: number
 }) {
   const { t } = useLanguage()
-  const [linkMode, setLinkMode] = useState<'new' | 'existing'>('new')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
@@ -39,15 +40,16 @@ export function CreateProviderForm({
   const [managerEmail, setManagerEmail] = useState('')
   const [managerPassword, setManagerPassword] = useState('')
   const [managerPhone, setManagerPhone] = useState('')
-  const [existingManagerEmail, setExistingManagerEmail] = useState('')
+  const [managerRole, setManagerRole] = useState('PROVIDER_MANAGER')
+  const [subscriptionPlan, setSubscriptionPlan] = useState<'FREE' | 'PRO'>('FREE')
+  const [globalRate, setGlobalRate] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
-    if (presetServiceType) {
-      setType(presetServiceType)
-    }
+    if (presetServiceType) setType(presetServiceType)
   }, [presetServiceType])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,6 +64,22 @@ export function CreateProviderForm({
         setSubmitting(false)
         return
       }
+      const rateVal = parseFloat(globalRate)
+      if (!globalRate || Number.isNaN(rateVal) || rateVal < 1 || rateVal > 5) {
+        setError(t('createProviderModal.errGlobalRate'))
+        setSubmitting(false)
+        return
+      }
+      if (!expiryDate) {
+        setError(t('createProviderModal.errExpiryDateRequired'))
+        setSubmitting(false)
+        return
+      }
+      if (new Date(expiryDate) <= new Date()) {
+        setError(t('createProviderModal.errExpiryDateFuture'))
+        setSubmitting(false)
+        return
+      }
       const payload: CreateServiceProviderPayload = {
         name: name.trim(),
         phone: phone.trim(),
@@ -71,31 +89,19 @@ export function CreateProviderForm({
         registrationNumber: registrationNumber.trim() || undefined,
         description: description.trim() || undefined,
         logoUrl: logoUrl.trim() || undefined,
+        managerEmail: managerEmail.trim(),
+        managerPassword: managerPassword,
+        managerRole,
+        subscriptionPlan,
+        globalRate: rateVal,
+        expiryDate,
       }
-      if (linkMode === 'new') {
-        payload.managerEmail = managerEmail.trim()
-        payload.managerPassword = managerPassword
-        if (managerPhone.trim()) payload.managerPhone = managerPhone.trim()
-      } else {
-        const managerEmailValue = existingManagerEmail.trim()
-        if (!managerEmailValue) {
-          setError(t('createProviderModal.errExistingManagerEmail'))
-          setSubmitting(false)
-          return
-        }
-        payload.managerEmail = managerEmailValue
-      }
+      if (managerPhone.trim()) payload.managerPhone = managerPhone.trim()
       await providersAPI.create(payload)
-      const msg =
-        variant === 'sales'
-          ? t('createProviderModal.successSales')
-          : t('createProviderModal.successActive')
-      setSuccess(msg)
+      setSuccess(variant === 'sales' ? t('createProviderModal.successSales') : t('createProviderModal.successActive'))
       onCreated?.()
       if (successCloseMs != null && successCloseMs >= 0) {
-        window.setTimeout(() => {
-          onCancel()
-        }, successCloseMs)
+        window.setTimeout(() => onCancel(), successCloseMs)
       }
     } catch (err) {
       setError(getApiErrorMessage(err))
@@ -104,206 +110,242 @@ export function CreateProviderForm({
     }
   }
 
+  if (success) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-200">
+        {success}
+      </div>
+    )
+  }
+
   return (
-    <>
+    <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
           {error}
         </div>
       )}
-      {success && (
-        <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">
-          {success}
-        </div>
-      )}
 
-      <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-        <div className="flex gap-3 text-sm">
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="radio"
-              name="linkMode"
-              checked={linkMode === 'new'}
-              onChange={() => setLinkMode('new')}
-            />
-            {t('createProviderModal.modeNew')}
-          </label>
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="radio"
-              name="linkMode"
-              checked={linkMode === 'existing'}
-              onChange={() => setLinkMode('existing')}
-            />
-            {t('createProviderModal.modeExisting')}
-          </label>
+      {/* ── Section 1: Provider info ───────────────────── */}
+      <div className="space-y-4">
+        <div className="border-b border-slate-100 pb-1 dark:border-white/[0.05]">
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            {t('createProviderModal.sectionProvider')}
+          </p>
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-            {t('createProviderModal.labelName')}
-          </label>
-          <input
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-          />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField label={t('createProviderModal.labelName')} required>
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Grand Palace Hotel"
+              className="modal-input"
+            />
+          </FormField>
+
+          {variant === 'management' && !presetServiceType && (
+            <FormField label={t('createProviderModal.labelType')} required>
+              <select
+                required
+                value={type}
+                onChange={(e) => setType((e.target.value || '') as ServiceTypeDto | '')}
+                className="modal-select"
+              >
+                <option value="">{t('createProviderModal.typePlaceholder')}</option>
+                {PARTNER_SERVICE_TYPE_VALUES.map((v) => (
+                  <option key={v} value={v}>{t(`serviceType.${v}`)}</option>
+                ))}
+              </select>
+            </FormField>
+          )}
+
+          {presetServiceType && (
+            <FormField label={t('createProviderModal.labelType')}>
+              <input
+                readOnly
+                value={t(`serviceType.${presetServiceType}`)}
+                className="modal-input bg-slate-50 text-slate-500 dark:bg-white/[0.02]"
+              />
+            </FormField>
+          )}
         </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-            {t('createProviderModal.labelPhone')}
-          </label>
-          <input
-            required
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-          />
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField label={t('createProviderModal.labelPhone')} required>
+            <input
+              required
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+966 5x xxx xxxx"
+              className="modal-input"
+            />
+          </FormField>
+          <FormField label={t('createProviderModal.labelContactEmail')}>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="contact@provider.com"
+              className="modal-input"
+            />
+          </FormField>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-            {t('createProviderModal.labelAddress')}
-          </label>
+
+        <FormField label={t('createProviderModal.labelAddress')} required>
           <input
             required
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+            placeholder="Street, City, Country"
+            className="modal-input"
           />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-            {t('createProviderModal.labelContactEmail')}
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-          />
-        </div>
-        {variant === 'management' && !presetServiceType && (
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-              {t('createProviderModal.labelType')}
-            </label>
-            <select
-              required
-              value={type}
-              onChange={(e) => setType((e.target.value || '') as ServiceTypeDto | '')}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-            >
-              <option value="">{t('createProviderModal.typePlaceholder')}</option>
-              {PARTNER_SERVICE_TYPE_VALUES.map((v) => (
-                <option key={v} value={v}>
-                  {t(`serviceType.${v}`)}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-            {t('createProviderModal.labelReg')}
-          </label>
+        </FormField>
+
+        <FormField label={t('createProviderModal.labelReg')}>
           <input
             value={registrationNumber}
             onChange={(e) => setRegistrationNumber(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+            placeholder="CR-XXXXXXXX"
+            className="modal-input font-mono tracking-wide"
           />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-            {t('createProviderModal.labelDescription')}
-          </label>
+        </FormField>
+
+        <FormField label={t('createProviderModal.labelDescription')}>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+            rows={3}
+            placeholder={t('createProviderModal.placeholderDescription')}
+            className="modal-textarea"
           />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-            {t('createProviderModal.labelLogoUrl')}
-          </label>
-          <input
-            value={logoUrl}
-            onChange={(e) => setLogoUrl(e.target.value)}
-            placeholder="https://… or /media/…"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-          />
-        </div>
+        </FormField>
 
-        {linkMode === 'new' ? (
-          <>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                {t('createProviderModal.labelManagerEmail')}
-              </label>
-              <input
-                type="email"
-                required
-                value={managerEmail}
-                onChange={(e) => setManagerEmail(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                {t('createProviderModal.labelManagerPassword')}
-              </label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                autoComplete="new-password"
-                value={managerPassword}
-                onChange={(e) => setManagerPassword(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                {t('createProviderModal.labelManagerPhone')}
-              </label>
-              <input
-                value={managerPhone}
-                onChange={(e) => setManagerPhone(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              />
-            </div>
-          </>
-        ) : (
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-              {t('createProviderModal.labelExistingManagerEmail')}
-            </label>
+        <FormField label={t('createProviderModal.labelGlobalRate')} hint={t('createProviderModal.hintGlobalRate')} required>
+          <div className="relative max-w-xs">
             <input
               required
-              type="email"
-              value={existingManagerEmail}
-              onChange={(e) => setExistingManagerEmail(e.target.value)}
-              placeholder="manager@example.com"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              type="number"
+              min="1"
+              max="5"
+              step="0.5"
+              value={globalRate}
+              onChange={(e) => setGlobalRate(e.target.value)}
+              placeholder="e.g. 3.0"
+              className="modal-input pr-12 font-mono"
             />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">★</span>
           </div>
-        )}
+        </FormField>
 
-        <div className="flex flex-wrap justify-end gap-2 pt-2">
-          <button type="button" onClick={onCancel} className="dashboard-btn-secondary" disabled={!!success}>
-            {t('ui.cancel')}
-          </button>
-          <button
-            type="submit"
-            disabled={submitting || !!success}
-            className="dashboard-btn-primary disabled:opacity-50"
-          >
-            {submitting ? t('ui.loading') : t('createProviderModal.submit')}
-          </button>
+        <FormField label={t('createProviderModal.labelExpiryDate')} hint={t('createProviderModal.hintExpiryDate')} required>
+          <input
+            required
+            type="date"
+            value={expiryDate}
+            min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+            onChange={(e) => setExpiryDate(e.target.value)}
+            className="modal-input"
+          />
+        </FormField>
+
+        <FormField label={t('createProviderModal.labelLogoUrl')} hint="https://… or /media/…">
+          <input
+            type="url"
+            value={logoUrl}
+            onChange={(e) => setLogoUrl(e.target.value)}
+            placeholder="https://example.com/logo.png"
+            className="modal-input"
+          />
+        </FormField>
+      </div>
+
+      {/* ── Section 2: Subscription plan ───────────────── */}
+      <div className="space-y-4">
+        <div className="border-b border-slate-100 pb-1 dark:border-white/[0.05]">
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            {t('subscriptionsPage.title')}
+          </p>
         </div>
-      </form>
-    </>
+        <FormField label={t('subscriptionsPage.planLabel')}>
+          <select
+            value={subscriptionPlan}
+            onChange={(e) => setSubscriptionPlan(e.target.value as 'FREE' | 'PRO')}
+            className="modal-select"
+          >
+            <option value="FREE">FREE — up to 10 staff</option>
+            <option value="PRO">PRO — custom staff limit</option>
+          </select>
+        </FormField>
+      </div>
+
+      {/* ── Section 3: Manager account ─────────────────── */}
+      <div className="space-y-4">
+        <div className="border-b border-slate-100 pb-1 dark:border-white/[0.05]">
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            {t('createProviderModal.sectionManager')}
+          </p>
+        </div>
+
+        <FormField label={t('createProviderModal.labelManagerEmail')} required>
+          <input
+            type="email"
+            required
+            value={managerEmail}
+            onChange={(e) => setManagerEmail(e.target.value)}
+            placeholder="manager@provider.com"
+            className="modal-input"
+          />
+        </FormField>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField label={t('createProviderModal.labelManagerPassword')} required>
+            <PasswordInput
+              required
+              minLength={6}
+              autoComplete="new-password"
+              value={managerPassword}
+              onChange={(e) => setManagerPassword(e.target.value)}
+              className="modal-input"
+            />
+          </FormField>
+          <FormField label={t('createProviderModal.labelManagerPhone')}>
+            <input
+              type="tel"
+              value={managerPhone}
+              onChange={(e) => setManagerPhone(e.target.value)}
+              placeholder="+966 5x xxx xxxx"
+              className="modal-input"
+            />
+          </FormField>
+        </div>
+        <FormField label={t('createProviderModal.labelManagerRole')}>
+          <select
+            value={managerRole}
+            onChange={(e) => setManagerRole(e.target.value)}
+            className="modal-select"
+          >
+            <option value="PROVIDER_MANAGER">{t('createProviderModal.roleProviderManager')}</option>
+            <option value="PROVIDER_FINANCE">{t('createProviderModal.roleProviderFinance')}</option>
+            <option value="PROVIDER_STAFF">{t('createProviderModal.roleProviderStaff')}</option>
+            <option value="TAXI_OPERATOR">{t('createProviderModal.roleTaxiOperator')}</option>
+          </select>
+        </FormField>
+      </div>
+
+      <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4 dark:border-white/[0.05]">
+        <button type="button" onClick={onCancel} className="dashboard-btn-secondary">
+          {t('ui.cancel')}
+        </button>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="dashboard-btn-primary disabled:opacity-50"
+        >
+          {submitting ? t('ui.loading') : t('createProviderModal.submit')}
+        </button>
+      </div>
+    </form>
   )
 }

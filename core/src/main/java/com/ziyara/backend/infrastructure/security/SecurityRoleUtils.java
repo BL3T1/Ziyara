@@ -8,7 +8,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import java.util.Optional;
 
 /**
- * Resolves {@link UserRole} from Spring Security context (JWT → GrantedAuthority ROLE_*).
+ * Resolves the coarse {@link UserRole} tier and common permission helpers
+ * from the Spring Security context.
  */
 public final class SecurityRoleUtils {
 
@@ -28,16 +29,36 @@ public final class SecurityRoleUtils {
             try {
                 return Optional.of(UserRole.valueOf(a.substring("ROLE_".length())));
             } catch (IllegalArgumentException ignored) {
-                // non-enum authority
+                // not a recognised tier
             }
         }
         return Optional.empty();
     }
 
-    /** Super Admin and CEO may activate discounts without a separate approver. */
+    /** True when the current user holds the {@code discounts:approve} permission. */
     public static boolean canActivateOrApproveDiscounts() {
-        return currentUserRole()
-                .map(r -> r == UserRole.SUPER_ADMIN || r == UserRole.CEO)
-                .orElse(false);
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> "discounts:approve".equals(a.getAuthority())
+                        || "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+    }
+
+    /** True when the current user holds the {@code providers:approve} permission. */
+    public static boolean canApproveProviders() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> "providers:approve".equals(a.getAuthority())
+                        || "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+    }
+
+    /** True when the current user holds the {@code portal:manage} permission. */
+    public static boolean hasPortalManage() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> "portal:manage".equals(a.getAuthority())
+                        || "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
     }
 }

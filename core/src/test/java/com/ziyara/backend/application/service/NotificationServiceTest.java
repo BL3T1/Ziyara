@@ -6,6 +6,7 @@ import com.ziyara.backend.domain.entity.Notification;
 import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.domain.enums.NotificationChannel;
 import com.ziyara.backend.domain.repository.NotificationRepository;
+import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.infrastructure.persistence.mapper.NotificationMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,9 @@ class NotificationServiceTest {
 
     @Mock
     private NotificationRepository notificationRepository;
+
+    @Mock
+    private UserRepository userRepository;
 
     @Mock
     private NotificationMapper notificationMapper;

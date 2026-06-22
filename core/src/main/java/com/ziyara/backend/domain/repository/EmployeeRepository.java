@@ -16,7 +16,12 @@ public interface EmployeeRepository {
     Optional<Employee> findByEmployeeId(String employeeId);
     List<Employee> findByDepartmentId(UUID departmentId);
     List<Employee> findByLevel(EmployeeLevel level);
+    /** All employees including offboarded ones (for audit/history views). */
     List<Employee> findAll();
+    /** Active employees only (offboardedAt IS NULL). */
+    List<Employee> findAllActive();
+    /** Count of active employees — used for seat-limit enforcement. */
+    long countActive();
     void deleteById(UUID id);
     boolean existsByEmployeeId(String employeeId);
 }

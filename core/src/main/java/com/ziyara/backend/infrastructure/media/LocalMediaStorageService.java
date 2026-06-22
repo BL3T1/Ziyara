@@ -1,8 +1,9 @@
 package com.ziyara.backend.infrastructure.media;
 
 import com.ziyara.backend.infrastructure.config.MediaStorageProperties;
-import com.ziyara.backend.presentation.exception.BusinessException;
+import com.ziyara.backend.application.exception.BusinessException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -15,9 +16,11 @@ import java.util.UUID;
 
 /**
  * Persists uploaded bytes under {@link MediaStorageProperties#getStorageRoot()} and returns a public URL path.
+ * Active when APP_MEDIA_STORAGE_BACKEND=local (default).
  */
 @Service
-public class LocalMediaStorageService {
+@ConditionalOnProperty(name = "app.media.storage-backend", havingValue = "local", matchIfMissing = true)
+public class LocalMediaStorageService implements MediaStorageService {
 
     private static final int MAX_BYTES = 10 * 1024 * 1024;
     private static final Set<String> ALLOWED_TYPES = Set.of(
@@ -68,6 +71,29 @@ public class LocalMediaStorageService {
         }
 
         String relative = "services/" + serviceId + "/" + fileName;
+        return buildPublicUrl(relative);
+    }
+
+    @Override
+    public String storeProviderImage(UUID providerId, byte[] data, String contentType, String originalFilename) {
+        if (data == null || data.length == 0) throw new BusinessException("Empty file");
+        if (data.length > MAX_BYTES) throw new BusinessException("File too large (max 10MB)");
+        validateOriginalFilename(originalFilename);
+        String normalizedType = normalizeContentType(contentType);
+        if (!ALLOWED_TYPES.contains(normalizedType)) throw new BusinessException("Unsupported image type (use JPEG, PNG, WebP, or GIF)");
+        String ext = extensionFor(normalizedType);
+        String fileName = UUID.randomUUID() + ext;
+        Path base = Paths.get(properties.getStorageRoot()).toAbsolutePath().normalize();
+        Path dir = resolveUnderBase(base, base.resolve("providers").resolve(providerId.toString()));
+        try {
+            Files.createDirectories(dir);
+            if (fileName.contains("/") || fileName.contains("\\") || fileName.contains(":")) throw new BusinessException("Invalid media filename");
+            Path target = resolveUnderBase(base, dir.resolve(fileName));
+            Files.write(target, data);
+        } catch (IOException e) {
+            throw new BusinessException("Failed to store file: " + e.getMessage());
+        }
+        String relative = "providers/" + providerId + "/" + fileName;
         return buildPublicUrl(relative);
     }
 

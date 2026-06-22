@@ -20,6 +20,7 @@ import java.util.UUID;
 @Repository
 public interface PaymentJpaRepository extends JpaRepository<PaymentJpaEntity, UUID> {
     Optional<PaymentJpaEntity> findByBookingId(UUID bookingId);
+    List<PaymentJpaEntity> findAllByBookingIdOrderByCreatedAtAsc(UUID bookingId);
     Optional<PaymentJpaEntity> findByTransactionRef(String reference);
     Optional<PaymentJpaEntity> findByGatewayReference(String gatewayReference);
     Optional<PaymentJpaEntity> findByIdempotencyKey(String idempotencyKey);
@@ -35,4 +36,16 @@ public interface PaymentJpaRepository extends JpaRepository<PaymentJpaEntity, UU
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM PaymentJpaEntity p WHERE p.status = :status AND p.bookingId IN :bookingIds")
     BigDecimal sumCompletedAmountByBookingIds(@Param("status") PaymentStatus status, @Param("bookingIds") List<UUID> bookingIds);
+
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM PaymentJpaEntity p WHERE p.status = :status")
+    BigDecimal sumByStatus(@Param("status") PaymentStatus status);
+
+    @Query("SELECT p.currency, COALESCE(SUM(p.amount), 0) FROM PaymentJpaEntity p WHERE p.status = :status GROUP BY p.currency")
+    List<Object[]> sumByStatusGroupedByCurrencyRaw(@Param("status") PaymentStatus status);
+
+    @Query("SELECT p FROM PaymentJpaEntity p WHERE p.status = :status AND p.bookingId IN :bookingIds AND p.createdAt >= :since")
+    List<PaymentJpaEntity> findCompletedByBookingIdsSince(
+            @Param("status") PaymentStatus status,
+            @Param("bookingIds") List<UUID> bookingIds,
+            @Param("since") LocalDateTime since);
 }

@@ -2,7 +2,7 @@ package com.ziyara.backend.infrastructure.security;
 
 import com.ziyara.backend.application.service.JwtTokenBlocklistService;
 import com.ziyara.backend.domain.enums.UserRole;
-import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.rls.RlsSessionAttributes;
 import com.ziyara.backend.infrastructure.rls.RlsSessionContext;
 import jakarta.servlet.FilterChain;
@@ -47,6 +47,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements Ord
     private final SecurityContextRepository securityContextRepository;
     private final JwtCookieProperties jwtCookieProperties;
     private final JwtTokenBlocklistService jwtTokenBlocklistService;
+    private final JwtIdleTimeoutService jwtIdleTimeoutService;
 
     @Override
     protected void doFilterInternal(
@@ -70,7 +71,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements Ord
                     filterChain.doFilter(request, response);
                     return;
                 }
-                applyRlsFromJwt(jwt, userId);
+                // Reject sessions that have been idle longer than the configured timeout
+                if (jti != null && !jwtIdleTimeoutService.touchAndCheck(jti)) {
+                    log.debug("JWT rejected: idle timeout");
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+                applyRlsFromJwt(request, jwt, userId);
                 int tokenVersion = jwtService.extractTokenVersion(jwt);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(userId);
                 boolean allow = true;
@@ -124,18 +131,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements Ord
         return null;
     }
 
-    private void applyRlsFromJwt(String jwt, String userIdStr) {
+    private void applyRlsFromJwt(HttpServletRequest request, String jwt, String userIdStr) {
         UUID userId = UUID.fromString(userIdStr);
-        String roleName = jwtService.extractRole(jwt);
         UUID providerScope = jwtService.extractProviderScopeId(jwt);
-        boolean bypass = true;
-        if (roleName != null) {
-            try {
-                bypass = UserRole.valueOf(roleName).isCompanyDirectoryUser();
-            } catch (IllegalArgumentException ex) {
-                bypass = true;
-            }
-        }
+        // Portal users have a providerScope and must NOT bypass RLS; all others (internal staff, super admin) bypass.
+        boolean bypass = (providerScope == null);
         RlsSessionContext.set(new RlsSessionAttributes(bypass, userId, providerScope));
+        if (providerScope != null) {
+            request.setAttribute("portalProviderId", providerScope.toString());
+        }
     }
 }
+

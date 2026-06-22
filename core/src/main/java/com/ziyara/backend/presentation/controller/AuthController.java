@@ -4,11 +4,13 @@ import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.AuthRequest;
 import com.ziyara.backend.application.dto.AuthResponse;
 import com.ziyara.backend.application.dto.request.*;
+import com.ziyara.backend.application.annotation.RateLimit;
+import com.ziyara.backend.application.exception.RateLimitedException;
 import com.ziyara.backend.application.service.AuthService;
 import com.ziyara.backend.application.service.LoginRateLimitService;
 import com.ziyara.backend.application.service.SecurityAlertService;
 import com.ziyara.backend.application.service.SecurityEventService;
-import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.web.AuthCookieHelper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -46,6 +48,7 @@ public class AuthController {
     private String servletContextPath;
 
     @PostMapping("/register")
+    @RateLimit(key = "POST:/auth/register", maxPerMinute = 10)
     @Operation(summary = "Register", description = "Register a new user (customer self-signup). Provider accounts must use provider onboarding.")
     public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest request) {
         authService.register(request);
@@ -53,6 +56,7 @@ public class AuthController {
     }
 
     @PostMapping("/password/forgot")
+    @RateLimit(key = "POST:/auth/password/forgot", maxPerMinute = 5)
     @Operation(summary = "Forgot password", description = "Request password reset; token emailed when app.notifications.email.enabled=true")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.forgotPassword(request);
@@ -60,6 +64,7 @@ public class AuthController {
     }
 
     @PostMapping("/password/reset")
+    @RateLimit(key = "POST:/auth/password/reset", maxPerMinute = 5)
     @Operation(summary = "Reset password", description = "Reset password using token from forgot-password")
     public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
@@ -89,8 +94,7 @@ public class AuthController {
     ) {
         String ipAddress = getClientIp(httpRequest);
         if (!loginRateLimitService.allow(ipAddress, "POST:/auth/login")) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(ApiResponse.error("Too many login attempts from this network. Please try again shortly."));
+            throw new RateLimitedException("Too many login attempts from this network. Please try again shortly.");
         }
         try {
             AuthResponse response = authService.authenticate(request, ipAddress);
@@ -220,3 +224,4 @@ public class AuthController {
         return xfHeader.split(",")[0];
     }
 }
+

@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getApiErrorMessage, portalServicesAPI, servicesAPI } from '../../services/api'
 import { Card } from '../../components/Card'
+import { usePermission } from '../../hooks/usePermission'
 import type {
   CreateMenuItemPayload,
   CreateHotelRoomPayload,
@@ -57,6 +58,9 @@ export function ServiceDetailMediaEditor({
   onRefresh,
 }: Props) {
   const api = mediaApi(variant)
+  const canWriteCompany = usePermission('services:write')
+  const canWritePortal = usePermission('portal:manage')
+  const canWrite = variant === 'provider' ? canWritePortal : canWriteCompany
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -368,6 +372,8 @@ export function ServiceDetailMediaEditor({
       void refreshRooms().catch(() => {})
     }
   }, [open, refreshRooms, serviceType])
+
+  if (!canWrite) return null
 
   return (
     <div className="mt-6">

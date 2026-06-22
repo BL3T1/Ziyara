@@ -4,8 +4,9 @@ import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.repository.RoleRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.domain.repository.UserRoleAssignmentRepository;
-import com.ziyara.backend.presentation.exception.BusinessException;
+import com.ziyara.backend.application.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,13 +20,11 @@ public class UserRbacAssignmentService {
     private final RoleRepository roleRepository;
     private final UserRoleAssignmentRepository userRoleAssignmentRepository;
 
+    @CacheEvict(value = "userNavigation", key = "#targetUserId")
     @Transactional
     public void assignOrClearPrimaryRbacRole(UUID targetUserId, UUID roleIdOrNull) {
-        User user = userRepository.findById(targetUserId)
+        userRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException("User not found"));
-        if (!user.getRole().isCompanyDirectoryUser()) {
-            throw new IllegalArgumentException("RBAC sidebar assignment applies to company staff only");
-        }
         if (roleIdOrNull == null) {
             userRoleAssignmentRepository.clearAssignmentsForUser(targetUserId);
             return;
@@ -41,7 +40,7 @@ public class UserRbacAssignmentService {
      * {@code code} matches {@code userRole}, copying {@code group_id} onto the assignment for group-based summaries.
      * <p>
      * Called after company-dashboard user create and after {@code sys_users.role} is changed by an admin.
-     * If an admin had assigned a <em>custom</em> RBAC role for sidebar overrides, that row is replaced —
+     * If an admin had assigned a <em>custom</em> RBAC role for sidebar overrides, that row is replaced â€”
      * they must re-assign the custom role if still required.
      */
     @Transactional
@@ -65,5 +64,16 @@ public class UserRbacAssignmentService {
             throw new BusinessException("Role not found");
         }
         userRoleAssignmentRepository.setPrimaryRoleForUser(userId, rbacRoleId);
+    }
+
+    /**
+     * Sets primary {@code sys_user_roles} row by looking up a {@code sys_roles.code} value.
+     * No-op if the role code does not exist in the DB (avoids hard dependency on seed data order).
+     * Used for portal roles (e.g. PROVIDER_MANAGER) which have no matching {@code UserRole} enum value.
+     */
+    @Transactional
+    public void assignPrimaryRoleByCode(UUID userId, String roleCode) {
+        roleRepository.findByCode(roleCode)
+                .ifPresent(role -> userRoleAssignmentRepository.setPrimaryRoleForUser(userId, role.getId()));
     }
 }

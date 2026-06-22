@@ -65,6 +65,26 @@ public class ProviderWorkflowEmailService {
                         + "You can now use the provider portal.");
     }
 
+    public void notifyExpiryWarningToAdmins(ServiceProvider provider) {
+        if (approverRecipients.isEmpty()) return;
+        send(approverRecipients.toArray(String[]::new),
+                "Partner account expiring in 7 days: " + provider.getName(),
+                "The following partner account will expire in 7 days and the manager will lose portal access.\n\n"
+                        + "Partner: " + provider.getName() + "\n"
+                        + "Expiry date: " + provider.getExpiryDate() + "\n"
+                        + "Please renew by updating the expiry date in Management → Providers.");
+    }
+
+    public void notifyExpiredToAdmins(ServiceProvider provider) {
+        if (approverRecipients.isEmpty()) return;
+        send(approverRecipients.toArray(String[]::new),
+                "Partner account has expired: " + provider.getName(),
+                "The following partner account has expired and the manager can no longer log in.\n\n"
+                        + "Partner: " + provider.getName() + "\n"
+                        + "Expired on: " + provider.getExpiryDate() + "\n"
+                        + "Please renew by updating the expiry date in Management → Providers.");
+    }
+
     public void notifyRejected(ServiceProvider provider, String managerEmail, String reason) {
         String details = (reason == null || reason.isBlank()) ? "" : ("\nReason: " + reason.trim());
         send(managerEmail,

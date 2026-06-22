@@ -30,8 +30,7 @@ public class CreateDiscountRequest {
     @Schema(description = "Type: PERCENTAGE or FIXED_AMOUNT", required = true)
     private String type;
 
-    @NotNull
-    @Schema(description = "Value (percentage 0-100 or fixed amount)", required = true)
+    @Schema(description = "Value (percentage 0-100 or fixed amount); omit when sponsor = BOTH and use companyValue + providerValue instead")
     private BigDecimal value;
 
     @Schema(description = "Minimum booking amount")
@@ -53,8 +52,14 @@ public class CreateDiscountRequest {
     @Schema(description = "Initial status")
     private DiscountStatus status;
 
-    @Schema(description = "Who funds the discount at checkout: COMPANY, PROVIDER, or BOTH (split 50/50)", example = "COMPANY")
+    @Schema(description = "Who funds the discount at checkout: COMPANY, PROVIDER, or BOTH", example = "COMPANY")
     private String sponsor;
+
+    @Schema(description = "Company-side discount amount when sponsor = BOTH")
+    private BigDecimal companyValue;
+
+    @Schema(description = "Provider-side discount amount when sponsor = BOTH")
+    private BigDecimal providerValue;
 
     @Schema(description = "Restrict to this provider; null = any provider (company-wide)")
     private UUID providerId;

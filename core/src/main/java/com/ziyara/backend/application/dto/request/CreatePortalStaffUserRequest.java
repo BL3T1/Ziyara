@@ -1,10 +1,8 @@
 package com.ziyara.backend.application.dto.request;
 
-import com.ziyara.backend.domain.enums.UserRole;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,10 +31,10 @@ public class CreatePortalStaffUserRequest {
     @Schema(description = "Optional phone")
     private String phone;
 
-    @NotNull
-    @Schema(description = "Provider role for this account", requiredMode = Schema.RequiredMode.REQUIRED,
-            allowableValues = {"PROVIDER_MANAGER", "PROVIDER_FINANCE", "PROVIDER_STAFF", "TAXI_OPERATOR"})
-    private UserRole role;
+    @NotBlank
+    @Schema(description = "Role code from sys_roles (e.g. PROVIDER_STAFF, PROVIDER_FINANCE, TAXI_OPERATOR, PROVIDER_MANAGER)",
+            requiredMode = Schema.RequiredMode.REQUIRED)
+    private String roleCode;
 
     @Schema(description = "Optional title label in provider team")
     private String title;

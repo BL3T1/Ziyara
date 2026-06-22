@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SIDEBAR_SECTIONS, filterSectionsByVisibleIds, getSidebarSectionsForRole } from './sidebar'
+import { SIDEBAR_SECTIONS, filterSectionsByVisibleIds } from './sidebar'
 
 describe('filterSectionsByVisibleIds', () => {
   it('preserves global order and groups sections by first occurrence', () => {
@@ -23,14 +23,5 @@ describe('filterSectionsByVisibleIds', () => {
   it('dedupes repeated ids', () => {
     const out = filterSectionsByVisibleIds(SIDEBAR_SECTIONS, ['dashboard', 'dashboard'])
     expect(out[0].items).toHaveLength(1)
-  })
-})
-
-describe('getSidebarSectionsForRole', () => {
-  it('finance role excludes admin-only items', () => {
-    const sections = getSidebarSectionsForRole('finance')
-    const ids = sections.flatMap((s) => s.items.map((i) => i.id))
-    expect(ids).not.toContain('roles')
-    expect(ids).toContain('bookings')
   })
 })

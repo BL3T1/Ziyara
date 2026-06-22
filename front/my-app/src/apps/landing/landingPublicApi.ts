@@ -35,8 +35,12 @@ export const landingPublicApi = {
     const res = await publicClient.get(`/content-pages/${slug}`, { params: { lang } })
     const body = res.data as unknown
     if (body && typeof body === 'object') {
-      const payload = (body as Record<string, unknown>).data as Record<string, unknown> | undefined
-      if (payload && typeof payload === 'object') return payload
+      // body = ApiEnvelope { data: ContentPageResponse { content: {...}, published, slug } }
+      const dto = (body as Record<string, unknown>).data as Record<string, unknown> | undefined
+      if (dto && typeof dto === 'object') {
+        const contentMap = (dto as Record<string, unknown>).content
+        if (contentMap && typeof contentMap === 'object') return contentMap as Record<string, unknown>
+      }
     }
     return null
   },

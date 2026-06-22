@@ -5,7 +5,7 @@ import com.ziyara.backend.application.locale.RequestLocaleHolder;
 import com.ziyara.backend.domain.entity.Department;
 import com.ziyara.backend.domain.repository.DepartmentRepository;
 import com.ziyara.backend.domain.repository.EmployeeRepository;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

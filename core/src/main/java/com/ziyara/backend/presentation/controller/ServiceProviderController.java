@@ -1,16 +1,19 @@
 package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.ApiResponse;
+import com.ziyara.backend.application.dto.AuthResponse;
 import com.ziyara.backend.application.dto.request.CreateServiceProviderRequest;
 import com.ziyara.backend.application.dto.request.RejectServiceProviderRequest;
+import com.ziyara.backend.application.dto.request.ResetPasswordAdminRequest;
 import com.ziyara.backend.application.dto.request.UpdateProviderCommissionRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceProviderRequest;
 import com.ziyara.backend.domain.enums.ProviderStatus;
-import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.application.dto.response.ServiceProviderResponse;
+import com.ziyara.backend.application.dto.response.PortalDiscountBalanceResponse;
+import com.ziyara.backend.application.service.AuthService;
+import com.ziyara.backend.application.service.PortalService;
 import com.ziyara.backend.application.service.ServiceProviderService;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
-import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,6 +27,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -38,9 +42,11 @@ import java.util.UUID;
 public class ServiceProviderController {
     
     private final ServiceProviderService providerService;
+    private final PortalService portalService;
+    private final AuthService authService;
     
     @GetMapping
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+    @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "List providers (paged)", description = "Registered service providers; optional status filter")
     public ResponseEntity<ApiResponse<Page<ServiceProviderResponse>>> getAllProviders(
             @RequestParam(defaultValue = "0") int page,
@@ -52,7 +58,7 @@ public class ServiceProviderController {
     }
     
     @GetMapping("/me")
-    @PreAuthorize(ApiAuthorizationExpressions.PROVIDER_PORTAL)
+    @PreAuthorize(PROVIDER_PORTAL)
     @Operation(summary = "Get current provider", description = "Retrieve the provider profile for the authenticated user (portal)")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> getCurrentProvider() {
         UUID userId = getCurrentUserId();
@@ -66,8 +72,8 @@ public class ServiceProviderController {
                         .body(ApiResponse.error("No provider profile for this user")));
     }
 
-    @PutMapping("/me")
-    @PreAuthorize(ApiAuthorizationExpressions.PROVIDER_PORTAL)
+    @PatchMapping("/me")
+    @PreAuthorize(PROVIDER_PORTAL)
     @Operation(summary = "Update current provider", description = "Update the authenticated provider's profile (portal)")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> updateCurrentProvider(
             @Valid @RequestBody UpdateServiceProviderRequest request) {
@@ -85,14 +91,14 @@ public class ServiceProviderController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+    @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Get provider", description = "Retrieve provider details by ID")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> getProvider(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(providerService.getProvider(id)));
     }
     
     @PostMapping
-    @PreAuthorize(ApiAuthorizationExpressions.PROVIDER_SUBMIT)
+    @PreAuthorize(PROVIDER_SUBMIT)
     @Operation(summary = "Create provider account", description = "Super Admin / CEO: active immediately. Sales: pending until Super Admin / CEO approves.")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> registerProvider(
             @Valid @RequestBody CreateServiceProviderRequest request
@@ -101,21 +107,16 @@ public class ServiceProviderController {
         if (actorId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
         }
-        UserRole role = SecurityRoleUtils.currentUserRole().orElse(null);
-        if (role == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
-        }
-        ServiceProviderResponse response = providerService.createProvider(request, actorId, role);
-        boolean salesPath = role == UserRole.SALES_MANAGER || role == UserRole.SALES_REPRESENTATIVE;
-        String message = salesPath
+        ServiceProviderResponse response = providerService.createProvider(request, actorId);
+        String message = response.getStatus() != null && "PENDING_APPROVAL".equals(response.getStatus().name())
                 ? "Provider submitted for approval"
                 : "Provider created and activated";
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(message, response));
     }
     
-    @PutMapping("/{id}")
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+    @PatchMapping("/{id}")
+    @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Update provider", description = "Update provider profile details")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> updateProvider(
             @PathVariable UUID id,
@@ -126,7 +127,7 @@ public class ServiceProviderController {
     }
 
     @PatchMapping("/{id}/commission")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'GENERAL_MANAGER')")
+    @PreAuthorize(PROVIDER_COMMISSION)
     @Operation(summary = "Set commission rate", description = "Override provider commission (audited). Super Admin and General Manager only.")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> updateCommission(
             @PathVariable UUID id,
@@ -138,7 +139,7 @@ public class ServiceProviderController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+    @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Delete provider", description = "Soft-delete provider (Phase 3)")
     public ResponseEntity<ApiResponse<Void>> deleteProvider(@PathVariable UUID id) {
         providerService.deleteProvider(id);
@@ -146,8 +147,8 @@ public class ServiceProviderController {
     }
 
     @PostMapping("/{id}/approve")
-    @PreAuthorize(ApiAuthorizationExpressions.PROVIDER_APPROVE_OR_REJECT)
-    @Operation(summary = "Approve pending provider", description = "Super Admin / CEO: activate provider and portal login")
+    @PreAuthorize(PROVIDERS_APPROVE)
+    @Operation(summary = "Approve pending provider", description = "Activate provider and portal login — requires providers:approve permission")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> approveProvider(@PathVariable UUID id) {
         UUID approverId = getCurrentUserId();
         if (approverId == null) {
@@ -157,7 +158,7 @@ public class ServiceProviderController {
     }
 
     @PostMapping("/{id}/reject")
-    @PreAuthorize(ApiAuthorizationExpressions.PROVIDER_APPROVE_OR_REJECT)
+    @PreAuthorize(PROVIDERS_APPROVE)
     @Operation(summary = "Reject pending provider", description = "Sets provider INACTIVE and deactivates linked PROVIDER_MANAGER")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> rejectProvider(
             @PathVariable UUID id,
@@ -172,10 +173,35 @@ public class ServiceProviderController {
     }
 
     @PostMapping("/{id}/suspend")
-    @PreAuthorize(ApiAuthorizationExpressions.COMPANY_STAFF)
+    @PreAuthorize(COMPANY_STAFF)
     @Operation(summary = "Suspend provider", description = "Set provider status to SUSPENDED (Phase 3)")
     public ResponseEntity<ApiResponse<ServiceProviderResponse>> suspendProvider(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(providerService.suspendProvider(id)));
+    }
+
+    @PostMapping("/{id}/reset-password")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Reset provider manager password", description = "Sets the provider manager password to the value supplied by the admin")
+    public ResponseEntity<ApiResponse<Void>> resetProviderPassword(
+            @PathVariable UUID id,
+            @Valid @RequestBody ResetPasswordAdminRequest body) {
+        UUID actorId = getCurrentUserId();
+        if (actorId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
+        }
+        providerService.resetProviderManagerPassword(id, body.getNewPassword(), actorId);
+        return ResponseEntity.ok(ApiResponse.success("Provider manager password updated", null));
+    }
+
+    @PatchMapping("/{id}/discount-balance")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Grant discount balance", description = "Admin grants self-discount budget to a provider (additive)")
+    public ResponseEntity<ApiResponse<PortalDiscountBalanceResponse>> grantDiscountBalance(
+            @PathVariable UUID id,
+            @RequestParam BigDecimal amount,
+            @RequestParam(defaultValue = "USD") String currency) {
+        PortalDiscountBalanceResponse balance = portalService.grantDiscountBalance(id, amount, currency);
+        return ResponseEntity.ok(ApiResponse.success("Balance granted", balance));
     }
 
     private UUID getCurrentUserId() {
@@ -186,5 +212,17 @@ public class ServiceProviderController {
             } catch (IllegalArgumentException ignored) {}
         }
         return null;
+    }
+
+    @PostMapping("/{id}/admin-token")
+    @PreAuthorize(PROVIDER_SUBMIT)
+    @Operation(summary = "Generate admin access token for provider portal",
+               description = "Issues a provider-scoped JWT for the calling admin without password/MFA. The admin retains their own identity and permissions.")
+    public ResponseEntity<ApiResponse<AuthResponse>> getAdminProviderToken(
+            @PathVariable UUID id, Authentication authentication) {
+        com.ziyara.backend.infrastructure.security.UserPrincipal principal =
+                (com.ziyara.backend.infrastructure.security.UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success(
+                authService.generateAdminProviderToken(id, principal.getId())));
     }
 }

@@ -7,7 +7,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { CreateProviderForm } from '../../components/CreateProviderForm'
 import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
-import { canCreateProvider } from '../../types/auth'
+import { usePermission } from '../../hooks/usePermission'
 import { PARTNER_SERVICE_TYPE_VALUES, type ServiceTypeDto } from '../../types/api'
 
 function parsePresetType(raw: string | null): ServiceTypeDto | undefined {
@@ -22,13 +22,14 @@ export function CreateProviderPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [finished, setFinished] = useState(false)
+  const canCreate = usePermission('providers:write')
 
   const preset = useMemo(
     () => parsePresetType(searchParams.get('type')),
     [searchParams],
   )
 
-  if (!user?.role || !canCreateProvider(user.role)) {
+  if (!user || !canCreate) {
     return <Navigate to="/management/providers" replace />
   }
 

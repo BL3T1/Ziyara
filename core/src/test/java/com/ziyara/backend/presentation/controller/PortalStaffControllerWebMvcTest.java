@@ -12,8 +12,9 @@ import com.ziyara.backend.infrastructure.config.WebMvcConfigurationPropertiesImp
 import com.ziyara.backend.infrastructure.config.LocaleConfig;
 import com.ziyara.backend.infrastructure.config.WebMvcSecuritySliceConfiguration;
 import com.ziyara.backend.infrastructure.config.SecurityConfig;
-import com.ziyara.backend.infrastructure.config.properties.JwtCookieProperties;
+import com.ziyara.backend.infrastructure.security.JwtCookieProperties;
 import com.ziyara.backend.infrastructure.security.JwtAuthenticationFilter;
+import com.ziyara.backend.infrastructure.security.JwtIdleTimeoutService;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +26,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -39,9 +39,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -77,18 +81,15 @@ class PortalStaffControllerWebMvcTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class SecurityBeans {
-        @Bean
-        SecurityContextRepository securityContextRepository() {
-            return new HttpSessionSecurityContextRepository();
-        }
 
         @Bean
         JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
                                                          SecurityContextRepository securityContextRepository,
                                                          JwtCookieProperties jwtCookieProperties,
-                                                         JwtTokenBlocklistService jwtTokenBlocklistService) {
+                                                         JwtTokenBlocklistService jwtTokenBlocklistService,
+                                                         JwtIdleTimeoutService jwtIdleTimeoutService) {
             return new JwtAuthenticationFilter(jwtService, userDetailsService, securityContextRepository,
-                    jwtCookieProperties, jwtTokenBlocklistService);
+                    jwtCookieProperties, jwtTokenBlocklistService, jwtIdleTimeoutService);
         }
     }
 
@@ -102,13 +103,13 @@ class PortalStaffControllerWebMvcTest {
     }
 
     @Test
-    @WithMockUser(username = "10000000-0000-4000-8000-000000000001", roles = "PROVIDER_MANAGER")
+    @WithMockUser(username = "10000000-0000-4000-8000-000000000001", authorities = "portal:access")
     void listStaff_returns200() throws Exception {
         stubCurrentProvider();
         PortalStaffMemberResponse row = PortalStaffMemberResponse.builder()
                 .userId(STAFF_USER_ID)
                 .email("staff@example.com")
-                .role(UserRole.PROVIDER_STAFF)
+                .role(UserRole.STAFF)
                 .owner(false)
                 .build();
         when(portalStaffService.listStaff(PROVIDER_ID)).thenReturn(List.of(row));
@@ -123,20 +124,20 @@ class PortalStaffControllerWebMvcTest {
     }
 
     @Test
-    @WithMockUser(username = "10000000-0000-4000-8000-000000000001", roles = "PROVIDER_MANAGER")
+    @WithMockUser(username = "10000000-0000-4000-8000-000000000001", authorities = "portal:access")
     void addStaff_returns201() throws Exception {
         stubCurrentProvider();
         PortalStaffMemberResponse created = PortalStaffMemberResponse.builder()
                 .staffLinkId(UUID.fromString("40000000-0000-4000-8000-000000000001"))
                 .userId(STAFF_USER_ID)
                 .email("new@example.com")
-                .role(UserRole.PROVIDER_STAFF)
+                .role(UserRole.STAFF)
                 .title("Ops")
                 .owner(false)
                 .build();
         when(portalStaffService.addStaff(eq(PROVIDER_ID), any(AddPortalStaffRequest.class))).thenReturn(created);
 
-        mockMvc.perform(post("/portal/staff")
+        mockMvc.perform(post("/portal/staff").with(csrf())
                         .header("Authorization", "Bearer test")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":\"30000000-0000-4000-8000-000000000001\",\"title\":\"Ops\"}"))
@@ -146,31 +147,31 @@ class PortalStaffControllerWebMvcTest {
     }
 
     @Test
-    @WithMockUser(username = "10000000-0000-4000-8000-000000000001", roles = "PROVIDER_MANAGER")
+    @WithMockUser(username = "10000000-0000-4000-8000-000000000001", authorities = "portal:access")
     void createStaffUser_returns201() throws Exception {
         stubCurrentProvider();
         PortalStaffMemberResponse created = PortalStaffMemberResponse.builder()
                 .staffLinkId(UUID.fromString("50000000-0000-4000-8000-000000000001"))
                 .userId(STAFF_USER_ID)
                 .email("new.staff@example.com")
-                .role(UserRole.PROVIDER_STAFF)
+                .role(UserRole.STAFF)
                 .title("Desk")
                 .owner(false)
                 .build();
-        when(portalStaffService.createStaffUser(eq(PROVIDER_ID), eq(PORTAL_USER_ID), eq(UserRole.PROVIDER_MANAGER), any(CreatePortalStaffUserRequest.class)))
+        when(portalStaffService.createStaffUser(eq(PROVIDER_ID), eq(PORTAL_USER_ID), any(CreatePortalStaffUserRequest.class)))
                 .thenReturn(created);
 
-        mockMvc.perform(post("/portal/staff/users")
+        mockMvc.perform(post("/portal/staff/users").with(csrf())
                         .header("Authorization", "Bearer test")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"new.staff@example.com\",\"password\":\"secret12\",\"role\":\"PROVIDER_STAFF\",\"title\":\"Desk\"}"))
+                        .content("{\"email\":\"new.staff@example.com\",\"password\":\"secret12\",\"roleId\":\"a0000000-0000-4000-8000-000000000001\",\"title\":\"Desk\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.email").value("new.staff@example.com"));
     }
 
     @Test
-    @WithMockUser(username = "10000000-0000-4000-8000-000000000001", roles = "PROVIDER_MANAGER")
+    @WithMockUser(username = "10000000-0000-4000-8000-000000000001", authorities = "portal:access")
     void updateStaff_returns200() throws Exception {
         stubCurrentProvider();
         PortalStaffMemberResponse updated = PortalStaffMemberResponse.builder()
@@ -180,7 +181,7 @@ class PortalStaffControllerWebMvcTest {
                 .build();
         when(portalStaffService.updateStaff(eq(PROVIDER_ID), eq(STAFF_USER_ID), any())).thenReturn(updated);
 
-        mockMvc.perform(put("/portal/staff/{userId}", STAFF_USER_ID)
+        mockMvc.perform(patch("/portal/staff/{userId}", STAFF_USER_ID).with(csrf())
                         .header("Authorization", "Bearer test")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"Lead\"}"))
@@ -189,11 +190,11 @@ class PortalStaffControllerWebMvcTest {
     }
 
     @Test
-    @WithMockUser(username = "10000000-0000-4000-8000-000000000001", roles = "PROVIDER_MANAGER")
+    @WithMockUser(username = "10000000-0000-4000-8000-000000000001", authorities = "portal:access")
     void removeStaff_returns200() throws Exception {
         stubCurrentProvider();
 
-        mockMvc.perform(delete("/portal/staff/{userId}", STAFF_USER_ID)
+        mockMvc.perform(delete("/portal/staff/{userId}", STAFF_USER_ID).with(csrf())
                         .header("Authorization", "Bearer test"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));

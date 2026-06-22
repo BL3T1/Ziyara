@@ -1,3 +1,0 @@
-# Run on port 8081 when 8080 is in use: use profile 'alt'
-server:
-  port: 8081

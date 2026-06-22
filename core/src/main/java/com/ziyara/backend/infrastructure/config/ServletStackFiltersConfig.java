@@ -19,8 +19,9 @@ public class ServletStackFiltersConfig {
 
     @Bean
     public SecurityHeadersFilter securityHeadersFilter(
-            @Value("${ziyara.security.headers.hsts-enabled:false}") boolean hstsEnabled) {
-        return new SecurityHeadersFilter(hstsEnabled);
+            @Value("${ziyara.security.headers.hsts-enabled:false}") boolean hstsEnabled,
+            @Value("${ziyara.security.headers.https-enforce:false}") boolean httpsEnforce) {
+        return new SecurityHeadersFilter(hstsEnabled, httpsEnforce);
     }
 
     @Bean

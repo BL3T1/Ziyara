@@ -61,6 +61,18 @@ public interface BookingJpaRepository extends JpaRepository<BookingJpaEntity, UU
                                                     @Param("checkIn") LocalDate checkIn,
                                                     @Param("checkOut") LocalDate checkOut);
     
+    @Query("SELECT b FROM BookingJpaEntity b WHERE " +
+           "(:status IS NULL OR b.status = :status) AND " +
+           "(:dateFrom IS NULL OR b.checkInDate >= :dateFrom) AND " +
+           "(:dateTo IS NULL OR b.checkInDate <= :dateTo)")
+    Page<BookingJpaEntity> findFilteredAdmin(
+            @Param("status") BookingStatus status,
+            @Param("dateFrom") LocalDate dateFrom,
+            @Param("dateTo") LocalDate dateTo,
+            Pageable pageable);
+
+    Page<BookingJpaEntity> findByServiceIdIn(List<UUID> serviceIds, Pageable pageable);
+
     @Query("SELECT CASE WHEN COUNT(b) > 0 THEN true ELSE false END FROM BookingJpaEntity b " +
            "WHERE b.serviceId = :serviceId " +
            "AND b.status NOT IN ('CANCELLED', 'EXPIRED') " +

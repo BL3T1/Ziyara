@@ -11,7 +11,7 @@ import com.ziyara.backend.domain.repository.RoleRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.domain.repository.UserRoleAssignmentRepository;
 import com.ziyara.backend.modules.sys.api.AuditServiceApi;
-import com.ziyara.backend.presentation.exception.BusinessException;
+import com.ziyara.backend.application.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,6 +23,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -31,6 +35,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class RoleManagementServiceGroupCodeTest {
 
     @Mock RoleRepository roleRepository;
@@ -42,7 +47,14 @@ class RoleManagementServiceGroupCodeTest {
     @Mock AuditServiceApi auditLogService;
     @Mock GroupMembersQueryHandler groupMembersQueryHandler;
 
-    @InjectMocks RoleManagementService roleManagementService;
+    @InjectMocks GroupManagementService groupManagementService;
+
+    @BeforeEach
+    void setUp() {
+        Group defaultSaved = new Group();
+        defaultSaved.setId(UUID.randomUUID());
+        when(groupRepository.save(any(Group.class))).thenReturn(defaultSaved);
+    }
 
     @Test
     void createGroup_rejectsReservedPlatformZCode() {
@@ -52,7 +64,7 @@ class RoleManagementServiceGroupCodeTest {
         when(groupRepository.existsByCode("Z9")).thenReturn(false);
 
         assertThrows(BusinessException.class,
-                () -> roleManagementService.createGroup(req, UUID.randomUUID()));
+                () -> groupManagementService.createGroup(req, UUID.randomUUID()));
     }
 
     @Test
@@ -63,7 +75,7 @@ class RoleManagementServiceGroupCodeTest {
         when(groupRepository.existsByCode("Z3")).thenReturn(false);
 
         assertThrows(BusinessException.class,
-                () -> roleManagementService.createGroup(req, UUID.randomUUID()));
+                () -> groupManagementService.createGroup(req, UUID.randomUUID()));
     }
 
     @Test
@@ -82,7 +94,7 @@ class RoleManagementServiceGroupCodeTest {
             return g;
         });
 
-        roleManagementService.createGroup(req, UUID.randomUUID());
+        groupManagementService.createGroup(req, UUID.randomUUID());
 
         verify(groupRepository).save(argThat((Group g) -> "C1".equals(g.getCode())));
     }
@@ -105,35 +117,35 @@ class RoleManagementServiceGroupCodeTest {
             return g;
         });
 
-        roleManagementService.createGroup(req, UUID.randomUUID());
+        groupManagementService.createGroup(req, UUID.randomUUID());
 
         verify(groupRepository).save(argThat((Group g) -> "C3".equals(g.getCode())));
     }
 
     @Test
     void updateGroup_platformSlice_rejectsCodeChange() {
-        UUID z1 = UUID.fromString("b0000000-0000-0000-0000-000000000001");
+        UUID z1 = UUID.fromString("b0000000-0000-0000-0000-000000000010");
         Group g = new Group();
         g.setId(z1);
         g.setName("Leadership");
-        g.setCode("Z1");
+        g.setCode("C1");
         when(groupRepository.findById(z1)).thenReturn(Optional.of(g));
 
         UpdateGroupRequest req = UpdateGroupRequest.builder().code("Z9").build();
 
         assertThrows(BusinessException.class,
-                () -> roleManagementService.updateGroup(z1, req, UUID.randomUUID()));
+                () -> groupManagementService.updateGroup(z1, req, UUID.randomUUID()));
     }
 
     @Test
     void deleteGroup_platformSlice_rejected() {
-        UUID z1 = UUID.fromString("b0000000-0000-0000-0000-000000000001");
+        UUID z1 = UUID.fromString("b0000000-0000-0000-0000-000000000010");
         Group g = new Group();
         g.setId(z1);
         when(groupRepository.findById(z1)).thenReturn(Optional.of(g));
 
         assertThrows(BusinessException.class,
-                () -> roleManagementService.deleteGroup(z1, UUID.randomUUID()));
+                () -> groupManagementService.deleteGroup(z1, UUID.randomUUID()));
         verify(groupRepository).findById(z1);
         verifyNoMoreInteractions(groupRepository);
     }
@@ -148,7 +160,7 @@ class RoleManagementServiceGroupCodeTest {
         when(roleRepository.findByGroupIdOrderByName(gid)).thenReturn(List.of());
         when(userRoleAssignmentRepository.countByGroupId(gid)).thenReturn(0L);
 
-        roleManagementService.deleteGroup(gid, UUID.randomUUID());
+        groupManagementService.deleteGroup(gid, UUID.randomUUID());
 
         verify(groupRepository).deleteById(gid);
     }

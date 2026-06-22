@@ -5,15 +5,19 @@ import com.ziyara.backend.application.dto.response.ServiceProviderResponse;
 import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.enums.ProviderStatus;
-import com.ziyara.backend.domain.enums.UserRole;
+import com.ziyara.backend.domain.repository.ProviderSubscriptionRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.UUID;
@@ -46,8 +50,16 @@ class ServiceProviderServiceTest {
     @Mock
     private StaffNotificationCommandPublisher staffNotificationCommandPublisher;
 
+    @Mock
+    private ProviderSubscriptionRepository providerSubscriptionRepository;
+
     @InjectMocks
     private ServiceProviderService providerService;
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void createProvider_superAdmin_createsActiveProvider() {
@@ -77,8 +89,9 @@ class ServiceProviderServiceTest {
             return p;
         });
 
-        ServiceProviderResponse response = providerService.createProvider(
-                request, UUID.randomUUID(), UserRole.SUPER_ADMIN);
+        SecurityContextHolder.setContext(new SecurityContextImpl(
+                new TestingAuthenticationToken("super", "creds", "ROLE_SUPER_ADMIN")));
+        ServiceProviderResponse response = providerService.createProvider(request, UUID.randomUUID());
 
         assertNotNull(response);
         assertEquals(providerId, response.getId());
@@ -112,8 +125,7 @@ class ServiceProviderServiceTest {
             return p;
         });
 
-        ServiceProviderResponse response = providerService.createProvider(
-                request, UUID.randomUUID(), UserRole.SALES_MANAGER);
+        ServiceProviderResponse response = providerService.createProvider(request, UUID.randomUUID());
 
         assertEquals(ProviderStatus.PENDING_APPROVAL, response.getStatus());
         verify(auditLogService).logAction(eq("PROVIDER_SUBMIT_PENDING"), eq("ServiceProvider"), anyString(),

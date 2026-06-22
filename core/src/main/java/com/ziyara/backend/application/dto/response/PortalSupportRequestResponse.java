@@ -17,6 +17,12 @@ public class PortalSupportRequestResponse {
     @Schema(description = "Row id")
     private UUID id;
 
+    @Schema(description = "Provider that submitted this request")
+    private UUID providerId;
+
+    @Schema(description = "Display name of the provider")
+    private String providerName;
+
     @Schema(description = "Subject")
     private String subject;
 
@@ -28,4 +34,13 @@ public class PortalSupportRequestResponse {
 
     @Schema(description = "Created timestamp (UTC)")
     private Instant createdAt;
+
+    @Schema(description = "Staff response text, null if not yet responded")
+    private String staffResponse;
+
+    @Schema(description = "When staff responded (UTC), null if not yet responded")
+    private Instant respondedAt;
+
+    @Schema(description = "User id of the staff member who responded")
+    private UUID respondedByUserId;
 }

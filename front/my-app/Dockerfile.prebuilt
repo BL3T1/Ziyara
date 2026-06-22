@@ -1,0 +1,13 @@
+# Pre-built variant — dist/ must exist before running docker build.
+# Use build-portmode.ps1 at the project root instead of docker compose --build.
+FROM nginx:1.28.2-alpine
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY dist /usr/share/nginx/html
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
+    CMD wget -q -O /dev/null http://127.0.0.1:80/health || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

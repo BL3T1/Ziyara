@@ -2,12 +2,15 @@ package com.ziyara.backend.application.service;
 
 import com.ziyara.backend.application.dto.request.AddTaxiRequest;
 import com.ziyara.backend.application.dto.response.TaxiBookingResponse;
+import com.ziyara.backend.application.exception.BusinessException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.UnauthorizedException;
 import com.ziyara.backend.domain.entity.TaxiBooking;
 import com.ziyara.backend.domain.enums.TaxiStatus;
 import com.ziyara.backend.domain.enums.VehicleType;
 import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.domain.repository.TaxiBookingRepository;
-import com.ziyara.backend.presentation.exception.ResourceNotFoundException;
+import com.ziyara.backend.domain.usecase.taxi.CreateTaxiBookingUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,20 +35,20 @@ public class TaxiBookingService {
     /** Phase 3: Create taxi add-on for a booking. */
     @Transactional
     public TaxiBookingResponse createForBooking(UUID bookingId, AddTaxiRequest request) {
-        if (!bookingRepository.findById(bookingId).isPresent()) {
-            throw new RuntimeException("Booking not found");
-        }
-        if (taxiBookingRepository.findByBookingId(bookingId).isPresent()) {
-            throw new RuntimeException("Taxi already linked to this booking");
-        }
-        TaxiBooking taxi = new TaxiBooking();
-        taxi.setBookingId(bookingId);
-        taxi.setPickupLocation(request.getPickupLocation());
-        taxi.setDestinationLocation(request.getDestinationLocation());
-        taxi.setVehicleType(request.getVehicleType() != null ? request.getVehicleType() : VehicleType.STANDARD);
-        taxi.setScheduledAt(request.getScheduledAt());
-        taxi.setStatus(TaxiStatus.SEARCHING);
-        return mapToResponse(taxiBookingRepository.save(taxi));
+        var result = new CreateTaxiBookingUseCase(bookingRepository, taxiBookingRepository).execute(
+                new CreateTaxiBookingUseCase.Input(
+                        bookingId,
+                        request.getVehicleType() != null ? request.getVehicleType() : VehicleType.STANDARD,
+                        request.getPickupLocation(), request.getDestinationLocation(),
+                        request.getPickupLatitude() != null ? request.getPickupLatitude() : 0.0,
+                        request.getPickupLongitude() != null ? request.getPickupLongitude() : 0.0,
+                        request.getDestinationLatitude() != null ? request.getDestinationLatitude() : 0.0,
+                        request.getDestinationLongitude() != null ? request.getDestinationLongitude() : 0.0,
+                        request.getScheduledAt(),
+                        request.getEstimatedDistance() != null ? request.getEstimatedDistance() : java.math.BigDecimal.ZERO,
+                        request.getEstimatedPrice()));
+        if (!result.success()) throw new BusinessException(result.error());
+        return mapToResponse(result.taxiBooking());
     }
 
     @Transactional
@@ -92,6 +95,20 @@ public class TaxiBookingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Taxi booking not found"));
     }
     
+    /**
+     * Verifies that {@code userId} is the assigned driver for the taxi linked to
+     * {@code bookingId} (the parent booking ID, not the taxi booking ID).
+     * Throws {@link UnauthorizedException} if not.
+     */
+    @Transactional(readOnly = true)
+    public void assertIsDriver(UUID bookingId, UUID userId) {
+        TaxiBooking tb = taxiBookingRepository.findByBookingId(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Taxi booking not found for booking " + bookingId));
+        if (!userId.equals(tb.getDriverId())) {
+            throw new UnauthorizedException("Not the assigned driver for booking " + bookingId);
+        }
+    }
+
     private TaxiBookingResponse mapToResponse(TaxiBooking booking) {
         return TaxiBookingResponse.builder()
                 .id(booking.getId())

@@ -5,6 +5,12 @@
 -- Idempotent: safe to re-run with IF NOT EXISTS.
 -- ============================================================================
 
+-- --- Column additions required before index creation -----------------------
+-- hotel_reviews.responded_by was omitted from V0; add it here idempotently.
+ALTER TABLE hotel_reviews ADD COLUMN IF NOT EXISTS responded_by UUID REFERENCES sys_users (id) ON DELETE SET NULL;
+ALTER TABLE hotel_reviews ADD COLUMN IF NOT EXISTS responded_at TIMESTAMPTZ;
+ALTER TABLE hotel_reviews ADD COLUMN IF NOT EXISTS provider_response TEXT;
+
 -- --- Indexes (no CONCURRENTLY inside explicit transaction in Flyway) -------
 CREATE INDEX IF NOT EXISTS idx_sys_user_roles_role_id ON sys_user_roles (role_id);
 CREATE INDEX IF NOT EXISTS idx_sys_user_roles_group_id ON sys_user_roles (group_id);

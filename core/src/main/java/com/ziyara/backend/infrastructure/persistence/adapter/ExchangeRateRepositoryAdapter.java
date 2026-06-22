@@ -7,7 +7,10 @@ import com.ziyara.backend.infrastructure.persistence.mapper.ExchangeRateMapper;
 import com.ziyara.backend.infrastructure.persistence.repository.ExchangeRateJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -59,5 +62,11 @@ public class ExchangeRateRepositoryAdapter implements ExchangeRateRepository {
     @Override
     public void deleteById(UUID id) {
         exchangeRateJpaRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional
+    public void upsert(String fromCurrency, String toCurrency, BigDecimal rate, LocalDate effectiveDate) {
+        exchangeRateJpaRepository.upsertRate(fromCurrency, toCurrency, rate, effectiveDate);
     }
 }

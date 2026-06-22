@@ -2,10 +2,11 @@ package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.request.CreatePortalSupportRequest;
+import com.ziyara.backend.application.dto.request.StaffRespondToSupportRequest;
 import com.ziyara.backend.application.dto.response.PortalSupportRequestResponse;
 import com.ziyara.backend.application.service.PortalSupportRequestService;
 import com.ziyara.backend.application.service.ServiceProviderService;
-import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
+import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,7 +26,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/portal/support-requests")
 @RequiredArgsConstructor
-@PreAuthorize(ApiAuthorizationExpressions.PROVIDER_PORTAL)
+@PreAuthorize(PROVIDER_PORTAL)
 @Tag(name = "Provider Portal Support", description = "Submit and list support requests for the current provider")
 @SecurityRequirement(name = "bearerAuth")
 public class PortalSupportRequestsController {
@@ -38,6 +39,24 @@ public class PortalSupportRequestsController {
     public ResponseEntity<ApiResponse<List<PortalSupportRequestResponse>>> list() {
         UUID providerId = requireCurrentProviderId();
         return ResponseEntity.ok(ApiResponse.success(portalSupportRequestService.listForProvider(providerId)));
+    }
+
+    @GetMapping("/all")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "List all provider support requests", description = "Staff-only: newest first, across all providers")
+    public ResponseEntity<ApiResponse<List<PortalSupportRequestResponse>>> listAll() {
+        return ResponseEntity.ok(ApiResponse.success(portalSupportRequestService.listAll()));
+    }
+
+    @PostMapping("/{id}/respond")
+    @PreAuthorize(COMPANY_STAFF)
+    @Operation(summary = "Respond to a provider support request", description = "Staff-only: add or update a response to a provider message")
+    public ResponseEntity<ApiResponse<PortalSupportRequestResponse>> respond(
+            @PathVariable UUID id,
+            @Valid @RequestBody StaffRespondToSupportRequest request) {
+        UUID responderId = getCurrentUserId();
+        PortalSupportRequestResponse result = portalSupportRequestService.respond(id, request.getResponse(), responderId);
+        return ResponseEntity.ok(ApiResponse.success("Response sent", result));
     }
 
     @PostMapping

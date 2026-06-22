@@ -50,4 +50,9 @@ public class GroupRepositoryAdapter implements GroupRepository {
     public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
     }
+
+    @Override
+    public Optional<Integer> findMaxCustomGroupCodeSuffix() {
+        return jpaRepository.findMaxCustomGroupCodeSuffix();
+    }
 }

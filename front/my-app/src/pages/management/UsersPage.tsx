@@ -6,8 +6,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
+import { usePermission } from '../../hooks/usePermission'
 import { rolesAPI, usersAPI, getApiErrorMessage } from '../../services/api'
-import type { GroupDto, GroupSummaryDto, PageDto, RoleDto, StaffDirectoryRoleOptionDto, UserDto } from '../../types/api'
+import type { GroupDto, GroupSummaryDto, RoleDto, StaffDirectoryRoleOptionDto } from '../../types/api'
+import { Modal } from '../../components/Modal'
+import { FormField } from '../../components/FormField'
+import { PasswordInput } from '../../components/PasswordInput'
 import {
   UNGROUPED_GROUP_ID,
   buildFallbackStaffRoleOptions,
@@ -62,10 +66,10 @@ const CARD_ICON_COLORS = [
   'text-indigo-600 dark:text-indigo-400',
 ]
 
-/** Platform org slices use codes Z1–Z7 (same rule as backend). */
+/** Platform org groups use codes matching C followed by digits (e.g. C1). */
 function isReservedPlatformGroupCode(code?: string | null): boolean {
   if (!code) return false
-  return /^Z[0-9]+$/i.test(code.trim())
+  return /^C[0-9]+$/i.test(code.trim())
 }
 
 function PencilIcon({ className }: { className?: string }) {
@@ -121,16 +125,14 @@ export function UsersPage() {
   const [editingGroup, setEditingGroup] = useState<GroupSummaryDto | null>(null)
   const [error, setError] = useState('')
   const [, setActionLoading] = useState(false)
-  const [staffUsers, setStaffUsers] = useState<UserDto[]>([])
   const [staffRoleOptions, setStaffRoleOptions] = useState<StaffDirectoryRoleOptionDto[]>([])
 
   const buildFallback = useCallback((): StaffDirectoryRoleOptionDto[] => buildFallbackStaffRoleOptions(t), [t])
 
-  const canSeeGroups = user?.role === 'super_admin'
-  const isHr = user?.role === 'hr'
-  const canAccess = canSeeGroups || isHr
-  const canCreateUser = canSeeGroups || isHr
-  const needsStaffDirectory = isHr && !canSeeGroups
+  const canSeeGroups = usePermission('users:read')
+  const canAccess = canSeeGroups
+  const canCreateUser = usePermission('users:write')
+  const needsStaffDirectory = false
 
   const load = useCallback(() => {
     if (!canAccess) return
@@ -150,13 +152,6 @@ export function UsersPage() {
           setRoles([])
         })
 
-    const staffListPromise = needsStaffDirectory
-      ? usersAPI.list({ page: 0, size: 500 }).then((r) => {
-          const p = r.data as PageDto<UserDto>
-          return p?.content && Array.isArray(p.content) ? p.content : []
-        })
-      : Promise.resolve([] as UserDto[])
-
     const staffRolePromise =
       canCreateUser
         ? usersAPI
@@ -172,16 +167,14 @@ export function UsersPage() {
             .catch(() => buildFallback())
         : Promise.resolve().then(() => [] as StaffDirectoryRoleOptionDto[])
 
-    Promise.all([groupPromise, staffListPromise, staffRolePromise])
-      .then(([, staff, staffOpts]) => {
-        setStaffUsers(staff)
+    Promise.all([groupPromise, staffRolePromise])
+      .then(([, staffOpts]) => {
         setStaffRoleOptions(staffOpts)
       })
       .catch((e) => {
         setError(getApiErrorMessage(e, t('usersPage.failedLoadGroups')))
         setGroups([])
         setRoles([])
-        setStaffUsers([])
         setStaffRoleOptions(canCreateUser ? buildFallback() : [])
       })
       .finally(() => setLoading(false))
@@ -197,7 +190,7 @@ export function UsersPage() {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-800 dark:bg-amber-900/20">
         <h2 className="text-xl font-semibold text-amber-800 dark:text-amber-200">{t('access.restrictedTitle')}</h2>
-        <p className="mt-2 text-amber-700 dark:text-amber-300">{t('access.staffPageSuperAdminOrHr', { role: user.role })}</p>
+        <p className="mt-2 text-amber-700 dark:text-amber-300">{t('access.needPermission', { permission: 'users:read' })}</p>
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
@@ -214,7 +207,7 @@ export function UsersPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="app-page-title">
-            {isHr && !canSeeGroups ? t('usersPage.titleHr') : t('usersPage.title')}
+            {t('usersPage.title')}
           </h1>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -242,11 +235,6 @@ export function UsersPage() {
         </div>
       )}
 
-      {isHr && !canSeeGroups && (
-        <p className="mt-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-600 dark:bg-slate-800/50 dark:text-slate-300">
-          {t('usersPage.groupsSuperAdminOnly')}
-        </p>
-      )}
 
       {loading ? (
         <div className="mt-8 p-8 text-center text-slate-500 dark:text-slate-400">{t('usersPage.loadingGroups')}</div>
@@ -257,9 +245,7 @@ export function UsersPage() {
               g.id === UNGROUPED_GROUP_ID ? roles.filter((r) => !r.groupId) : roles.filter((r) => r.groupId === g.id)
             const iconColor = CARD_ICON_COLORS[i % CARD_ICON_COLORS.length]
             const isSyntheticUngrouped = g.id === UNGROUPED_GROUP_ID
-            const platform = isReservedPlatformGroupCode(g.code)
-            const canDeleteGroup =
-              !isSyntheticUngrouped && !platform && (g.roleCount ?? 0) === 0 && (g.userCount ?? 0) === 0
+            const canDeleteGroup = !isSyntheticUngrouped
             return (
               <div
                 key={g.id}
@@ -291,7 +277,11 @@ export function UsersPage() {
                             disabled={!canDeleteGroup}
                             onClick={async () => {
                               if (!canDeleteGroup) return
-                              const ok = window.confirm(t('usersPage.deleteGroupConfirm', { name: g.name }))
+                              const hasMembers = (g.roleCount ?? 0) > 0 || (g.userCount ?? 0) > 0
+                              const msg = hasMembers
+                                ? t('usersPage.deleteGroupConfirmWithMembers', { name: g.name, roles: g.roleCount ?? 0, users: g.userCount ?? 0 })
+                                : t('usersPage.deleteGroupConfirm', { name: g.name })
+                              const ok = window.confirm(msg)
                               if (!ok) return
                               setError('')
                               try {
@@ -302,13 +292,7 @@ export function UsersPage() {
                               }
                             }}
                             className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-500 dark:text-slate-400 dark:hover:bg-red-950/40 dark:hover:text-red-400 dark:disabled:hover:bg-transparent"
-                            title={
-                              canDeleteGroup
-                                ? t('usersPage.deleteGroupAria')
-                                : platform
-                                  ? t('usersPage.deleteGroupDisabledPlatform')
-                                  : t('usersPage.deleteGroupDisabledInUse')
-                            }
+                            title={t('usersPage.deleteGroupAria')}
                             aria-label={t('usersPage.deleteGroupAria')}
                           >
                             <TrashIcon className="h-5 w-5" />
@@ -359,36 +343,6 @@ export function UsersPage() {
             )
           })}
         </div>
-      ) : isHr ? (
-        <div className="mt-8 table-shell overflow-x-auto">
-          <table>
-            <thead>
-              <tr>
-                <th className="px-4 py-3.5 text-start">{t('usersPage.staffColEmail')}</th>
-                <th className="px-4 py-3.5 text-start">{t('usersPage.staffColRole')}</th>
-                <th className="px-4 py-3.5 text-start">{t('usersPage.staffColStatus')}</th>
-                <th className="px-4 py-3.5 text-end">{t('groupMembersPage.colActions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {staffUsers.map((u) => (
-                <tr key={u.id}>
-                  <td className="px-4 py-3 text-sm text-slate-800 dark:text-slate-100">{u.email}</td>
-                  <td className="px-4 py-3 font-mono text-sm text-slate-600 dark:text-slate-300">{u.role}</td>
-                  <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{u.status ?? '—'}</td>
-                  <td className="px-4 py-3 text-end text-sm">
-                    <Link to={`/management/staff/${u.id}`} className="text-primary hover:underline">
-                      {t('groupMembersPage.viewDetails')}
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {staffUsers.length === 0 && (
-            <p className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">{t('usersPage.staffEmpty')}</p>
-          )}
-        </div>
       ) : null}
 
       {!loading && canSeeGroups && groups.length === 0 && !error && (
@@ -424,6 +378,7 @@ export function UsersPage() {
       {editingGroup && (
         <EditGroupModal
           group={editingGroup}
+          roles={roles}
           onClose={() => setEditingGroup(null)}
           onSuccess={() => {
             setEditingGroup(null)
@@ -483,107 +438,91 @@ function CreateGroupModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('usersPage.createGroupTitle')}</h3>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('usersPage.createGroupHint')}</p>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">
-              {t('usersPage.groupNameLabel')}
-            </label>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('usersPage.createGroupTitle')}
+      description={t('usersPage.createGroupHint')}
+      size="md"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+            {t('ui.cancel')}
+          </button>
+          <button type="submit" form="group-create-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+            {t('usersPage.createGroupSubmit')}
+          </button>
+        </>
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="group-create-form" onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label={t('usersPage.groupNameLabel')} required>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               required
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">
-              {t('usersPage.groupCodeLabel')}
-            </label>
+          </FormField>
+          <FormField label={t('usersPage.groupCodeLabel')} hint={t('usersPage.groupCodeHint')}>
             <input
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="C8"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input font-mono"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">
-              {t('usersPage.groupDescriptionLabel')}
-            </label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">
-              {t('rolesPage.nameArLabel')}
-            </label>
+          </FormField>
+        </div>
+        <FormField label={t('usersPage.groupDescriptionLabel')}>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="modal-input"
+          />
+        </FormField>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label={t('rolesPage.nameArLabel')}>
             <input
               type="text"
               value={nameAr}
               onChange={(e) => setNameAr(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               dir="rtl"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">
-              {t('rolesPage.descriptionArLabel')}
-            </label>
+          </FormField>
+          <FormField label={t('rolesPage.descriptionArLabel')}>
             <input
               type="text"
               value={descriptionAr}
               onChange={(e) => setDescriptionAr(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               dir="rtl"
             />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              {t('ui.cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="dashboard-btn-primary flex-1 disabled:opacity-70"
-            >
-              {t('usersPage.createGroupSubmit')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </FormField>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
 function EditGroupModal({
   group,
+  roles,
   onClose,
   onSuccess,
   setError,
 }: {
   group: GroupSummaryDto
+  roles: RoleDto[]
   onClose: () => void
   onSuccess: () => void
   setError: (s: string) => void
@@ -597,6 +536,19 @@ function EditGroupModal({
   const [descriptionAr, setDescriptionAr] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState('')
+
+  // Role assignment: track which role IDs belong to this group
+  const initialRoleIds = new Set(roles.filter((r) => r.groupId === group.id).map((r) => r.id))
+  const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set(initialRoleIds))
+
+  const toggleRole = (roleId: string) => {
+    setSelectedRoleIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(roleId)) next.delete(roleId)
+      else next.add(roleId)
+      return next
+    })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -624,6 +576,20 @@ function EditGroupModal({
         body.code = code.trim()
       }
       await rolesAPI.updateGroup(group.id, body)
+
+      // Apply role group-assignment changes
+      const roleUpdates: Promise<unknown>[] = []
+      for (const role of roles) {
+        const wasInGroup = initialRoleIds.has(role.id)
+        const isNowInGroup = selectedRoleIds.has(role.id)
+        if (!wasInGroup && isNowInGroup) {
+          roleUpdates.push(rolesAPI.updateDetails(role.id, { groupId: group.id }))
+        } else if (wasInGroup && !isNowInGroup) {
+          roleUpdates.push(rolesAPI.updateDetails(role.id, { removeFromGroup: true }))
+        }
+      }
+      await Promise.all(roleUpdates)
+
       onSuccess()
     } catch (err) {
       const msg = getApiErrorMessage(err)
@@ -635,91 +601,123 @@ function EditGroupModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('usersPage.editGroupTitle')}</h3>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('usersPage.editGroupHint')}</p>
-        {platform && (
-          <p className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600 dark:bg-slate-900/60 dark:text-slate-300">
-            {t('usersPage.editGroupCodeLocked')}
-          </p>
-        )}
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.groupNameLabel')}</label>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('usersPage.editGroupTitle')}
+      description={t('usersPage.editGroupHint')}
+      size="md"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+            {t('ui.cancel')}
+          </button>
+          <button type="submit" form="group-edit-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+            {t('usersPage.editGroupSubmit')}
+          </button>
+        </>
+      }
+    >
+      {platform && (
+        <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+          {t('usersPage.editGroupCodeLocked')}
+        </div>
+      )}
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="group-edit-form" onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label={t('usersPage.groupNameLabel')} required>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               required
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.groupCodeLabel')}</label>
+          </FormField>
+          <FormField label={t('usersPage.groupCodeLabel')} hint={platform ? t('usersPage.editGroupCodeLocked') : undefined}>
             <input
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               disabled={platform}
               placeholder="C8"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input font-mono disabled:cursor-not-allowed disabled:opacity-60"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.groupDescriptionLabel')}</label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.nameArLabel')}</label>
+          </FormField>
+        </div>
+        <FormField label={t('usersPage.groupDescriptionLabel')}>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="modal-input"
+          />
+        </FormField>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label={t('rolesPage.nameArLabel')}>
             <input
               type="text"
               value={nameAr}
               onChange={(e) => setNameAr(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               dir="rtl"
               placeholder={t('usersPage.editGroupOptionalAr')}
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('rolesPage.descriptionArLabel')}</label>
+          </FormField>
+          <FormField label={t('rolesPage.descriptionArLabel')}>
             <input
               type="text"
               value={descriptionAr}
               onChange={(e) => setDescriptionAr(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               dir="rtl"
               placeholder={t('usersPage.editGroupOptionalAr')}
             />
+          </FormField>
+        </div>
+
+        {/* Role assignment */}
+        <div className="pt-2">
+          <div className="mb-1.5 text-sm font-medium text-slate-600 dark:text-slate-200">
+            {t('usersPage.groupRolesLabel')}
           </div>
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              {t('ui.cancel')}
-            </button>
-            <button type="submit" disabled={submitting} className="dashboard-btn-primary flex-1 disabled:opacity-70">
-              {t('usersPage.editGroupSubmit')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">{t('usersPage.groupRolesHint')}</p>
+          {roles.length === 0 ? (
+            <p className="text-xs text-slate-400">{t('usersPage.groupRolesNone')}</p>
+          ) : (
+            <div className="max-h-44 overflow-y-auto rounded-xl border border-slate-200 dark:border-white/[0.08]">
+              {roles.map((role) => (
+                <label
+                  key={role.id}
+                  className="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-white/[0.04] [&:not(:last-child)]:border-b [&:not(:last-child)]:border-slate-100 dark:[&:not(:last-child)]:border-white/[0.05]"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedRoleIds.has(role.id)}
+                    onChange={() => toggleRole(role.id)}
+                    className="h-4 w-4 rounded border-slate-300 accent-[#1e4d6b]"
+                  />
+                  <span className="flex-1 font-medium text-slate-700 dark:text-slate-200">{role.name}</span>
+                  {role.code && (
+                    <span className="font-mono text-xs text-slate-400 dark:text-slate-500">{role.code}</span>
+                  )}
+                  {!role.groupId && (
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[0.65rem] text-slate-500 dark:bg-white/[0.06] dark:text-slate-400">
+                      {t('usersPage.groupRolesUnassigned')}
+                    </span>
+                  )}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      </form>
+    </Modal>
   )
 }
 
@@ -740,6 +738,7 @@ function CreateUserModal({
 }) {
   const { t } = useLanguage()
   const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [phone, setPhone] = useState('')
   const [roleSelectionKey, setRoleSelectionKey] = useState(() => `enum:${defaultRoleCode}`)
@@ -782,15 +781,17 @@ function CreateUserModal({
     try {
       const base = {
         email: email.trim().toLowerCase(),
+        username: username.trim() || undefined,
         password,
         phone: phone.trim() || undefined,
         status: status || undefined,
       }
-      const body =
-        sel.rbacRoleId != null && sel.rbacRoleId !== ''
-          ? { ...base, primaryRbacRoleId: sel.rbacRoleId }
-          : { ...base, role: sel.code }
-      await usersAPI.create(body)
+      if (!sel.rbacRoleId) {
+        setLocalError('Role selection is invalid — please refresh and try again.')
+        setActionLoading(false)
+        return
+      }
+      await usersAPI.create({ ...base, primaryRbacRoleId: sel.rbacRoleId })
       onSuccess()
     } catch (err) {
       const msg = getApiErrorMessage(err)
@@ -802,126 +803,132 @@ function CreateUserModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('usersPage.modalTitle')}</h3>
-        {localError && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
-            {localError}
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.emailLabel')}</label>
+    <Modal
+      open
+      onClose={onClose}
+      title={t('usersPage.modalTitle')}
+      size="md"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="dashboard-btn-secondary">
+            {t('usersPage.cancel')}
+          </button>
+          <button
+            type="submit"
+            form="user-create-form"
+            disabled={roleOptions.length === 0}
+            className="dashboard-btn-primary disabled:opacity-60"
+          >
+            {t('usersPage.create')}
+          </button>
+        </>
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="user-create-form" onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label={t('usersPage.emailLabel')} required>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="modal-input"
               required
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.passwordLabel')}</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-              minLength={6}
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.phoneLabel')}</label>
+          </FormField>
+          <FormField label={t('login.username')} hint="Used to log in to the company dashboard">
             <input
               type="text"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder={t('login.usernamePlaceholder')}
+              className="modal-input"
+              autoComplete="off"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.roleLabel')}</label>
-            <select
-              value={roleSelectionKey}
-              onChange={(e) => setRoleSelectionKey(e.target.value)}
-              disabled={roleOptions.length === 0}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 disabled:opacity-60"
-            >
-              {roleOptions.length === 0 ? (
-                <option value="">{t('usersPage.loadingGroups')}</option>
-              ) : (
-                <>
-                  {builtInRoleOptions.length > 0 && (
-                    <optgroup label={t('usersPage.roleGroupBuiltIn')}>
-                      {builtInRoleOptions.map((opt) => (
-                        <option key={staffRoleOptionKey(opt)} value={staffRoleOptionKey(opt)}>
-                          {opt.displayName}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {customRoleOptions.length > 0 && (
-                    <optgroup label={t('usersPage.roleGroupCustom')}>
-                      {customRoleOptions.map((opt) => (
-                        <option key={staffRoleOptionKey(opt)} value={staffRoleOptionKey(opt)}>
-                          {opt.displayName}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </>
-              )}
-            </select>
-            {roleOptions.length > 0 && (
-              <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                <span className="font-medium text-slate-600 dark:text-slate-300">{t('usersPage.derivedOrgGroupLabel')}: </span>
-                {(() => {
-                  const sel = findStaffRoleOption(roleOptions, roleSelectionKey)
-                  if (sel?.groupName && sel.groupCode) {
-                    return t('usersPage.derivedOrgGroupWithCode', { name: sel.groupName, code: sel.groupCode })
-                  }
-                  if (sel?.groupName) {
-                    return t('usersPage.derivedOrgGroupNameOnly', { name: sel.groupName })
-                  }
-                  return t('usersPage.derivedOrgGroupPending')
-                })()}
-              </p>
+          </FormField>
+        </div>
+        <FormField label={t('usersPage.phoneLabel')}>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+966 5x xxx xxxx"
+            className="modal-input"
+          />
+        </FormField>
+        <FormField label={t('usersPage.passwordLabel')} required>
+          <PasswordInput
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="modal-input"
+            minLength={6}
+            autoComplete="new-password"
+            required
+          />
+        </FormField>
+        <FormField label={t('usersPage.roleLabel')} required>
+          <select
+            value={roleSelectionKey}
+            onChange={(e) => setRoleSelectionKey(e.target.value)}
+            disabled={roleOptions.length === 0}
+            className="modal-select disabled:opacity-60"
+          >
+            {roleOptions.length === 0 ? (
+              <option value="">{t('usersPage.loadingGroups')}</option>
+            ) : (
+              <>
+                {builtInRoleOptions.length > 0 && (
+                  <optgroup label={t('usersPage.roleGroupBuiltIn')}>
+                    {builtInRoleOptions.map((opt) => (
+                      <option key={staffRoleOptionKey(opt)} value={staffRoleOptionKey(opt)}>
+                        {opt.displayName}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {customRoleOptions.length > 0 && (
+                  <optgroup label={t('usersPage.roleGroupCustom')}>
+                    {customRoleOptions.map((opt) => (
+                      <option key={staffRoleOptionKey(opt)} value={staffRoleOptionKey(opt)}>
+                        {opt.displayName}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </>
             )}
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-900 dark:text-slate-100">{t('usersPage.statusLabel')}</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-            >
-              <option value="ACTIVE">{t('usersPage.statusActive')}</option>
-              <option value="PENDING_VERIFICATION">{t('usersPage.statusPending')}</option>
-            </select>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              {t('usersPage.cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={roleOptions.length === 0}
-              className="dashboard-btn-primary flex-1 disabled:opacity-60"
-            >
-              {t('usersPage.create')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </select>
+          {roleOptions.length > 0 && (
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              <span className="font-medium text-slate-600 dark:text-slate-300">{t('usersPage.derivedOrgGroupLabel')}: </span>
+              {(() => {
+                const sel = findStaffRoleOption(roleOptions, roleSelectionKey)
+                if (sel?.groupName && sel.groupCode) {
+                  return t('usersPage.derivedOrgGroupWithCode', { name: sel.groupName, code: sel.groupCode })
+                }
+                if (sel?.groupName) {
+                  return t('usersPage.derivedOrgGroupNameOnly', { name: sel.groupName })
+                }
+                return t('usersPage.derivedOrgGroupPending')
+              })()}
+            </p>
+          )}
+        </FormField>
+        <FormField label={t('usersPage.statusLabel')}>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="modal-select"
+          >
+            <option value="ACTIVE">{t('usersPage.statusActive')}</option>
+            <option value="PENDING_VERIFICATION">{t('usersPage.statusPending')}</option>
+          </select>
+        </FormField>
+      </form>
+    </Modal>
   )
 }

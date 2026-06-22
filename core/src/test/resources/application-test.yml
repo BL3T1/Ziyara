@@ -21,12 +21,15 @@ spring:
 
   flyway:
     enabled: true
+    baseline-on-migrate: false  # Testcontainers: fresh DB runs every migration from V0 forward
+    validate-on-migrate: true
 
 server:
   servlet:
     context-path: /api/v1
 
 jwt:
+  secret: test-jwt-secret-key-for-integration-tests-only-min-256-bits-long
   cookie:
     enabled: false
 

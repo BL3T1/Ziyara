@@ -26,7 +26,10 @@ public class EmployeeMapper {
         employee.setJoiningDate(entity.getHireDate() != null ? entity.getHireDate().atStartOfDay() : null);
         employee.setCreatedAt(entity.getCreatedAt());
         employee.setUpdatedAt(entity.getUpdatedAt());
-        
+        employee.setOffboardedAt(entity.getOffboardedAt());
+        employee.setOffboardedBy(entity.getOffboardedBy());
+        employee.setOffboardReason(entity.getOffboardReason());
+
         return employee;
     }
     
@@ -44,6 +47,9 @@ public class EmployeeMapper {
                 .hireDate(employee.getJoiningDate() != null ? employee.getJoiningDate().toLocalDate() : java.time.LocalDate.now())
                 .createdAt(employee.getCreatedAt())
                 .updatedAt(employee.getUpdatedAt())
+                .offboardedAt(employee.getOffboardedAt())
+                .offboardedBy(employee.getOffboardedBy())
+                .offboardReason(employee.getOffboardReason())
                 .build();
     }
 }

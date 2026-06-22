@@ -1,6 +1,11 @@
 package com.ziyara.backend.presentation.exception;
 
 import com.ziyara.backend.application.dto.ApiResponse;
+import com.ziyara.backend.application.exception.BusinessException;
+import com.ziyara.backend.application.exception.MfaEnrollmentRequiredException;
+import com.ziyara.backend.application.exception.RateLimitedException;
+import com.ziyara.backend.application.exception.ResourceNotFoundException;
+import com.ziyara.backend.application.exception.UnauthorizedException;
 import com.ziyara.backend.application.service.AuthService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,8 +19,10 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.HashMap;
@@ -95,6 +102,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleRateLimited(RateLimitedException ex) {
         log.warn("Rate limited: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", "60")
                 .body(withCorrelation(ApiResponse.errorCoded(ex.getMessage(), "RATE_LIMITED")));
     }
     
@@ -112,11 +120,43 @@ public class GlobalExceptionHandler {
                 .body(withCorrelation(ApiResponse.errorCoded(ex.getMessage(), "BAD_REQUEST")));
     }
 
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingParam(MissingServletRequestParameterException ex) {
+        log.warn("Missing request parameter: {}", ex.getParameterName());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(withCorrelation(ApiResponse.errorCoded(
+                        "Required parameter '" + ex.getParameterName() + "' is missing",
+                        "MISSING_PARAMETER")));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String name = ex.getName();
+        String value = ex.getValue() != null ? ex.getValue().toString() : "null";
+        log.warn("Type mismatch: parameter '{}' value '{}'", name, value);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(withCorrelation(ApiResponse.errorCoded(
+                        "Invalid value '" + value + "' for parameter '" + name + "'",
+                        "INVALID_PARAMETER")));
+    }
+
     @ExceptionHandler(AuthService.AuthenticationException.class)
     public ResponseEntity<ApiResponse<Void>> handleAuthException(AuthService.AuthenticationException ex) {
         log.warn("Auth error: {}", ex.getMessage());
+        // Distinguish "MFA code required" from generic auth failures so the mobile client
+        // can show the TOTP challenge screen instead of a generic error message.
+        String code = "MFA code required".equals(ex.getMessage())
+                ? "MFA_CODE_REQUIRED"
+                : "AUTH_FAILED";
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(withCorrelation(ApiResponse.errorCoded(ex.getMessage(), "AUTH_FAILED")));
+                .body(withCorrelation(ApiResponse.errorCoded(ex.getMessage(), code)));
+    }
+
+    @ExceptionHandler(MfaEnrollmentRequiredException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMfaEnrollmentRequired(MfaEnrollmentRequiredException ex) {
+        log.warn("MFA enrollment required: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(withCorrelation(ApiResponse.errorCoded(ex.getMessage(), "MFA_ENROLLMENT_REQUIRED")));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

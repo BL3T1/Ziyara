@@ -1,6 +1,6 @@
 package com.ziyara.backend.infrastructure.payment;
 
-import com.ziyara.backend.infrastructure.config.PaymentGatewayProperties;
+import com.ziyara.backend.infrastructure.payment.PaymentGatewayProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -68,3 +68,4 @@ public class WebhookSignatureVerifier {
         return diff == 0;
     }
 }
+

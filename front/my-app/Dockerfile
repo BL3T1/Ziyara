@@ -1,11 +1,12 @@
 # Ziyara Dashboard (Vite) - multi-stage build
 
-FROM node:20.20-alpine3.23 AS build
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --silent
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
 
 ARG VITE_API_URL=/api/v1
 ENV VITE_API_URL=$VITE_API_URL

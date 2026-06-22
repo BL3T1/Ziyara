@@ -1,10 +1,11 @@
 package com.ziyara.backend.domain.repository;
 
+import com.ziyara.backend.domain.common.PageQuery;
+import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.enums.ProviderStatus;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,15 +22,18 @@ public interface ServiceProviderRepository {
     List<ServiceProvider> findByType(String type);
     List<ServiceProvider> findAll();
 
-    Page<ServiceProvider> findAll(Pageable pageable);
+    PagedResult<ServiceProvider> findAll(PageQuery pageQuery);
 
-    Page<ServiceProvider> findByStatus(ProviderStatus status, Pageable pageable);
+    PagedResult<ServiceProvider> findByStatus(ProviderStatus status, PageQuery pageQuery);
 
-    Page<ServiceProvider> findByProviderType(String providerType, Pageable pageable);
+    PagedResult<ServiceProvider> findByProviderType(String providerType, PageQuery pageQuery);
 
-    Page<ServiceProvider> findByStatusAndProviderType(ProviderStatus status, String providerType, Pageable pageable);
+    PagedResult<ServiceProvider> findByStatusAndProviderType(ProviderStatus status, String providerType, PageQuery pageQuery);
+
+    List<ServiceProvider> findByExpiryDate(LocalDate date);
 
     long count();
     void deleteById(UUID id);
+    void softDelete(UUID id);
     boolean existsByName(String name);
 }
