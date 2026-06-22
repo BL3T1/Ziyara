@@ -77,7 +77,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements Ord
                     filterChain.doFilter(request, response);
                     return;
                 }
-                applyRlsFromJwt(jwt, userId);
+                applyRlsFromJwt(request, jwt, userId);
                 int tokenVersion = jwtService.extractTokenVersion(jwt);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(userId);
                 boolean allow = true;
@@ -131,13 +131,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements Ord
         return null;
     }
 
-    private void applyRlsFromJwt(String jwt, String userIdStr) {
+    private void applyRlsFromJwt(HttpServletRequest request, String jwt, String userIdStr) {
         UUID userId = UUID.fromString(userIdStr);
-        String roleName = jwtService.extractRole(jwt);
         UUID providerScope = jwtService.extractProviderScopeId(jwt);
         // Portal users have a providerScope and must NOT bypass RLS; all others (internal staff, super admin) bypass.
         boolean bypass = (providerScope == null);
         RlsSessionContext.set(new RlsSessionAttributes(bypass, userId, providerScope));
+        if (providerScope != null) {
+            request.setAttribute("portalProviderId", providerScope.toString());
+        }
     }
 }
 

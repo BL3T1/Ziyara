@@ -48,6 +48,15 @@ const PortalMapPage = lazy(() =>
 const PortalCashSheetPage = lazy(() =>
   import('../../pages/portal/PortalCashSheetPage').then((m) => ({ default: m.PortalCashSheetPage })),
 )
+const PortalRoomsPage = lazy(() =>
+  import('../../pages/portal/PortalRoomsPage').then((m) => ({ default: m.PortalRoomsPage })),
+)
+const PortalMenuPage = lazy(() =>
+  import('../../pages/portal/PortalMenuPage').then((m) => ({ default: m.PortalMenuPage })),
+)
+const PortalPayoutsPage = lazy(() =>
+  import('../../pages/portal/PortalPayoutsPage').then((m) => ({ default: m.PortalPayoutsPage })),
+)
 
 export function AppProviderRoutes() {
   return (
@@ -61,11 +70,14 @@ export function AppProviderRoutes() {
         <Route element={<RequireSurfaceRole surface="provider" />}>
           <Route element={<ClientPortalLayout />}>
             <Route path="/portal" element={<ClientPortalOverview />} />
+            <Route path="/portal/listings/:id/rooms" element={<RequirePermission code="portal:manage"><PortalRoomsPage /></RequirePermission>} />
+            <Route path="/portal/listings/:id/menu" element={<RequirePermission code="portal:manage"><PortalMenuPage /></RequirePermission>} />
             <Route path="/portal/listings/:id" element={<RequirePermission code="portal:manage"><PortalListingFormPage /></RequirePermission>} />
             <Route path="/portal/listings" element={<PortalListingsPage />} />
             <Route path="/portal/bookings" element={<PortalBookingsPage />} />
             <Route path="/portal/staff" element={<PortalStaffPage />} />
             <Route path="/portal/earnings" element={<RequirePermission code="portal:finance"><PortalEarningsPage /></RequirePermission>} />
+            <Route path="/portal/payouts" element={<RequirePermission code="portal:finance"><PortalPayoutsPage /></RequirePermission>} />
             <Route path="/portal/discounts" element={<RequirePermission code="portal:finance"><PortalDiscountsPage /></RequirePermission>} />
             <Route path="/portal/profile" element={<PortalProfilePage />} />
             <Route path="/portal/support" element={<PortalSupportPage />} />

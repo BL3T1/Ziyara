@@ -2,16 +2,25 @@ package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.BookingResponse;
+import com.ziyara.backend.application.dto.request.CreateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.CreateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.CreateMenuSectionRequest;
+import com.ziyara.backend.application.dto.request.CreatePortalDiscountRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceRequest;
+import com.ziyara.backend.application.dto.request.UpdateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuSectionRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceRequest;
+import com.ziyara.backend.application.dto.response.DiscountResponse;
+import com.ziyara.backend.application.dto.response.HotelRoomImageResponse;
+import com.ziyara.backend.application.dto.response.HotelRoomResponse;
 import com.ziyara.backend.application.dto.response.PortalDashboardResponse;
+import com.ziyara.backend.application.dto.response.PortalDiscountBalanceResponse;
 import com.ziyara.backend.application.dto.response.PortalEarningsResponse;
+import com.ziyara.backend.application.dto.request.PayoutRequestPayload;
+import com.ziyara.backend.application.dto.response.PayoutRequestResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuItemResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuSectionResponse;
@@ -26,6 +35,7 @@ import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -59,6 +69,7 @@ public class PortalController {
     private final PortalService portalService;
     private final ServiceProviderService providerService;
     private final MapService mapService;
+    private final HttpServletRequest httpRequest;
 
     @GetMapping("/map/pins")
     @PreAuthorize(ApiAuthorizationExpressions.PROVIDER_PORTAL)
@@ -176,6 +187,65 @@ public class PortalController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Image uploaded", created));
     }
 
+    @GetMapping("/services/{id}/rooms")
+    @Operation(summary = "List hotel rooms for own service")
+    public ResponseEntity<ApiResponse<List<HotelRoomResponse>>> getHotelRooms(@PathVariable UUID id) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.getHotelRooms(providerId, id)));
+    }
+
+    @PostMapping("/services/{id}/rooms")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
+    @Operation(summary = "Create hotel room for own service")
+    public ResponseEntity<ApiResponse<HotelRoomResponse>> createHotelRoom(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateHotelRoomRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        HotelRoomResponse created = portalService.createHotelRoom(providerId, id, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Room created", created));
+    }
+
+    @PatchMapping("/services/{id}/rooms/{roomId}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
+    @Operation(summary = "Update hotel room for own service")
+    public ResponseEntity<ApiResponse<HotelRoomResponse>> updateHotelRoom(
+            @PathVariable UUID id,
+            @PathVariable UUID roomId,
+            @Valid @RequestBody UpdateHotelRoomRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.updateHotelRoom(providerId, id, roomId, request)));
+    }
+
+    @DeleteMapping("/services/{id}/rooms/{roomId}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
+    @Operation(summary = "Delete hotel room for own service")
+    public ResponseEntity<ApiResponse<Void>> deleteHotelRoom(@PathVariable UUID id, @PathVariable UUID roomId) {
+        UUID providerId = requireCurrentProviderId();
+        portalService.deleteHotelRoom(providerId, id, roomId);
+        return ResponseEntity.ok(ApiResponse.success("Room deleted", null));
+    }
+
+    @PostMapping(value = "/services/{id}/rooms/{roomId}/images/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
+    @Operation(summary = "Upload image for a hotel room")
+    public ResponseEntity<ApiResponse<HotelRoomImageResponse>> uploadRoomImage(
+            @PathVariable UUID id,
+            @PathVariable UUID roomId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) String altText,
+            @RequestParam(required = false) Boolean primary) {
+        UUID providerId = requireCurrentProviderId();
+        final byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException("Could not read uploaded file");
+        }
+        HotelRoomImageResponse created = portalService.uploadRoomImage(
+                providerId, id, roomId, bytes, file.getContentType(), file.getOriginalFilename(), altText, primary);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Room image uploaded", created));
+    }
+
     @GetMapping("/services/{id}/menu")
     @Operation(summary = "Get restaurant menu for own service", description = "Empty sections if not a restaurant")
     public ResponseEntity<ApiResponse<RestaurantMenuResponse>> getRestaurantMenu(@PathVariable UUID id) {
@@ -246,6 +316,41 @@ public class PortalController {
         return ResponseEntity.ok(ApiResponse.success("Item deleted", null));
     }
 
+    @GetMapping("/discount-balance")
+    @Operation(summary = "Provider discount balance")
+    public ResponseEntity<ApiResponse<PortalDiscountBalanceResponse>> getDiscountBalance() {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.getDiscountBalance(providerId)));
+    }
+
+    @GetMapping("/discounts")
+    @Operation(summary = "List provider discounts")
+    public ResponseEntity<ApiResponse<Page<DiscountResponse>>> listDiscounts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.listProviderDiscounts(providerId, page, size)));
+    }
+
+    @PostMapping("/discounts")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_DISCOUNTS_MANAGE)
+    @Operation(summary = "Create provider discount")
+    public ResponseEntity<ApiResponse<DiscountResponse>> createDiscount(
+            @Valid @RequestBody CreatePortalDiscountRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(portalService.createProviderDiscount(providerId, request)));
+    }
+
+    @DeleteMapping("/discounts/{id}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_DISCOUNTS_MANAGE)
+    @Operation(summary = "Deactivate provider discount")
+    public ResponseEntity<ApiResponse<Void>> deactivateDiscount(@PathVariable UUID id) {
+        UUID providerId = requireCurrentProviderId();
+        portalService.deactivateProviderDiscount(providerId, id);
+        return ResponseEntity.ok(ApiResponse.success("Discount deactivated", null));
+    }
+
     @GetMapping("/bookings")
     @PreAuthorize(ApiAuthorizationExpressions.PORTAL_BOOKINGS_READ)
     @Operation(summary = "My bookings", description = "List bookings for current provider's services")
@@ -264,6 +369,26 @@ public class PortalController {
         return ResponseEntity.ok(ApiResponse.success(portalService.getEarnings(providerId, start, end)));
     }
 
+    @PostMapping("/payout-request")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_PAYOUTS_REQUEST)
+    @Operation(summary = "Request payout", description = "Provider submits a withdrawal request against their available balance")
+    public ResponseEntity<ApiResponse<PayoutRequestResponse>> requestPayout(
+            @Valid @RequestBody PayoutRequestPayload payload) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Payout request submitted", portalService.createPayoutRequest(providerId, payload)));
+    }
+
+    @GetMapping("/payout-requests")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_PAYOUTS_REQUEST)
+    @Operation(summary = "My payout requests", description = "Paginated history of payout requests for this provider")
+    public ResponseEntity<ApiResponse<Page<PayoutRequestResponse>>> listPayoutRequests(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.listPayoutRequests(providerId, page, size)));
+    }
+
     private UUID requireCurrentProviderId() {
         UUID userId = getCurrentUserId();
         if (userId == null) {
@@ -271,7 +396,14 @@ public class PortalController {
         }
         return providerService.getProviderByUserId(userId)
                 .map(p -> p.getId())
-                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("No provider profile for this user"));
+                .orElseGet(() -> {
+                    // Admin impersonation: JwtAuthenticationFilter stores the pid claim as a request attribute
+                    Object attr = httpRequest.getAttribute("portalProviderId");
+                    if (attr instanceof String s) {
+                        try { return UUID.fromString(s); } catch (IllegalArgumentException ignored) {}
+                    }
+                    throw new org.springframework.security.access.AccessDeniedException("No provider profile for this user");
+                });
     }
 
     private UUID getCurrentUserId() {

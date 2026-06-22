@@ -48,6 +48,8 @@ public class ServiceProviderService {
 
     private static final BigDecimal DEFAULT_COMMISSION_RATE = new BigDecimal("10");
 
+    private static final String PROVIDER_MANAGER_ROLE_CODE = "PROVIDER_MANAGER";
+
     private final ServiceProviderRepository serviceProviderRepository;
     private final UserRepository userRepository;
     private final ProviderSubscriptionRepository providerSubscriptionRepository;
@@ -57,6 +59,7 @@ public class ServiceProviderService {
     private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
     private final UserPasswordService userPasswordService;
     private final AuthEmailNotificationService authEmailNotificationService;
+    private final UserRbacAssignmentService userRbacAssignmentService;
 
     /**
      * Creates a provider; activation vs pending depends on whether the creator
@@ -127,6 +130,10 @@ public class ServiceProviderService {
             managerUser.setStatus(canApprove ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION);
             userRepository.save(managerUser);
         }
+
+        // Assign portal role so the manager has portal:access permissions.
+        String roleCode = resolveManagerRoleCode(request.getManagerRole());
+        userRbacAssignmentService.assignPrimaryRoleByCode(managerUser.getId(), roleCode);
 
         ServiceProvider provider = new ServiceProvider();
         provider.setUserId(managerUser.getId());
@@ -274,6 +281,9 @@ public class ServiceProviderService {
             userRepository.findById(saved.getUserId()).ifPresent(u -> {
                 u.setStatus(UserStatus.ACTIVE);
                 userRepository.save(u);
+                // Ensure PROVIDER_MANAGER role is assigned (idempotent — covers providers
+                // created before the createProvider fix was applied).
+                userRbacAssignmentService.assignPrimaryRoleByCode(u.getId(), PROVIDER_MANAGER_ROLE_CODE);
                 providerWorkflowEmailService.notifyActivated(saved, u.getEmail());
             });
         }
@@ -349,7 +359,7 @@ public class ServiceProviderService {
     }
 
     @Transactional
-    public void resetProviderManagerPassword(UUID providerId, UUID actorUserId) {
+    public void resetProviderManagerPassword(UUID providerId, String newPassword, UUID actorUserId) {
         ServiceProvider provider = serviceProviderRepository.findById(providerId)
                 .orElseThrow(() -> new IllegalArgumentException("Service provider not found"));
         if (provider.getUserId() == null) {
@@ -357,20 +367,23 @@ public class ServiceProviderService {
         }
         User managerUser = userRepository.findById(provider.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("Provider manager user not found"));
-        String tempPassword = generateTempPassword();
-        userPasswordService.resetPassword(managerUser.getId(), tempPassword);
-        authEmailNotificationService.sendTempPasswordReset(managerUser.getEmail(), tempPassword);
+        userPasswordService.resetPassword(managerUser.getId(), newPassword);
         auditLogService.logAction("PROVIDER_PASSWORD_RESET", "ServiceProvider", providerId.toString(), actorUserId,
                 null, "manager=" + managerUser.getEmail(), null, null);
         log.info("Password reset for provider manager {} by actor {}", managerUser.getEmail(), actorUserId);
     }
 
-    private static String generateTempPassword() {
-        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#";
-        java.security.SecureRandom rng = new java.security.SecureRandom();
-        StringBuilder sb = new StringBuilder(12);
-        for (int i = 0; i < 12; i++) sb.append(chars.charAt(rng.nextInt(chars.length())));
-        return sb.toString();
+    private static final java.util.Set<String> ALLOWED_MANAGER_ROLES = java.util.Set.of(
+            "PROVIDER_MANAGER", "PROVIDER_FINANCE", "PROVIDER_STAFF", "TAXI_OPERATOR");
+
+    private static String resolveManagerRoleCode(String requested) {
+        if (requested == null || requested.isBlank()) return PROVIDER_MANAGER_ROLE_CODE;
+        String code = requested.trim().toUpperCase();
+        if (!ALLOWED_MANAGER_ROLES.contains(code)) {
+            throw new IllegalArgumentException("Invalid manager role: " + requested +
+                    ". Allowed: " + ALLOWED_MANAGER_ROLES);
+        }
+        return code;
     }
 
     private void ensureSubscription(UUID providerId, String requestedPlan, Integer requestedLimit) {

@@ -3,6 +3,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
 import { getApiErrorMessage, portalAPI } from '../../services/api'
 import type { PortalEarningsDto } from '../../types/api'
@@ -94,9 +95,17 @@ export function PortalEarningsPage() {
                   </p>
                 )}
                 {data.availableForPayout !== undefined && (
-                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                    {t('portalPages.availableForPayout')}: {data.currency ?? 'USD'} {Number(data.availableForPayout).toLocaleString()}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                      {t('portalPages.availableForPayout')}: {data.currency ?? 'USD'} {Number(data.availableForPayout).toLocaleString()}
+                    </p>
+                    <Link
+                      to="/portal/payouts"
+                      className="text-sm font-semibold text-primary hover:underline"
+                    >
+                      {t('portalPages.requestPayoutLink')} →
+                    </Link>
+                  </div>
                 )}
               </div>
             )}

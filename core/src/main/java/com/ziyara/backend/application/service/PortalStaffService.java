@@ -171,7 +171,7 @@ public class PortalStaffService {
         user.setRole(UserRole.STAFF);
         user.setStatus(UserStatus.ACTIVE);
         user = userRepository.save(user);
-        userRbacAssignmentService.assignPrimaryRoleByRoleId(user.getId(), request.getRoleId());
+        userRbacAssignmentService.assignPrimaryRoleByCode(user.getId(), request.getRoleCode());
         ProviderStaff staff = new ProviderStaff();
         staff.setProviderId(providerId);
         staff.setUserId(user.getId());

@@ -3,15 +3,12 @@ package com.ziyara.backend.application.dto.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -34,10 +31,10 @@ public class CreatePortalStaffUserRequest {
     @Schema(description = "Optional phone")
     private String phone;
 
-    @NotNull
-    @Schema(description = "Role ID from sys_roles to assign to this portal staff member",
+    @NotBlank
+    @Schema(description = "Role code from sys_roles (e.g. PROVIDER_STAFF, PROVIDER_FINANCE, TAXI_OPERATOR, PROVIDER_MANAGER)",
             requiredMode = Schema.RequiredMode.REQUIRED)
-    private UUID roleId;
+    private String roleCode;
 
     @Schema(description = "Optional title label in provider team")
     private String title;

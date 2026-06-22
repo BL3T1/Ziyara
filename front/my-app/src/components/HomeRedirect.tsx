@@ -47,5 +47,5 @@ export function HomeRedirect() {
     )
   }
 
-  return <Navigate to={getDashboardRouteForRole(user.role)} replace />
+  return <Navigate to={isProviderSurface ? '/portal' : getDashboardRouteForRole(user.role)} replace />
 }

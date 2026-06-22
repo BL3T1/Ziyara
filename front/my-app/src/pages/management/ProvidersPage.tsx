@@ -12,6 +12,8 @@ import { getApiErrorMessage } from '../../services/api'
 import type { PageDto, ServiceProviderDto } from '../../types/api'
 import { BulkActionBar } from '../../components/BulkActionBar'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { Modal } from '../../components/Modal'
+import { PasswordInput } from '../../components/PasswordInput'
 import { statusLabel } from '../../i18n/enumLabels'
 import { usePermission } from '../../hooks/usePermission'
 import { useAuth } from '../../context/AuthContext'
@@ -55,6 +57,8 @@ export function ProvidersPage() {
   const [pendingSuspend, setPendingSuspend] = useState<{ id: string; name: string } | null>(null)
   const [pendingDelete, setPendingDelete] = useState<{ id: string } | null>(null)
   const [pendingReset, setPendingReset] = useState<{ id: string; name: string } | null>(null)
+  const [resetPasswordValue, setResetPasswordValue] = useState('')
+  const [resettingPassword, setResettingPassword] = useState(false)
   const load = useCallback(() => {
     setLoading(true)
     providersAPI
@@ -136,12 +140,17 @@ export function ProvidersPage() {
     }
   }
 
-  const executeResetPassword = async (id: string) => {
+  const executeResetPassword = async (id: string, newPassword: string) => {
     setError(null)
+    setResettingPassword(true)
     try {
-      await providersAPI.resetPassword(id)
+      await providersAPI.resetPassword(id, { newPassword })
+      setPendingReset(null)
+      setResetPasswordValue('')
     } catch (e) {
       setError(getApiErrorMessage(e))
+    } finally {
+      setResettingPassword(false)
     }
   }
 
@@ -484,15 +493,50 @@ export function ProvidersPage() {
         onConfirm={() => executeSuspend(pendingSuspend!.id)}
       />
 
-      <ConfirmDialog
+      <Modal
         open={!!pendingReset}
-        onClose={() => setPendingReset(null)}
-        title={t('providersPage.resetPassword')}
-        description={t('providersPage.confirmResetPassword', { name: pendingReset?.name ?? '' })}
-        confirmLabel={t('providersPage.resetPassword')}
-        variant="default"
-        onConfirm={() => executeResetPassword(pendingReset!.id)}
-      />
+        onClose={() => { setPendingReset(null); setResetPasswordValue('') }}
+        title={t('providerEditPage.resetPassword')}
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => { setPendingReset(null); setResetPasswordValue('') }}
+              disabled={resettingPassword}
+              className="dashboard-btn-secondary"
+            >
+              {t('ui.cancel')}
+            </button>
+            <button
+              type="submit"
+              form="providers-reset-pw-form"
+              disabled={resettingPassword || !resetPasswordValue}
+              className="dashboard-btn-primary disabled:opacity-50"
+            >
+              {resettingPassword ? t('ui.loading') : t('providerEditPage.resetPassword')}
+            </button>
+          </>
+        }
+      >
+        <form
+          id="providers-reset-pw-form"
+          onSubmit={(e) => { e.preventDefault(); executeResetPassword(pendingReset!.id, resetPasswordValue) }}
+        >
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+            {t('providerEditPage.resetPasswordLabel')}
+          </label>
+          <PasswordInput
+            value={resetPasswordValue}
+            onChange={(e) => setResetPasswordValue(e.target.value)}
+            className="modal-input mt-1.5 w-full"
+            autoFocus
+            required
+            minLength={6}
+            autoComplete="new-password"
+          />
+        </form>
+      </Modal>
 
       <ConfirmDialog
         open={!!pendingDelete}

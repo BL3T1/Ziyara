@@ -20,6 +20,7 @@ import com.ziyara.backend.domain.repository.ProviderStaffRepository;
 import com.ziyara.backend.domain.repository.SubscriptionAddOnRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +53,7 @@ public class SubscriptionService implements SubscriptionServiceApi {
     private final CustomerSubscriptionRepository subscriptionRepository;
     private final SubscriptionAddOnRepository addOnRepository;
     private final ProviderStaffRepository providerStaffRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     // -------------------------------------------------------------------------
     // Query
@@ -163,6 +165,21 @@ public class SubscriptionService implements SubscriptionServiceApi {
 
         log.info("Activated plan {} for provider {}, seat limit {}",
                 plan.getCode(), providerId, result.subscription().getSeatLimit());
+
+        // Record a billing event for paid plans so the financial ledger stays complete
+        if (plan.getMonthlyPrice() != null
+                && plan.getMonthlyPrice().compareTo(java.math.BigDecimal.ZERO) > 0) {
+            try {
+                jdbcTemplate.update(
+                        "INSERT INTO sub_billing_records " +
+                        "(id, subscription_id, provider_id, plan_code, amount, currency, billing_cycle, status, created_at) " +
+                        "VALUES (gen_random_uuid(), ?, ?, ?, ?, 'USD', 'MONTHLY', 'RECORDED', NOW())",
+                        result.subscription().getId(), providerId,
+                        plan.getCode(), plan.getMonthlyPrice());
+            } catch (Exception ex) {
+                log.warn("Could not record billing event for subscription {}: {}", result.subscription().getId(), ex.getMessage());
+            }
+        }
 
         return getSubscription(providerId);
     }

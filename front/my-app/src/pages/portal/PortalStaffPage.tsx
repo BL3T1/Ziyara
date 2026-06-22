@@ -9,6 +9,24 @@ import { usersAPI, providersAPI, portalStaffAPI, getApiErrorMessage } from '../.
 import { Card } from '../../components/Card'
 import type { LinkableUserDto, PortalStaffMemberDto, ServiceProviderDto } from '../../types/api'
 
+type AssignableRole = { id: string; code: string; name: string }
+
+/** Codes that are meaningful for each provider type. */
+const ROLES_BY_TYPE: Record<string, string[]> = {
+  HOTEL:      ['PROVIDER_MANAGER', 'PROVIDER_FINANCE', 'PROVIDER_STAFF'],
+  RESORT:     ['PROVIDER_MANAGER', 'PROVIDER_FINANCE', 'PROVIDER_STAFF'],
+  RESTAURANT: ['PROVIDER_MANAGER', 'PROVIDER_FINANCE', 'PROVIDER_STAFF'],
+  TRIP:       ['PROVIDER_MANAGER', 'PROVIDER_FINANCE', 'PROVIDER_STAFF'],
+  TAXI:       ['PROVIDER_MANAGER', 'PROVIDER_FINANCE', 'TAXI_OPERATOR'],
+}
+
+const ROLE_DESC_KEY: Record<string, string> = {
+  PROVIDER_MANAGER: 'roleDescProviderManager',
+  PROVIDER_FINANCE: 'roleDescProviderFinance',
+  PROVIDER_STAFF:   'roleDescProviderStaff',
+  TAXI_OPERATOR:    'roleDescTaxiOperator',
+}
+
 type MeUser = {
   id?: string
   email?: string
@@ -32,6 +50,7 @@ export function PortalStaffPage() {
   const [loading, setLoading] = useState(true)
   const [teamLoading, setTeamLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [allRoles, setAllRoles] = useState<AssignableRole[]>([])
   const [linkableUsers, setLinkableUsers] = useState<LinkableUserDto[]>([])
   const [addUserId, setAddUserId] = useState('')
   const [addTitle, setAddTitle] = useState('')
@@ -39,7 +58,7 @@ export function PortalStaffPage() {
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newPhone, setNewPhone] = useState('')
-  const [newRole, setNewRole] = useState('PROVIDER_STAFF')
+  const [newRole, setNewRole] = useState('')
   const [newTitle, setNewTitle] = useState('')
   const [creatingUser, setCreatingUser] = useState(false)
   const [editUserId, setEditUserId] = useState<string | null>(null)
@@ -92,6 +111,25 @@ export function PortalStaffPage() {
       .catch(() => setLinkableUsers([]))
   }, [])
 
+  useEffect(() => {
+    portalStaffAPI
+      .listAssignableRoles()
+      .then((r) => setAllRoles(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setAllRoles([]))
+  }, [])
+
+  const filteredRoles = (() => {
+    if (!provider?.type) return allRoles
+    const allowed = ROLES_BY_TYPE[provider.type] ?? []
+    return allRoles.filter((r) => allowed.includes(r.code))
+  })()
+
+  useEffect(() => {
+    if (filteredRoles.length > 0 && !newRole) {
+      setNewRole(filteredRoles[0].code)
+    }
+  }, [filteredRoles, newRole])
+
   const row = (label: string, value: string) => (
     <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2.5 last:border-0 dark:border-slate-700/80">
       <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
@@ -141,20 +179,20 @@ export function PortalStaffPage() {
     setCreatingUser(true)
     setError(null)
     try {
-      const body: { email: string; password: string; roleId: string; phone?: string; title?: string } = {
+      const body: { email: string; password: string; roleCode: string; phone?: string; title?: string } = {
         email: newEmail.trim(),
         password: newPassword,
-        roleId: newRole,
+        roleCode: newRole,
       }
       const p = newPhone.trim()
       if (p) body.phone = p
-      const t = newTitle.trim()
-      if (t) body.title = t
+      const tt = newTitle.trim()
+      if (tt) body.title = tt
       await portalStaffAPI.createUser(body)
       setNewEmail('')
       setNewPassword('')
       setNewPhone('')
-      setNewRole('PROVIDER_STAFF')
+      setNewRole(filteredRoles[0]?.code ?? '')
       setNewTitle('')
       loadTeam()
     } catch (e) {
@@ -347,16 +385,25 @@ export function PortalStaffPage() {
             onChange={(e) => setNewPhone(e.target.value)}
             className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           />
-          <select
-            value={newRole}
-            onChange={(e) => setNewRole(e.target.value)}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          >
-            <option value="PROVIDER_STAFF">{t('portalStaffPage.roleProviderStaff')}</option>
-            <option value="PROVIDER_FINANCE">{t('portalStaffPage.roleProviderFinance')}</option>
-            <option value="TAXI_OPERATOR">{t('portalStaffPage.roleTaxiOperator')}</option>
-            <option value="PROVIDER_MANAGER">{t('portalStaffPage.roleProviderManager')}</option>
-          </select>
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
+              {t('portalStaffPage.roleSelectLabel')}
+            </label>
+            <select
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value)}
+              className="w-full rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+            >
+              {filteredRoles.map((r) => (
+                <option key={r.code} value={r.code}>{r.name}</option>
+              ))}
+            </select>
+            {newRole && ROLE_DESC_KEY[newRole] && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t(`portalStaffPage.${ROLE_DESC_KEY[newRole]}`)}
+              </p>
+            )}
+          </div>
           <input
             type="text"
             placeholder={t('portalStaffPage.titlePlaceholder')}
