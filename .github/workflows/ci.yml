@@ -47,7 +47,7 @@ jobs:
       - name: Run unit & slice tests (docker-tagged tests excluded)
         working-directory: core
         env:
-          JWT_SECRET: ci-test-jwt-secret-key-must-be-at-least-32-bytes-long
+          JWT_SECRET: e31ea55f4dcb51a57c2818f912db151866778ce88a9dc38cda0f8f1e3918f1edae1d76a5a5a3744f5b1c00d0c54427ec
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/ziyarah_test
           SPRING_DATASOURCE_USERNAME: ziyarah_user
           SPRING_DATASOURCE_PASSWORD: test_password
@@ -91,7 +91,7 @@ jobs:
       - name: Run all tests including @Tag("docker") Testcontainers suite
         working-directory: core
         env:
-          JWT_SECRET: ci-test-jwt-secret-key-must-be-at-least-32-bytes-long
+          JWT_SECRET: e31ea55f4dcb51a57c2818f912db151866778ce88a9dc38cda0f8f1e3918f1edae1d76a5a5a3744f5b1c00d0c54427ec
           # Testcontainers will override datasource via @ServiceConnection;
           # this env var satisfies Spring's relaxed binding for other beans.
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/placeholder
