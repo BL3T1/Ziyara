@@ -9,6 +9,7 @@ import com.ziyara.backend.domain.enums.PaymentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.lang.Nullable;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -43,4 +44,7 @@ public interface PaymentServiceApi {
 
     /** Platform-wide aggregate: total collected, pending, and refunded. */
     PaymentSummaryResponse getPaymentSummary();
+
+    /** Mark all COMPLETED payments on a no-show booking as NO_SHOW_FORFEIT; cancel PENDING ones. */
+    List<PaymentResponse> forfeitNoShowDeposit(UUID bookingId, UUID adminUserId);
 }

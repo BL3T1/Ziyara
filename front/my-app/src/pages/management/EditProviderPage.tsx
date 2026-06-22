@@ -18,6 +18,7 @@ import { usePermission } from '../../hooks/usePermission'
 import { isUuid } from '../../utils/isUuid'
 import { safeImageUrl } from '../../utils/safeRendering'
 import { FormField } from '../../components/FormField'
+import { PasswordInput } from '../../components/PasswordInput'
 
 const STATUS_OPTIONS: ProviderStatusDto[] = [
   'PENDING_APPROVAL',
@@ -66,6 +67,8 @@ export function EditProviderPage() {
   const [status, setStatus] = useState<ProviderStatusDto>('ACTIVE')
   const [expiryDate, setExpiryDate] = useState('')
   const [resettingPassword, setResettingPassword] = useState(false)
+  const [newManagerPassword, setNewManagerPassword] = useState('')
+  const [resetPasswordError, setResetPasswordError] = useState<string | null>(null)
   const [mediaSubs, setMediaSubs] = useState<ProviderMediaSubmissionDto[]>([])
   const [mediaLoading, setMediaLoading] = useState(false)
   const [mediaMsg, setMediaMsg] = useState<string | null>(null)
@@ -391,29 +394,48 @@ export function EditProviderPage() {
             {/* Password reset */}
             <div className="space-y-4 p-6">
               <SectionHeader label={t('providerEditPage.sectionSecurity')} />
-              <div className="flex items-center gap-4">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  if (!newManagerPassword || newManagerPassword.length < 6) {
+                    setResetPasswordError(t('providerEditPage.resetPasswordMinLength'))
+                    return
+                  }
+                  setResettingPassword(true)
+                  setResetPasswordError(null)
+                  setError(null)
+                  try {
+                    await providersAPI.resetPassword(id, { newPassword: newManagerPassword })
+                    setNewManagerPassword('')
+                    setSuccess(t('providerEditPage.resetPasswordSuccess'))
+                  } catch (err) {
+                    setResetPasswordError(getApiErrorMessage(err))
+                  } finally {
+                    setResettingPassword(false)
+                  }
+                }}
+                className="flex flex-wrap items-end gap-3"
+              >
+                <FormField label={t('providerEditPage.resetPasswordLabel')} className="flex-1 min-w-[200px]">
+                  <PasswordInput
+                    value={newManagerPassword}
+                    onChange={(e) => setNewManagerPassword(e.target.value)}
+                    className="modal-input"
+                    autoComplete="new-password"
+                    minLength={6}
+                  />
+                </FormField>
                 <button
-                  type="button"
-                  disabled={resettingPassword}
-                  onClick={async () => {
-                    if (!window.confirm(t('providerEditPage.confirmResetPassword'))) return
-                    setResettingPassword(true)
-                    setError(null)
-                    try {
-                      await providersAPI.resetPassword(id)
-                      setSuccess(t('providerEditPage.resetPasswordSuccess'))
-                    } catch (err) {
-                      setError(getApiErrorMessage(err))
-                    } finally {
-                      setResettingPassword(false)
-                    }
-                  }}
-                  className="dashboard-btn-secondary disabled:opacity-50"
+                  type="submit"
+                  disabled={resettingPassword || !newManagerPassword}
+                  className="dashboard-btn-secondary disabled:opacity-50 shrink-0"
                 >
                   {resettingPassword ? t('ui.loading') : t('providerEditPage.resetPassword')}
                 </button>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{t('providerEditPage.hintResetPassword')}</p>
-              </div>
+              </form>
+              {resetPasswordError && (
+                <p className="text-sm text-red-600 dark:text-red-400">{resetPasswordError}</p>
+              )}
             </div>
 
             {/* Governance */}

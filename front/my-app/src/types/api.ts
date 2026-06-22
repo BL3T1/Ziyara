@@ -74,6 +74,16 @@ export interface PortalServiceEarningRow {
   providerNet: number
 }
 
+/** GET /portal/payout-requests, POST /portal/payout-request */
+export interface PortalPayoutRequestDto {
+  id: string
+  amount: number
+  currency: string
+  notes?: string | null
+  status: string
+  requestedAt: string
+}
+
 export interface LinkableUserDto {
   id: string
   email: string
@@ -501,6 +511,7 @@ export interface CreateServiceProviderPayload {
   managerEmail?: string
   managerPassword?: string
   managerPhone?: string
+  managerRole?: string
   subscriptionPlan?: 'FREE' | 'PRO'
   globalRate?: number
   expiryDate?: string

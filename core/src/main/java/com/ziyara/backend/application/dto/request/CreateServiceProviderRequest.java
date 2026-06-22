@@ -67,6 +67,9 @@ public class CreateServiceProviderRequest {
     @Schema(description = "Staff limit for PRO plan (ignored for FREE, defaults to 10)")
     private Integer staffLimit;
 
+    @Schema(description = "Portal role code for the manager account. Defaults to PROVIDER_MANAGER. Allowed: PROVIDER_MANAGER, PROVIDER_FINANCE, PROVIDER_STAFF, TAXI_OPERATOR")
+    private String managerRole;
+
     @NotNull(message = "Global rate is required")
     @DecimalMin(value = "1.0", message = "Global rate must be at least 1.0")
     @DecimalMax(value = "5.0", message = "Global rate must be at most 5.0")

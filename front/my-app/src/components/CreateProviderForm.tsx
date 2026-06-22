@@ -40,6 +40,7 @@ export function CreateProviderForm({
   const [managerEmail, setManagerEmail] = useState('')
   const [managerPassword, setManagerPassword] = useState('')
   const [managerPhone, setManagerPhone] = useState('')
+  const [managerRole, setManagerRole] = useState('PROVIDER_MANAGER')
   const [subscriptionPlan, setSubscriptionPlan] = useState<'FREE' | 'PRO'>('FREE')
   const [globalRate, setGlobalRate] = useState('')
   const [expiryDate, setExpiryDate] = useState('')
@@ -90,6 +91,7 @@ export function CreateProviderForm({
         logoUrl: logoUrl.trim() || undefined,
         managerEmail: managerEmail.trim(),
         managerPassword: managerPassword,
+        managerRole,
         subscriptionPlan,
         globalRate: rateVal,
         expiryDate,
@@ -318,6 +320,18 @@ export function CreateProviderForm({
             />
           </FormField>
         </div>
+        <FormField label={t('createProviderModal.labelManagerRole')}>
+          <select
+            value={managerRole}
+            onChange={(e) => setManagerRole(e.target.value)}
+            className="modal-select"
+          >
+            <option value="PROVIDER_MANAGER">{t('createProviderModal.roleProviderManager')}</option>
+            <option value="PROVIDER_FINANCE">{t('createProviderModal.roleProviderFinance')}</option>
+            <option value="PROVIDER_STAFF">{t('createProviderModal.roleProviderStaff')}</option>
+            <option value="TAXI_OPERATOR">{t('createProviderModal.roleTaxiOperator')}</option>
+          </select>
+        </FormField>
       </div>
 
       <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4 dark:border-white/[0.05]">

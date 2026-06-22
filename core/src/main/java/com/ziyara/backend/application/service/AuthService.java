@@ -420,25 +420,27 @@ public class AuthService {
     }
 
     /**
-     * Generates an access token for the admin to impersonate a provider's manager account.
-     * Bypasses all normal auth checks (password, MFA, rate-limiting) and sends no notifications.
+     * Generates an access token scoped to the given provider for the requesting admin.
+     * The admin retains their own identity and permissions (SUPER_ADMIN has portal:access via V17 seed),
+     * while the {@code pid} JWT claim restricts data visibility to that provider via RLS.
+     * Bypasses all normal auth checks and sends no notifications.
      * Restricted to SUPER_ADMIN callers (enforced at the controller level).
      */
     @Transactional(readOnly = true)
-    public AuthResponse generateAdminProviderToken(UUID providerId) {
+    public AuthResponse generateAdminProviderToken(UUID providerId, UUID adminUserId) {
         ServiceProvider provider = serviceProviderRepository.findById(providerId)
                 .orElseThrow(() -> new IllegalArgumentException("Provider not found: " + providerId));
-        User manager = userRepository.findById(provider.getUserId())
-                .orElseThrow(() -> new IllegalArgumentException("Provider manager account not found for provider: " + providerId));
-        String accessToken = jwtService.generateAccessToken(manager, provider.getId());
+        User admin = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Admin user not found: " + adminUserId));
+        String accessToken = jwtService.generateAccessToken(admin, provider.getId());
         return AuthResponse.builder()
                 .accessToken(accessToken)
                 .tokenType("Bearer")
                 .expiresIn(jwtService.getExpirationTime())
-                .userId(manager.getId())
-                .email(manager.getEmail())
-                .fullName(buildFullName(manager))
-                .role(manager.getRole())
+                .userId(admin.getId())
+                .email(admin.getEmail())
+                .fullName(buildFullName(admin))
+                .role(admin.getRole())
                 .hasPortalAccess(true)
                 .build();
     }

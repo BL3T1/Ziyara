@@ -93,7 +93,8 @@ export function LoginPage() {
           role,
           mustChangePassword: false,
         })
-        navigate(safeRedirect(getDashboardRouteForRole(role), '/dashboard'), { replace: true })
+        // Admin handoff always lands on the provider portal (we're already on the provider surface)
+        navigate('/portal', { replace: true })
       })
       .catch(() => {
         sessionStorage.removeItem('token')

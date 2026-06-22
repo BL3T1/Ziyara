@@ -4,6 +4,7 @@ import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.AuthResponse;
 import com.ziyara.backend.application.dto.request.CreateServiceProviderRequest;
 import com.ziyara.backend.application.dto.request.RejectServiceProviderRequest;
+import com.ziyara.backend.application.dto.request.ResetPasswordAdminRequest;
 import com.ziyara.backend.application.dto.request.UpdateProviderCommissionRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceProviderRequest;
 import com.ziyara.backend.domain.enums.ProviderStatus;
@@ -180,14 +181,16 @@ public class ServiceProviderController {
 
     @PostMapping("/{id}/reset-password")
     @PreAuthorize(COMPANY_STAFF)
-    @Operation(summary = "Reset provider manager password", description = "Generates temp password, emails it to the manager, forces password change on next login")
-    public ResponseEntity<ApiResponse<Void>> resetProviderPassword(@PathVariable UUID id) {
+    @Operation(summary = "Reset provider manager password", description = "Sets the provider manager password to the value supplied by the admin")
+    public ResponseEntity<ApiResponse<Void>> resetProviderPassword(
+            @PathVariable UUID id,
+            @Valid @RequestBody ResetPasswordAdminRequest body) {
         UUID actorId = getCurrentUserId();
         if (actorId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
         }
-        providerService.resetProviderManagerPassword(id, actorId);
-        return ResponseEntity.ok(ApiResponse.success("Password reset email sent to provider manager", null));
+        providerService.resetProviderManagerPassword(id, body.getNewPassword(), actorId);
+        return ResponseEntity.ok(ApiResponse.success("Provider manager password updated", null));
     }
 
     @PatchMapping("/{id}/discount-balance")
@@ -214,8 +217,12 @@ public class ServiceProviderController {
     @PostMapping("/{id}/admin-token")
     @PreAuthorize(PROVIDER_SUBMIT)
     @Operation(summary = "Generate admin access token for provider portal",
-               description = "Issues a JWT for the provider's manager account without password/MFA and without notifying the provider.")
-    public ResponseEntity<ApiResponse<AuthResponse>> getAdminProviderToken(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(authService.generateAdminProviderToken(id)));
+               description = "Issues a provider-scoped JWT for the calling admin without password/MFA. The admin retains their own identity and permissions.")
+    public ResponseEntity<ApiResponse<AuthResponse>> getAdminProviderToken(
+            @PathVariable UUID id, Authentication authentication) {
+        com.ziyara.backend.infrastructure.security.UserPrincipal principal =
+                (com.ziyara.backend.infrastructure.security.UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success(
+                authService.generateAdminProviderToken(id, principal.getId())));
     }
 }

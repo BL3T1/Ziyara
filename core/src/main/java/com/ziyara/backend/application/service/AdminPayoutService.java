@@ -7,6 +7,7 @@ import com.ziyara.backend.application.dto.response.AdminPayoutResponse;
 import com.ziyara.backend.application.dto.response.AdminPayoutSummaryResponse;
 import com.ziyara.backend.application.annotation.Audited;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
+import com.ziyara.backend.domain.payment.PayoutDisbursementPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -33,6 +34,7 @@ public class AdminPayoutService {
     private static final String CURRENCY = "USD";
 
     private final JdbcTemplate jdbcTemplate;
+    private final PayoutDisbursementPort disbursementPort;
 
     // -------------------------------------------------------------------------
     // Query
@@ -149,9 +151,41 @@ public class AdminPayoutService {
     public AdminPayoutResponse approve(UUID id, AdminPayoutActionRequest req) {
         requireStatus(id, "PENDING", "SCHEDULED");
         UUID user = currentUser();
+
+        // Capture payout details before transitioning
+        Map<String, Object> info = jdbcTemplate.queryForMap(
+                "SELECT provider_id, amount, currency FROM portal_payout_requests WHERE id=?", id);
+        UUID providerId = UUID.fromString(info.get("provider_id").toString());
+        java.math.BigDecimal amount = (java.math.BigDecimal) info.get("amount");
+        String currency = info.get("currency") != null ? info.get("currency").toString() : CURRENCY;
+
         jdbcTemplate.update(
                 "UPDATE portal_payout_requests SET status='PROCESSING', processed_at=?, processed_by=?, notes=? WHERE id=?",
                 Timestamp.from(Instant.now()), user, req != null ? req.getNotes() : null, id);
+
+        if (disbursementPort.isAutoDisburse()) {
+            String bankRef = null;
+            try {
+                bankRef = jdbcTemplate.queryForObject(
+                        "SELECT bank_account_ref FROM hotel_service_providers WHERE id=?",
+                        String.class, providerId);
+            } catch (Exception ignored) {}
+
+            if (bankRef != null && !bankRef.isBlank()) {
+                PayoutDisbursementPort.DisbursementResult result = disbursementPort.disburse(
+                        new PayoutDisbursementPort.DisbursementCommand(id, providerId, amount, currency, bankRef, null));
+                if (result.success()) {
+                    jdbcTemplate.update(
+                            "UPDATE portal_payout_requests SET status='COMPLETED', transaction_id=? WHERE id=?",
+                            result.transactionRef(), id);
+                } else {
+                    log.warn("Auto-disbursement failed for payout {}: {}", id, result.error());
+                    jdbcTemplate.update(
+                            "UPDATE portal_payout_requests SET status='FAILED' WHERE id=?", id);
+                }
+            }
+        }
+
         return getById(id);
     }
 

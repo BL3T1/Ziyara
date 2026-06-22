@@ -39,6 +39,9 @@ public interface PaymentRepository {
     /** Platform-wide sum of payments with the given status (no date filter). */
     BigDecimal sumByStatus(PaymentStatus status);
 
+    /** Platform-wide sum per currency for payments with the given status. */
+    java.util.Map<String, BigDecimal> sumByStatusGroupedByCurrency(PaymentStatus status);
+
     /** Completed payments for the given booking IDs on or after {@code since}. Used for weekly chart. */
     List<Payment> findCompletedByBookingIdsSince(List<UUID> bookingIds, LocalDateTime since);
 }
