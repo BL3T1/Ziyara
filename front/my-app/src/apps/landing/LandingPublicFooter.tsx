@@ -11,7 +11,6 @@ export function LandingPublicFooter() {
           <h4>{t('landingPublicFooter.product')}</h4>
           <Link to="/services">{t('landingPublicFooter.features')}</Link>
           <Link to="/faq">{t('landingPublicFooter.pricing')}</Link>
-          <Link to="/about">{t('landingPublicFooter.caseStudies')}</Link>
         </div>
         <div>
           <h4>{t('landingPublicFooter.company')}</h4>

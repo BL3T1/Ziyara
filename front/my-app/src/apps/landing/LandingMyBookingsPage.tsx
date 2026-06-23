@@ -79,6 +79,7 @@ export function LandingMyBookingsPage() {
     try {
       const res = await bookingsAPI.getVoucher(bookingId)
       downloadVoucherPdf(res.data as VoucherDto)
+      toast(t('landingMyBookings.voucherSuccess') || 'Voucher downloaded.', 'success')
     } catch {
       toast(t('landingMyBookings.voucherError') || 'Failed to download voucher.', 'error')
     } finally {

@@ -60,7 +60,7 @@ export function LandingShell() {
       <div className="lp-www-inner">
         <header className="lp-nav" role="banner">
           {/* Brand */}
-          <NavLink to="/" className="lp-nav-brand no-underline" end>
+          <NavLink to="/" className="lp-nav-brand no-underline" end onClick={() => setMenuOpen(false)}>
             <img src="/logo.png" alt="Ziyara" className="lp-brand-logo shrink-0" width={220} height={64} />
           </NavLink>
 

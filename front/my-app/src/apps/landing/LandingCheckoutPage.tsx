@@ -222,7 +222,12 @@ export function LandingCheckoutPage() {
     )
   }
 
-  const backPath = serviceId && service ? `/services/${(service.type ?? 'HOTEL').toLowerCase()}s/${serviceId}` : undefined
+  const TYPE_TO_SLUG: Record<string, string> = {
+    HOTEL: 'hotels', RESORT: 'resorts', RESTAURANT: 'restaurants', TAXI: 'taxis', TRIP: 'trips',
+  }
+  const backPath = serviceId && service
+    ? `/${TYPE_TO_SLUG[service.type ?? ''] ?? 'hotels'}/${serviceId}`
+    : undefined
 
   return (
     <div className="min-h-[60vh] py-10">

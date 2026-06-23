@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ServiceEntity } from '../../pages/services/serviceModel'
+import type { HotelRoomDto } from '../../types/api'
 import { useLanguage } from '../../context/LanguageContext'
 import { useAuth } from '../../context/AuthContext'
 import { servicesAPI } from '../../services/api'
@@ -38,7 +39,9 @@ export function LandingServiceBookingPanel({ service }: LandingServiceBookingPan
   const [checkOut, setCheckOut] = useState('')
   const [guests, setGuests] = useState(1)
   const [roomPhase, setRoomPhase] = useState(false)
-  const [selectedRoom, setSelectedRoom] = useState<number | null>(null)
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(null)
+  const [rooms, setRooms] = useState<HotelRoomDto[]>([])
+  const [roomsLoading, setRoomsLoading] = useState(false)
   const [avail, setAvail] = useState<AvailState>('idle')
   const [availMsg, setAvailMsg] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -74,13 +77,17 @@ export function LandingServiceBookingPanel({ service }: LandingServiceBookingPan
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [isStay, service.id, checkIn, nights])
 
-  const stayTotal = isStay && nights > 0 ? basePrice * nights : basePrice
+  // Fetch real room types when the hotel room picker is opened
+  useEffect(() => {
+    if (!isStay || !roomPhase || rooms.length > 0) return
+    setRoomsLoading(true)
+    servicesAPI.listRooms(service.id)
+      .then((res) => setRooms(res.data as HotelRoomDto[]))
+      .catch(() => setRooms([]))
+      .finally(() => setRoomsLoading(false))
+  }, [isStay, roomPhase, service.id, rooms.length])
 
-  const taxiEstimate = useMemo(() => {
-    if (!isTaxi || !from.trim() || !to.trim()) return 0
-    const mult = taxiType === 'VIP' ? 1.45 : taxiType === 'Van' ? 1.25 : 1
-    return Math.round(Math.max(basePrice, 12) * mult)
-  }, [isTaxi, from, to, taxiType, basePrice])
+  const stayTotal = isStay && nights > 0 ? basePrice * nights : basePrice
 
   const priceLine =
     service.price != null
@@ -93,13 +100,14 @@ export function LandingServiceBookingPanel({ service }: LandingServiceBookingPan
 
   const availOk = !isStay || avail === 'idle' || avail === 'available'
   const canConfirmStay = isStay ? checkIn && checkOut && nights > 0 && availOk && (roomPhase ? selectedRoom != null : true) : true
-  const canConfirmTaxi = taxiEstimate > 0
+  const canConfirmTaxi = isTaxi && from.trim().length > 0 && to.trim().length > 0
 
   function buildCheckoutUrl() {
     const params = new URLSearchParams({ serviceId: service.id })
     if (checkIn) params.set('checkIn', checkIn)
     if (checkOut) params.set('checkOut', checkOut)
     if (guests > 1) params.set('guests', String(guests))
+    if (selectedRoom) params.set('roomTypeId', selectedRoom)
     if (isTaxi) {
       params.set('from', from)
       params.set('to', to)
@@ -196,28 +204,51 @@ export function LandingServiceBookingPanel({ service }: LandingServiceBookingPan
       {isStay && roomPhase ? (
         <BookingCard>
           <p className="lp-eyebrow lp-eyebrow--tight">{t('landingBooking.chooseRoomTitle')}</p>
-          <p className="mt-1 text-sm lp-muted">{t('landingBooking.roomLegend')}</p>
-          <div className="mt-4 grid grid-cols-5 gap-2 sm:grid-cols-10">
-            {Array.from({ length: 20 }, (_, i) => {
-              const n = i + 1
-              const selected = selectedRoom === n
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setSelectedRoom(n)}
-                  className="rounded-xl border-2 py-2 text-sm font-semibold transition-all"
-                  style={{
-                    borderColor: selected ? 'var(--accent-teal)' : 'rgba(90, 122, 130, 0.25)',
-                    background: selected ? 'rgba(61, 112, 128, 0.12)' : 'rgba(255,255,255,0.6)',
-                    color: selected ? 'var(--accent-teal)' : 'var(--ink-heading)',
-                  }}
-                >
-                  {n}
-                </button>
-              )
-            })}
-          </div>
+          {roomsLoading ? (
+            <p className="mt-3 text-sm lp-muted">Loading room types…</p>
+          ) : rooms.length === 0 ? (
+            <p className="mt-3 text-sm lp-muted">{t('landingBooking.roomLegend')}</p>
+          ) : (
+            <div className="mt-4 space-y-2">
+              {rooms
+                .filter((r) => r.status === 'ACTIVE' && r.quantityAvailable > 0)
+                .map((room) => {
+                  const selected = selectedRoom === room.id
+                  return (
+                    <button
+                      key={room.id}
+                      type="button"
+                      onClick={() => setSelectedRoom(selected ? null : room.id)}
+                      className="w-full rounded-xl border-2 px-4 py-3 text-left transition-all"
+                      style={{
+                        borderColor: selected ? 'var(--accent-teal)' : 'rgba(90, 122, 130, 0.25)',
+                        background: selected ? 'rgba(61, 112, 128, 0.10)' : 'rgba(255,255,255,0.6)',
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm" style={{ color: selected ? 'var(--accent-teal)' : 'var(--ink-heading)' }}>
+                            {room.roomName}
+                          </p>
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--ink-muted)' }}>
+                            {room.roomType}
+                            {room.capacity ? ` · ${room.capacity} guests` : ''}
+                          </p>
+                          {room.description ? (
+                            <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--ink-faint)' }}>{room.description}</p>
+                          ) : null}
+                        </div>
+                        {room.basePrice != null ? (
+                          <p className="shrink-0 font-bold text-base" style={{ color: 'var(--accent-tan-mid)' }}>
+                            {room.currency ?? service.currency ?? 'USD'} {room.basePrice.toLocaleString()}
+                          </p>
+                        ) : null}
+                      </div>
+                    </button>
+                  )
+                })}
+            </div>
+          )}
         </BookingCard>
       ) : null}
 
@@ -285,17 +316,12 @@ export function LandingServiceBookingPanel({ service }: LandingServiceBookingPan
                   ? t('landingBooking.totalForNights')
                   : t('landingBooking.pricePerNight')
                 : isTaxi
-                  ? t('landingBooking.estimateLabel')
+                  ? t('landingBooking.startingFrom')
                   : t('landingBooking.startingFrom')}
             </p>
             <p className="text-3xl font-bold" style={{ color: 'var(--ink-heading)', letterSpacing: '-0.02em' }}>
-              {isTaxi ? (canConfirmTaxi ? `~${service.currency} ${taxiEstimate}` : '—') : priceLine}
+              {priceLine}
             </p>
-            {isTaxi && canConfirmTaxi && (
-              <p className="text-xs" style={{ color: 'var(--ink-faint)', marginTop: 3 }}>
-                {t('landingBooking.estimateLabel')}
-              </p>
-            )}
           </div>
 
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row">

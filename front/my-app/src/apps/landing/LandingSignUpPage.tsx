@@ -11,6 +11,8 @@ export function LandingSignUpPage() {
   const { t, locale } = useLanguage()
   const navigate = useNavigate()
   const { user, clearAuth } = useAuth()
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -18,7 +20,7 @@ export function LandingSignUpPage() {
   const [confirm, setConfirm] = useState('')
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({})
+  const [fieldErrors, setFieldErrors] = useState<{ firstName?: string; lastName?: string; email?: string; password?: string; confirmPassword?: string }>({})
   const [loading, setLoading] = useState(false)
 
   function passwordStrength(pw: string): { score: number; label: string; color: string } {
@@ -53,11 +55,13 @@ export function LandingSignUpPage() {
     e.preventDefault()
     setError('')
     setFieldErrors({})
-    const parsed = signUpSchema.safeParse({ email, password, confirmPassword: confirm })
+    const parsed = signUpSchema.safeParse({ firstName, lastName, email, password, confirmPassword: confirm })
     if (!parsed.success) {
       const errs = parsed.error.flatten().fieldErrors
       const formErrors = parsed.error.flatten().formErrors
       setFieldErrors({
+        firstName: errs.firstName?.[0],
+        lastName: errs.lastName?.[0],
         email: errs.email?.[0],
         password: errs.password?.[0],
         confirmPassword: errs.confirmPassword?.[0] ?? formErrors[0],
@@ -67,6 +71,8 @@ export function LandingSignUpPage() {
     setLoading(true)
     try {
       await authAPI.register({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         email: email.trim(),
         password,
         phone: phone.trim() || undefined,
@@ -104,6 +110,38 @@ export function LandingSignUpPage() {
           ) : null}
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="landing-signup-firstname" className="mb-1 block text-xs font-semibold uppercase tracking-wide lp-text-muted">
+                  {t('landingAuth.firstName')}
+                </label>
+                <input
+                  id="landing-signup-firstname"
+                  type="text"
+                  autoComplete="given-name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2"
+                  style={{ borderColor: fieldErrors.firstName ? '#f87171' : 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
+                />
+                {fieldErrors.firstName ? <p className="mt-1 text-xs text-red-600">{fieldErrors.firstName}</p> : null}
+              </div>
+              <div>
+                <label htmlFor="landing-signup-lastname" className="mb-1 block text-xs font-semibold uppercase tracking-wide lp-text-muted">
+                  {t('landingAuth.lastName')}
+                </label>
+                <input
+                  id="landing-signup-lastname"
+                  type="text"
+                  autoComplete="family-name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2"
+                  style={{ borderColor: fieldErrors.lastName ? '#f87171' : 'rgba(90, 122, 130, 0.25)', color: 'var(--ink-heading)' }}
+                />
+                {fieldErrors.lastName ? <p className="mt-1 text-xs text-red-600">{fieldErrors.lastName}</p> : null}
+              </div>
+            </div>
             <div>
               <label htmlFor="landing-signup-email" className="mb-1 block text-xs font-semibold uppercase tracking-wide lp-text-muted">
                 {t('landingAuth.email')}

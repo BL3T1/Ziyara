@@ -8,7 +8,7 @@ import { useDocumentMeta } from '../../hooks/useDocumentMeta'
 import { useToast } from './LandingToast'
 import { PasswordInput } from '../../components/PasswordInput'
 
-interface ProfileForm { firstName: string; lastName: string; phone: string }
+interface ProfileForm { firstName: string; lastName: string; phone: string; email: string }
 interface PwForm { current: string; next: string; confirm: string }
 
 export function LandingAccountPage() {
@@ -24,7 +24,7 @@ export function LandingAccountPage() {
   }, [isAuthenticated, navigate])
 
   // Profile form state
-  const [profile, setProfile] = useState<ProfileForm>({ firstName: '', lastName: '', phone: '' })
+  const [profile, setProfile] = useState<ProfileForm>({ firstName: '', lastName: '', phone: '', email: '' })
   const [profileLoading, setProfileLoading] = useState(true)
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileSuccess, setProfileSuccess] = useState(false)
@@ -41,15 +41,16 @@ export function LandingAccountPage() {
     if (!isAuthenticated) return
     usersAPI.getMe()
       .then((res) => {
-        const d = res.data as { firstName?: string; lastName?: string; phone?: string }
+        const d = res.data as { firstName?: string; lastName?: string; phone?: string; email?: string }
         setProfile({
           firstName: d.firstName ?? '',
           lastName:  d.lastName  ?? '',
           phone:     d.phone     ?? '',
+          email:     d.email     ?? '',
         })
       })
       .catch(() => {
-        setProfile({ firstName: user?.name?.split(' ')[0] ?? '', lastName: user?.name?.split(' ').slice(1).join(' ') ?? '', phone: '' })
+        setProfile({ firstName: user?.name?.split(' ')[0] ?? '', lastName: user?.name?.split(' ').slice(1).join(' ') ?? '', phone: '', email: '' })
       })
       .finally(() => setProfileLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,6 +146,18 @@ export function LandingAccountPage() {
                   />
                 </div>
               </div>
+              {profile.email && (
+                <div>
+                  <label className="lp-field-label">{t('landingAuth.email')}</label>
+                  <input
+                    type="email"
+                    value={profile.email}
+                    readOnly
+                    className="lp-input w-full opacity-70 cursor-default"
+                    title="Email cannot be changed here"
+                  />
+                </div>
+              )}
               <div>
                 <label className="lp-field-label">{t('account.phone') || 'Phone'}</label>
                 <input

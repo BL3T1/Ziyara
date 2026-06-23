@@ -28,24 +28,20 @@ export function LandingHomePage() {
   const TYPE_TO_SLUG: Record<string, string> = {
     HOTEL: 'hotels', RESORT: 'resorts', RESTAURANT: 'restaurants', TAXI: 'taxis', TRIP: 'trips',
   }
-  const priceDeals = [
-    ...services
-      .filter((item) => typeof item.basePrice === 'number' && item.basePrice > 0)
-      .slice(0, 4)
-      .map((item) => {
-        const current = Number(item.basePrice ?? 0)
-        const old = Math.round(current * 1.2)
-        const slug = TYPE_TO_SLUG[item.type ?? ''] ?? 'hotels'
-        return {
-          city: item.city || item.name,
-          site: item.type,
-          oldPrice: `$${old}`,
-          newPrice: `$${current}`,
-          diff: '20% lower',
-          href: `/${slug}?city=${encodeURIComponent(item.city ?? '')}`,
-        }
-      }),
-  ]
+  const priceDeals = services
+    .filter((item) => typeof item.basePrice === 'number' && item.basePrice > 0)
+    .slice(0, 4)
+    .map((item) => {
+      const slug = TYPE_TO_SLUG[item.type ?? ''] ?? 'hotels'
+      return {
+        key: item.id,
+        label: item.name,
+        city: item.city || '',
+        type: item.type ?? '',
+        price: `${item.currency ?? 'USD'} ${Number(item.basePrice).toLocaleString()}`,
+        href: `/${slug}/${item.id}`,
+      }
+    })
   const trustBlocks = [
     {
       title: t('landingBusiness.trustOneTitle'),
@@ -63,26 +59,7 @@ export function LandingHomePage() {
   const cityTiles = popularCities.length
     ? popularCities
     : [t('landingBusiness.cityOne'), t('landingBusiness.cityTwo'), t('landingBusiness.cityThree')]
-  const dealTiles = priceDeals.length
-    ? priceDeals
-    : [
-        {
-          city: t('landingBusiness.dealCityOne'),
-          site: t('landingBusiness.dealSiteOne'),
-          oldPrice: '$210',
-          newPrice: '$168',
-          diff: '20% lower',
-          href: `/hotels?city=${encodeURIComponent(t('landingBusiness.dealCityOne'))}`,
-        },
-        {
-          city: t('landingBusiness.dealCityTwo'),
-          site: t('landingBusiness.dealSiteTwo'),
-          oldPrice: '$190',
-          newPrice: '$149',
-          diff: '22% lower',
-          href: `/hotels?city=${encodeURIComponent(t('landingBusiness.dealCityTwo'))}`,
-        },
-      ]
+  const dealTiles = priceDeals
 
   return (
     <>
@@ -146,9 +123,9 @@ export function LandingHomePage() {
           {pageText('dealsTitle', t('landingBusiness.dealsTitle'))}
         </h2>
         <div className="lp-deal-grid mt-5">
-          {dealTiles.map((deal) => (
+          {dealTiles.length > 0 ? dealTiles.map((deal) => (
             <Link
-              key={deal.city}
+              key={deal.key}
               to={deal.href ?? servicesBrowse}
               className="lp-solution-card no-underline cursor-pointer"
             >
@@ -157,21 +134,29 @@ export function LandingHomePage() {
               </div>
               <div className="lp-solution-text" style={{ alignItems: 'flex-start', textAlign: 'left' }}>
                 <span className="lp-solution-line" style={{ color: 'var(--accent-teal)', fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                  {deal.diff}
+                  {deal.type}
                 </span>
                 <span className="lp-solution-line" style={{ fontSize: 18 }}>
-                  {deal.city}
+                  {deal.label}
                 </span>
-                <span className="lp-solution-line" style={{ fontWeight: 500, color: '#62748e', fontSize: 13 }}>
-                  {deal.site}
-                </span>
+                {deal.city ? (
+                  <span className="lp-solution-line" style={{ fontWeight: 500, color: '#62748e', fontSize: 13 }}>
+                    {deal.city}
+                  </span>
+                ) : null}
                 <span className="lp-solution-line" style={{ marginTop: 8, fontSize: 22, color: 'var(--accent-tan-mid)' }}>
-                  {deal.newPrice}{' '}
-                  <span style={{ textDecoration: 'line-through', fontSize: 14, color: '#62748e' }}>{deal.oldPrice}</span>
+                  {deal.price}
                 </span>
               </div>
             </Link>
-          ))}
+          )) : (
+            <Link to={servicesBrowse} className="lp-solution-card no-underline cursor-pointer">
+              <div className="lp-solution-icon"><IconGrid /></div>
+              <div className="lp-solution-text" style={{ alignItems: 'flex-start', textAlign: 'left' }}>
+                <span className="lp-solution-line" style={{ fontSize: 16 }}>{t('landingTraveler.ctaBrowse')}</span>
+              </div>
+            </Link>
+          )}
         </div>
       </section>
 
@@ -186,7 +171,7 @@ export function LandingHomePage() {
             <button
               key={city}
               type="button"
-              onClick={() => navigate(`/hotels?city=${encodeURIComponent(String(city))}`)}
+              onClick={() => navigate(`/services?city=${encodeURIComponent(String(city))}`)}
               className="lp-city-chip"
               style={{ cursor: 'pointer', border: 'none', textAlign: 'start', fontFamily: 'inherit' }}
             >
