@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +35,7 @@ class SubscriptionServiceTest {
     @Mock CustomerSubscriptionRepository subscriptionRepository;
     @Mock SubscriptionAddOnRepository addOnRepository;
     @Mock ProviderStaffRepository providerStaffRepository;
+    @Mock JdbcTemplate jdbcTemplate;
 
     SubscriptionService service;
 
@@ -42,7 +44,7 @@ class SubscriptionServiceTest {
     @BeforeEach
     void setUp() {
         service = new SubscriptionService(
-                planRepository, subscriptionRepository, addOnRepository, providerStaffRepository);
+                planRepository, subscriptionRepository, addOnRepository, providerStaffRepository, jdbcTemplate);
     }
 
     // ── resolveEffectiveSeatLimit ─────────────────────────────────────────────
@@ -183,7 +185,7 @@ class SubscriptionServiceTest {
                 .hasMessageContaining("not in an active state");
     }
 
-    // ── cancelAddOn ───────────────────────────────────────────────────────────
+    // ── cancelAddOn ────────────────────────────────────────────────────────[...]
 
     @Test
     void cancelAddOn_addOnNotFound_throwsResourceNotFound() {
@@ -215,7 +217,7 @@ class SubscriptionServiceTest {
                 .hasMessageContaining("does not belong to this provider");
     }
 
-    // ── listPlans ─────────────────────────────────────────────────────────────
+    // ── listPlans ─────────────────────────────────────────────────────────[...]
 
     @Test
     void listPlans_returnsActivePlans() {
@@ -228,7 +230,7 @@ class SubscriptionServiceTest {
         assertThat(result.get(0).getCode()).isEqualTo("FREE");
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
+    // ── helpers ─────────────────────────────────────────────────────────[...]
 
     private CustomerSubscription subscription(int seatLimit, SubscriptionStatus status) {
         CustomerSubscription sub = new CustomerSubscription();
