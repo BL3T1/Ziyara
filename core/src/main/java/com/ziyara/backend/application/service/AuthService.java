@@ -276,10 +276,10 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setRole(role);
         user.setStatus(role == UserRole.CUSTOMER ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION);
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
 
         if (role == UserRole.CUSTOMER) {
-            Customer customer = new Customer(user.getId(), request.getFirstName(), request.getLastName());
+            Customer customer = new Customer(savedUser.getId(), request.getFirstName(), request.getLastName());
             customer.setDateOfBirth(request.getDateOfBirth());
             customer.setNationality(request.getNationality());
             customerRepository.save(customer);
