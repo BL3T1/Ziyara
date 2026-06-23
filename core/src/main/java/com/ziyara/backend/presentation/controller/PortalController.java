@@ -2,15 +2,27 @@ package com.ziyara.backend.presentation.controller;
 
 import com.ziyara.backend.application.dto.ApiResponse;
 import com.ziyara.backend.application.dto.BookingResponse;
+import com.ziyara.backend.application.dto.request.ApproveCashPaymentRequest;
+import com.ziyara.backend.application.dto.request.CreateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.CreateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.CreateMenuSectionRequest;
+import com.ziyara.backend.application.dto.request.CreatePortalDiscountRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.CreateServiceRequest;
+import com.ziyara.backend.application.dto.request.PayoutRequestPayload;
+import com.ziyara.backend.application.dto.request.RecordPaymentRequest;
+import com.ziyara.backend.application.dto.request.UpdateHotelRoomRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuItemRequest;
 import com.ziyara.backend.application.dto.request.UpdateMenuSectionRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceImageRequest;
 import com.ziyara.backend.application.dto.request.UpdateServiceRequest;
+import com.ziyara.backend.application.dto.response.DiscountResponse;
+import com.ziyara.backend.application.dto.response.HotelRoomImageResponse;
+import com.ziyara.backend.application.dto.response.HotelRoomResponse;
+import com.ziyara.backend.application.dto.response.PaymentResponse;
+import com.ziyara.backend.application.dto.response.PayoutRequestResponse;
 import com.ziyara.backend.application.dto.response.PortalDashboardResponse;
+import com.ziyara.backend.application.dto.response.PortalDiscountBalanceResponse;
 import com.ziyara.backend.application.dto.response.PortalEarningsResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuItemResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuResponse;
@@ -19,6 +31,7 @@ import com.ziyara.backend.application.dto.response.ProviderMapPinResponse;
 import com.ziyara.backend.application.dto.response.ServiceImageResponse;
 import com.ziyara.backend.application.dto.response.ServiceResponse;
 import com.ziyara.backend.application.service.MapService;
+import com.ziyara.backend.application.service.PortalPaymentService;
 import com.ziyara.backend.application.service.PortalService;
 import com.ziyara.backend.application.service.ServiceProviderService;
 import com.ziyara.backend.domain.enums.ServiceImageCategory;
@@ -30,6 +43,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -57,6 +71,7 @@ import java.util.UUID;
 public class PortalController {
 
     private final PortalService portalService;
+    private final PortalPaymentService portalPaymentService;
     private final ServiceProviderService providerService;
     private final MapService mapService;
 
@@ -93,7 +108,7 @@ public class PortalController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Service created", response));
     }
 
-    @PutMapping("/services/{id}")
+    @PatchMapping("/services/{id}")
     @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
     @Operation(summary = "Update service", description = "Update own service listing")
     public ResponseEntity<ApiResponse<ServiceResponse>> updateService(
@@ -129,7 +144,7 @@ public class PortalController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Image added", created));
     }
 
-    @PutMapping("/services/{id}/images/{imageId}")
+    @PatchMapping("/services/{id}/images/{imageId}")
     @Operation(summary = "Update own service image", description = "Partial update")
     public ResponseEntity<ApiResponse<ServiceImageResponse>> updateServiceImage(
             @PathVariable UUID id,
@@ -194,7 +209,7 @@ public class PortalController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Section created", created));
     }
 
-    @PutMapping("/services/{id}/menu/sections/{sectionId}")
+    @PatchMapping("/services/{id}/menu/sections/{sectionId}")
     @PreAuthorize(ApiAuthorizationExpressions.PORTAL_MENU_MANAGE)
     @Operation(summary = "Update menu section", description = "Own listing only")
     public ResponseEntity<ApiResponse<RestaurantMenuSectionResponse>> updateMenuSection(
@@ -226,7 +241,7 @@ public class PortalController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Item created", created));
     }
 
-    @PutMapping("/services/{id}/menu/items/{itemId}")
+    @PatchMapping("/services/{id}/menu/items/{itemId}")
     @PreAuthorize(ApiAuthorizationExpressions.PORTAL_MENU_MANAGE)
     @Operation(summary = "Update menu item", description = "Own listing only")
     public ResponseEntity<ApiResponse<RestaurantMenuItemResponse>> updateMenuItem(
@@ -246,12 +261,125 @@ public class PortalController {
         return ResponseEntity.ok(ApiResponse.success("Item deleted", null));
     }
 
+    // ── Hotel Rooms ───────────────────────────────────────────────────────────
+
+    @GetMapping("/services/{id}/rooms")
+    @Operation(summary = "List rooms for own hotel/resort service")
+    public ResponseEntity<ApiResponse<List<HotelRoomResponse>>> getHotelRooms(@PathVariable UUID id) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.getHotelRooms(providerId, id)));
+    }
+
+    @PostMapping("/services/{id}/rooms")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
+    @Operation(summary = "Create room for own hotel/resort service")
+    public ResponseEntity<ApiResponse<HotelRoomResponse>> createHotelRoom(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateHotelRoomRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Room created", portalService.createHotelRoom(providerId, id, request)));
+    }
+
+    @PatchMapping("/services/{id}/rooms/{roomId}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
+    @Operation(summary = "Update room for own hotel/resort service")
+    public ResponseEntity<ApiResponse<HotelRoomResponse>> updateHotelRoom(
+            @PathVariable UUID id,
+            @PathVariable UUID roomId,
+            @Valid @RequestBody UpdateHotelRoomRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.updateHotelRoom(providerId, id, roomId, request)));
+    }
+
+    @DeleteMapping("/services/{id}/rooms/{roomId}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
+    @Operation(summary = "Delete room from own hotel/resort service")
+    public ResponseEntity<ApiResponse<Void>> deleteHotelRoom(@PathVariable UUID id, @PathVariable UUID roomId) {
+        UUID providerId = requireCurrentProviderId();
+        portalService.deleteHotelRoom(providerId, id, roomId);
+        return ResponseEntity.ok(ApiResponse.success("Room deleted", null));
+    }
+
+    @PostMapping(value = "/services/{id}/rooms/{roomId}/images/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
+    @Operation(summary = "Upload image for a room")
+    public ResponseEntity<ApiResponse<HotelRoomImageResponse>> uploadRoomImage(
+            @PathVariable UUID id,
+            @PathVariable UUID roomId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) String altText,
+            @RequestParam(required = false) Boolean primary) {
+        UUID providerId = requireCurrentProviderId();
+        final byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException("Could not read uploaded file");
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Room image uploaded",
+                portalService.uploadRoomImage(providerId, id, roomId, bytes,
+                        file.getContentType(), file.getOriginalFilename(), altText, primary)));
+    }
+
+    // ── Menu item image ───────────────────────────────────────────────────────
+
+    @PostMapping(value = "/services/{id}/menu/items/{itemId}/image/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_MENU_MANAGE)
+    @Operation(summary = "Upload image for a menu item")
+    public ResponseEntity<ApiResponse<RestaurantMenuItemResponse>> uploadMenuItemImage(
+            @PathVariable UUID id,
+            @PathVariable UUID itemId,
+            @RequestParam("file") MultipartFile file) {
+        UUID providerId = requireCurrentProviderId();
+        final byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException("Could not read uploaded file");
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Menu item image uploaded",
+                portalService.uploadMenuItemImage(providerId, id, itemId, bytes,
+                        file.getContentType(), file.getOriginalFilename())));
+    }
+
+    // ── Bookings ──────────────────────────────────────────────────────────────
+
     @GetMapping("/bookings")
     @PreAuthorize(ApiAuthorizationExpressions.PORTAL_BOOKINGS_READ)
     @Operation(summary = "My bookings", description = "List bookings for current provider's services")
     public ResponseEntity<ApiResponse<List<BookingResponse>>> getBookings() {
         UUID providerId = requireCurrentProviderId();
         return ResponseEntity.ok(ApiResponse.success(portalService.getBookings(providerId)));
+    }
+
+    @GetMapping("/bookings/{id}/payments")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_BOOKINGS_READ)
+    @Operation(summary = "List payments for a booking")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> listBookingPayments(@PathVariable UUID id) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalPaymentService.listBookingPayments(id, providerId)));
+    }
+
+    @PostMapping("/bookings/{id}/payments/cash-approve")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_FINANCE)
+    @Operation(summary = "Approve a cash payment for a booking")
+    public ResponseEntity<ApiResponse<PaymentResponse>> approveCashPayment(
+            @PathVariable UUID id,
+            @Valid @RequestBody ApproveCashPaymentRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalPaymentService.approveCashPayment(id, providerId, request)));
+    }
+
+    @PostMapping("/bookings/{id}/payments")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_FINANCE)
+    @Operation(summary = "Record a manual payment for a booking")
+    public ResponseEntity<ApiResponse<PaymentResponse>> recordPayment(
+            @PathVariable UUID id,
+            @Valid @RequestBody RecordPaymentRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Payment recorded", portalPaymentService.recordPayment(id, providerId, request)));
     }
 
     @GetMapping("/earnings")
@@ -262,6 +390,82 @@ public class PortalController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
         UUID providerId = requireCurrentProviderId();
         return ResponseEntity.ok(ApiResponse.success(portalService.getEarnings(providerId, start, end)));
+    }
+
+    @GetMapping("/earnings/export")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_REPORTS_READ)
+    @Operation(summary = "Download earnings as CSV")
+    public ResponseEntity<byte[]> exportEarnings(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+        UUID providerId = requireCurrentProviderId();
+        PortalEarningsResponse earnings = portalService.getEarnings(providerId, start, end);
+        byte[] csv = portalService.buildEarningsCsv(earnings);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv"));
+        headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"earnings.csv\"");
+        return ResponseEntity.ok().headers(headers).body(csv);
+    }
+
+    // ── Payout requests ───────────────────────────────────────────────────────
+
+    @GetMapping("/payout-requests")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_FINANCE)
+    @Operation(summary = "List payout requests for current provider")
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<PayoutRequestResponse>>> listPayoutRequests(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.listPayoutRequests(providerId, page, size)));
+    }
+
+    @PostMapping("/payout-request")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_FINANCE)
+    @Operation(summary = "Submit a payout request")
+    public ResponseEntity<ApiResponse<PayoutRequestResponse>> createPayoutRequest(
+            @Valid @RequestBody PayoutRequestPayload payload) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Payout request submitted", portalService.createPayoutRequest(providerId, payload)));
+    }
+
+    // ── Provider discounts ────────────────────────────────────────────────────
+
+    @GetMapping("/discount-balance")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_FINANCE)
+    @Operation(summary = "Get provider discount balance")
+    public ResponseEntity<ApiResponse<PortalDiscountBalanceResponse>> getDiscountBalance() {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.getDiscountBalance(providerId)));
+    }
+
+    @GetMapping("/discounts")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_FINANCE)
+    @Operation(summary = "List provider-issued discount codes")
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<DiscountResponse>>> listDiscounts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.listProviderDiscounts(providerId, page, size)));
+    }
+
+    @PostMapping("/discounts")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_FINANCE)
+    @Operation(summary = "Create a provider-funded discount code")
+    public ResponseEntity<ApiResponse<DiscountResponse>> createDiscount(
+            @Valid @RequestBody CreatePortalDiscountRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Discount created", portalService.createProviderDiscount(providerId, request)));
+    }
+
+    @DeleteMapping("/discounts/{id}")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_FINANCE)
+    @Operation(summary = "Deactivate a provider discount code")
+    public ResponseEntity<ApiResponse<Void>> deactivateDiscount(@PathVariable UUID id) {
+        UUID providerId = requireCurrentProviderId();
+        portalService.deactivateProviderDiscount(providerId, id);
+        return ResponseEntity.ok(ApiResponse.success("Discount deactivated", null));
     }
 
     private UUID requireCurrentProviderId() {

@@ -5,6 +5,7 @@ import com.ziyara.backend.application.dto.request.AddPortalStaffRequest;
 import com.ziyara.backend.application.dto.request.CreatePortalStaffUserRequest;
 import com.ziyara.backend.application.dto.request.UpdatePortalStaffRequest;
 import com.ziyara.backend.application.dto.response.LinkableUserResponse;
+import com.ziyara.backend.application.dto.response.PortalAssignableRoleResponse;
 import com.ziyara.backend.application.dto.response.PortalStaffMemberResponse;
 import com.ziyara.backend.application.service.PortalStaffService;
 import com.ziyara.backend.application.service.ServiceProviderService;
@@ -70,7 +71,7 @@ public class PortalStaffController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Staff user created", created));
     }
 
-    @PutMapping("/{userId}")
+    @PatchMapping("/{userId}")
     @Operation(summary = "Update staff", description = "Update title for a linked staff member")
     public ResponseEntity<ApiResponse<PortalStaffMemberResponse>> update(
             @PathVariable UUID userId,
@@ -86,6 +87,27 @@ public class PortalStaffController {
         UUID providerId = requireCurrentProviderId();
         portalStaffService.removeStaff(providerId, userId);
         return ResponseEntity.ok(ApiResponse.success("Staff member removed", null));
+    }
+
+    @GetMapping("/roles")
+    @Operation(summary = "Assignable portal roles", description = "Roles that can be assigned to staff members")
+    public ResponseEntity<ApiResponse<List<PortalAssignableRoleResponse>>> listRoles() {
+        return ResponseEntity.ok(ApiResponse.success(portalStaffService.listAssignableRoles()));
+    }
+
+    @PostMapping("/{userId}/reset-password")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_STAFF_MANAGE)
+    @Operation(summary = "Reset a staff member's password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @PathVariable UUID userId,
+            @RequestBody java.util.Map<String, String> body) {
+        UUID providerId = requireCurrentProviderId();
+        String newPassword = body.get("newPassword");
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new com.ziyara.backend.application.exception.BusinessException("newPassword is required");
+        }
+        portalStaffService.resetStaffPassword(providerId, userId, newPassword);
+        return ResponseEntity.ok(ApiResponse.success("Password reset", null));
     }
 
     private UUID requireCurrentProviderId() {

@@ -162,6 +162,26 @@ export function filterSectionsByVisibleIds(
   })
 }
 
+/** Permission gates for portal sidebar items. Undefined = always visible. */
+export const PORTAL_NAV_PERMISSIONS: Record<string, string | undefined> = {
+  portal_cash: 'portal:finance',
+  earnings:    'portal:finance',
+  discounts:   'portal:finance',
+}
+
+/** Filter PORTAL_SIDEBAR_SECTIONS to only items the user has permission to see. */
+export function filterPortalSectionsByPermissions(has: (code: string) => boolean): SidebarSection[] {
+  return PORTAL_SIDEBAR_SECTIONS
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((i) => {
+        const perm = PORTAL_NAV_PERMISSIONS[i.id]
+        return perm === undefined || has(perm)
+      }),
+    }))
+    .filter((s) => s.items.length > 0)
+}
+
 /** Client Portal (Provider Dashboard) sidebar – scoped to provider. */
 export const PORTAL_SIDEBAR_SECTIONS: SidebarSection[] = [
   {
