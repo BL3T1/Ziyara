@@ -45,12 +45,16 @@ export function LandingServiceBookingPanel({ service }: LandingServiceBookingPan
   const [avail, setAvail] = useState<AvailState>('idle')
   const [availMsg, setAvailMsg] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [bookingDate, setBookingDate] = useState('')
+  const [bookingTime, setBookingTime] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [taxiType, setTaxiType] = useState<(typeof TAXI_TYPES)[number]>('Economy')
 
   const isStay = service.category === 'hotels' || service.category === 'resorts'
   const isTaxi = service.category === 'taxis'
+  const isRestaurant = service.category === 'restaurants'
+  const isTrip = service.category === 'trips'
   const basePrice = service.price ?? 0
 
   const nights = useMemo(() => {
@@ -108,6 +112,11 @@ export function LandingServiceBookingPanel({ service }: LandingServiceBookingPan
     if (checkOut) params.set('checkOut', checkOut)
     if (guests > 1) params.set('guests', String(guests))
     if (selectedRoom) params.set('roomTypeId', selectedRoom)
+    if (isRestaurant || isTrip) {
+      if (bookingDate) params.set('checkIn', bookingDate)
+      if (isRestaurant && bookingTime) params.set('time', bookingTime)
+      if (guests > 1) params.set('guests', String(guests))
+    }
     if (isTaxi) {
       params.set('from', from)
       params.set('to', to)
@@ -299,6 +308,70 @@ export function LandingServiceBookingPanel({ service }: LandingServiceBookingPan
         </BookingCard>
       ) : null}
 
+      {/* Restaurant booking form */}
+      {isRestaurant ? (
+        <BookingCard>
+          <p className="lp-eyebrow lp-eyebrow--tight">{t('landingBooking.reserveTable')}</p>
+          <div className="mt-4 space-y-3">
+            <label className="block">
+              <span className="lp-label">{t('landingBooking.date')}</span>
+              <input
+                type="date"
+                min={today}
+                value={bookingDate}
+                onChange={(e) => setBookingDate(e.target.value)}
+                className={inputCls}
+              />
+            </label>
+            <label className="block">
+              <span className="lp-label">{t('landingBooking.time')}</span>
+              <input
+                type="time"
+                value={bookingTime}
+                onChange={(e) => setBookingTime(e.target.value)}
+                className={inputCls}
+              />
+            </label>
+            <div>
+              <span className="lp-label">{t('landingBooking.partySize')}</span>
+              <div className="mt-2 flex items-center gap-4">
+                <button type="button" onClick={() => setGuests((g) => Math.max(1, g - 1))
+                } className="flex h-9 w-9 items-center justify-center rounded-full border-2 text-lg font-bold transition-colors" style={{ borderColor: 'rgba(61,112,128,0.35)', color: 'var(--accent-teal)', background: 'rgba(255,255,255,0.7)' }}>−</button>
+                <span className="w-8 text-center text-lg font-bold lp-text-heading">{guests}</span>
+                <button type="button" onClick={() => setGuests((g) => Math.min(20, g + 1))} className="flex h-9 w-9 items-center justify-center rounded-full border-2 text-lg font-bold transition-colors" style={{ borderColor: 'rgba(61,112,128,0.35)', color: 'var(--accent-teal)', background: 'rgba(255,255,255,0.7)' }}>+</button>
+              </div>
+            </div>
+          </div>
+        </BookingCard>
+      ) : null}
+
+      {/* Trip booking form */}
+      {isTrip ? (
+        <BookingCard>
+          <p className="lp-eyebrow lp-eyebrow--tight">{t('landingBooking.bookTrip')}</p>
+          <div className="mt-4 space-y-3">
+            <label className="block">
+              <span className="lp-label">{t('landingBooking.date')}</span>
+              <input
+                type="date"
+                min={today}
+                value={bookingDate}
+                onChange={(e) => setBookingDate(e.target.value)}
+                className={inputCls}
+              />
+            </label>
+            <div>
+              <span className="lp-label">{t('landingBooking.guests')}</span>
+              <div className="mt-2 flex items-center gap-4">
+                <button type="button" onClick={() => setGuests((g) => Math.max(1, g - 1))} className="flex h-9 w-9 items-center justify-center rounded-full border-2 text-lg font-bold transition-colors" style={{ borderColor: 'rgba(61,112,128,0.35)', color: 'var(--accent-teal)', background: 'rgba(255,255,255,0.7)' }}>−</button>
+                <span className="w-8 text-center text-lg font-bold lp-text-heading">{guests}</span>
+                <button type="button" onClick={() => setGuests((g) => Math.min(20, g + 1))} className="flex h-9 w-9 items-center justify-center rounded-full border-2 text-lg font-bold transition-colors" style={{ borderColor: 'rgba(61,112,128,0.35)', color: 'var(--accent-teal)', background: 'rgba(255,255,255,0.7)' }}>+</button>
+              </div>
+            </div>
+          </div>
+        </BookingCard>
+      ) : null}
+
       {/* Booking summary + CTA */}
       <div
         className="rounded-[22px] border p-5 sm:p-6"
@@ -346,7 +419,15 @@ export function LandingServiceBookingPanel({ service }: LandingServiceBookingPan
               </button>
             ) : null}
             {!isStay && !isTaxi ? (
-              <button type="button" onClick={proceed} className="lp-btn lp-btn-primary px-7 py-3">
+              <button
+                type="button"
+                disabled={
+                  (isRestaurant && (!bookingDate || !bookingTime)) ||
+                  (isTrip && !bookingDate)
+                }
+                onClick={proceed}
+                className="lp-btn lp-btn-primary px-7 py-3 disabled:cursor-not-allowed disabled:opacity-50"
+              >
                 {isAuthenticated ? t('landingBooking.confirmBooking') : t('landingBooking.bookNow')}
               </button>
             ) : null}

@@ -57,6 +57,7 @@ import type {
   ProviderMapPinDto,
   DeliveryLocationDto,
   LinkableUserDto,
+  ReviewDto,
 } from '../types/api'
 
 /** Extract a user-friendly message from an API error (Axios or thrown object). */
@@ -199,8 +200,10 @@ client.interceptors.response.use(
 export const authAPI = {
   login: (body: { email: string; password: string; rememberMe?: boolean; mfaCode?: string }) =>
     client.post<unknown>('/auth/login', body),
-  register: (body: { email: string; password: string; phone?: string; role: 'CUSTOMER' }) =>
+  register: (body: { firstName: string; lastName: string; email: string; password: string; phone?: string; role: 'CUSTOMER' }) =>
     client.post<unknown>('/auth/register', body),
+  sendOtp: (body: { email: string; type?: string }) => client.post<void>('/auth/otp/send', body),
+  verifyOtp: (body: { email: string; code: string }) => client.post<void>('/auth/otp/verify', body),
   forgotPassword: (body: { email: string }) => client.post<unknown>('/auth/password/forgot', body),
   resetPasswordWithToken: (body: { token: string; newPassword: string }) =>
     client.post<unknown>('/auth/password/reset', body),
@@ -248,6 +251,7 @@ export const servicesAPI = {
     client.get<{ available: boolean; message?: string }>(`/services/${id}/availability`, { params: { date, nights } }),
   getImages: (id: string) => client.get<ServiceImageDto[]>(`/services/${id}/images`),
   getMenu: (id: string) => client.get<RestaurantMenuDto>(`/services/${id}/menu`),
+  getServiceReviews: (id: string) => client.get<ReviewDto[]>(`/services/${id}/reviews`),
   addImage: (id: string, body: CreateServiceImagePayload) =>
     client.post<ServiceImageDto>(`/services/${id}/images`, body),
   updateImage: (id: string, imageId: string, body: UpdateServiceImagePayload) =>

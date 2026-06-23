@@ -161,6 +161,15 @@ export function LandingMyBookingsPage() {
                           style={{ borderColor: 'rgba(61,112,128,0.3)', color: 'var(--accent-teal)', background: 'rgba(61,112,128,0.05)' }}>
                           {voucherLoading === b.id ? '…' : t('landingMyBookings.actionDownloadVoucher')}
                         </button>
+                        {b.status.toUpperCase() === 'COMPLETED' && b.serviceId ? (
+                          <a
+                            href={`/services/${b.serviceId}#review`}
+                            className="rounded-xl border px-2.5 py-1 text-xs font-medium transition-colors"
+                            style={{ borderColor: 'rgba(61,112,128,0.25)', color: 'var(--accent-teal)', background: 'rgba(61,112,128,0.05)' }}
+                          >
+                            {t('landingMyBookings.writeReview')}
+                          </a>
+                        ) : null}
                         {CANCELLABLE.has(b.status.toUpperCase()) && (
                           <button type="button" onClick={() => { setCancelTarget(b); setCancelReason(''); setCancelError('') }}
                             className="rounded-xl border px-2.5 py-1 text-xs font-medium transition-colors"

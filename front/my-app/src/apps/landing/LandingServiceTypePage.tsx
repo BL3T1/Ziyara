@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
 import { useDocumentMeta } from '../../hooks/useDocumentMeta'
@@ -88,6 +88,19 @@ export function LandingServiceTypePage() {
   )
   const filtered = useMemo(() => filterServices(services, filters), [services, filters])
 
+  // Back-to-top
+  const [showBackTop, setShowBackTop] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current?.closest('.lp-landing-scroll, [data-scroll-container]') ?? window
+    const scrollTop = el === window ? window.scrollY : (el as HTMLElement).scrollTop
+    setShowBackTop(scrollTop > 400)
+  }, [])
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [handleScroll])
+
   if (!safeCategory || !config) {
     return (
       <div className="lp-sheet text-center" style={{ borderColor: 'rgba(180, 130, 70, 0.35)', background: 'rgba(255, 248, 235, 0.9)' }}>
@@ -102,7 +115,7 @@ export function LandingServiceTypePage() {
   }
 
   return (
-    <div className="lp-sheet">
+    <div ref={scrollRef} className="lp-sheet">
       <h1 className="lp-h1">{t(config.titleKey)}</h1>
       <p className="lp-body mt-2.5">
         {t(config.descriptionKey)}
@@ -152,6 +165,20 @@ export function LandingServiceTypePage() {
           <ServiceGallery services={filtered} onOpen={(service) => navigate(`/services/${safeCategory}/${service.id}`)} />
         </div>
       )}
+      {/* Back-to-top button */}
+      {showBackTop ? (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          aria-label="Back to top"
+          className="fixed bottom-6 right-6 z-50 flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105"
+          style={{ background: 'var(--accent-teal)', color: '#fff' }}
+        >
+          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+          </svg>
+        </button>
+      ) : null}
     </div>
   )
 }

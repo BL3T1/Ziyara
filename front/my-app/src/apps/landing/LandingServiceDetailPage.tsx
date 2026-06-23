@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Card } from '../../components/Card'
+import { ProviderMap } from '../../components/maps/ProviderMap'
 import { getApiErrorMessage, servicesAPI } from '../../services/api'
-import type { RestaurantMenuDto, ServiceDto, ServiceImageDto } from '../../types/api'
+import type { HotelRoomDto, RestaurantMenuDto, ReviewDto, ServiceDto, ServiceImageDto } from '../../types/api'
 import { ServiceDetailView } from '../../pages/services/components/ServiceDetailView'
 import { LandingServiceBookingPanel } from './LandingServiceBookingPanel'
 import type { ServiceCategorySlug } from '../../pages/services/serviceModel'
@@ -45,6 +46,8 @@ export function LandingServiceDetailPage() {
     description: serviceName ? `Book ${serviceName} on Ziyara — instant confirmation, best rates.` : undefined,
   })
   const [menu, setMenu] = useState<RestaurantMenuDto | null>(null)
+  const [rooms, setRooms] = useState<HotelRoomDto[]>([])
+  const [reviews, setReviews] = useState<ReviewDto[]>([])
   const [images, setImages] = useState<ServiceImageDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -58,13 +61,17 @@ export function LandingServiceDetailPage() {
         servicesAPI.get(id),
         servicesAPI.getImages(id).catch(() => ({ data: [] as ServiceImageDto[] })),
         servicesAPI.getMenu(id).catch(() => ({ data: { serviceId: id, sections: [] } as RestaurantMenuDto })),
+        servicesAPI.listRooms(id).catch(() => ({ data: [] as HotelRoomDto[] })),
+        servicesAPI.getServiceReviews(id).catch(() => ({ data: [] as ReviewDto[] })),
       ])
     })
-      .then(([svcRes, imgRes, menuRes]) => {
+      .then(([svcRes, imgRes, menuRes, roomsRes, reviewsRes]) => {
         const svcData = svcRes.data
         setRawService(svcData && typeof svcData === 'object' ? (svcData as ServiceDto) : null)
         setImages(Array.isArray(imgRes.data) ? imgRes.data : [])
         setMenu(menuRes.data && typeof menuRes.data === 'object' ? menuRes.data : { serviceId: id, sections: [] })
+        setRooms(Array.isArray(roomsRes.data) ? roomsRes.data : [])
+        setReviews(Array.isArray(reviewsRes.data) ? reviewsRes.data : [])
       })
       .catch((err) => {
         setRawService(null)
@@ -123,6 +130,44 @@ export function LandingServiceDetailPage() {
         <div className="lp-service-detail-main">
           <ServiceDetailView service={service} />
 
+          {/* Hotel / resort: room types overview */}
+          {(rawService?.type === 'HOTEL' || rawService?.type === 'RESORT') && rooms.filter(r => r.status === 'ACTIVE').length > 0 ? (
+            <div className="mt-8 space-y-4">
+              <h2 className="text-lg font-semibold lp-text-heading">
+                {t('landingBooking.roomTypesHeading')}
+              </h2>
+              {rooms
+                .filter((r) => r.status === 'ACTIVE')
+                .map((room) => (
+                  <Card key={room.id} surface="landing" className="!p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="font-semibold lp-text-heading">{room.roomName}</h3>
+                        <p className="mt-0.5 text-sm lp-text-muted">{room.roomType}</p>
+                        {room.description ? (
+                          <p className="mt-1 text-sm lp-text-muted">{sanitizeText(room.description)}</p>
+                        ) : null}
+                        {room.capacity ? (
+                          <p className="mt-1 text-xs" style={{ color: 'var(--ink-faint)' }}>
+                            {t('landingBooking.upToGuests').replace('{n}', String(room.capacity))}
+                          </p>
+                        ) : null}
+                      </div>
+                      {room.basePrice != null ? (
+                        <div className="shrink-0 text-right">
+                          <p className="font-bold text-lg" style={{ color: 'var(--accent-tan-mid)' }}>
+                            {room.currency ?? currencyFallback} {room.basePrice.toLocaleString()}
+                          </p>
+                          <p className="text-xs lp-text-muted">{t('landingBooking.perNight')}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  </Card>
+                ))}
+            </div>
+          ) : null}
+
+          {/* Restaurant menu */}
           {rawService?.type === 'RESTAURANT' && menu ? (
         <div className="mt-8 space-y-6">
           <h2 className="text-lg font-semibold lp-text-heading">
@@ -170,6 +215,75 @@ export function LandingServiceDetailPage() {
           )}
         </div>
       ) : null}
+          {/* Guest reviews */}
+          {reviews.length > 0 ? (
+            <div className="mt-8">
+              <h2 className="mb-4 text-lg font-semibold lp-text-heading">
+                {t('landingReviews.heading')}
+              </h2>
+              <div className="space-y-4">
+                {reviews.slice(0, 6).map((review) => (
+                  <div key={review.id} className="rounded-2xl border p-5" style={{ borderColor: 'rgba(90,122,130,0.18)', background: 'rgba(255,255,255,0.55)' }}>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium lp-text-heading">{review.userName || t('landingReviews.anonymous')}</span>
+                      <span className="flex items-center gap-0.5 text-sm" style={{ color: 'var(--accent-tan-mid)' }}>
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <svg key={i} width="13" height="13" viewBox="0 0 20 20" fill={i < (review.rating ?? 0) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                      </span>
+                    </div>
+                    {review.comment ? (
+                      <p className="mt-2 text-sm lp-text-muted">{sanitizeText(review.comment)}</p>
+                    ) : null}
+                    {review.response ? (
+                      <div className="mt-3 rounded-xl p-3 text-sm" style={{ background: 'rgba(61,112,128,0.07)', color: 'var(--ink-muted)' }}>
+                        <span className="font-medium" style={{ color: 'var(--accent-teal)' }}>{t('landingReviews.providerReply')}: </span>
+                        {sanitizeText(review.response)}
+                      </div>
+                    ) : null}
+                    {review.createdAt ? (
+                      <p className="mt-2 text-xs" style={{ color: 'var(--ink-faint)' }}>
+                        {new Date(review.createdAt).toLocaleDateString()}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Cancellation policy */}
+          {rawService?.policies ? (
+            <div className="mt-6 rounded-2xl border p-5" style={{ borderColor: 'rgba(90,122,130,0.2)', background: 'rgba(255,255,255,0.55)' }}>
+              <h2 className="text-base font-semibold lp-text-heading mb-2">
+                {t('landingBooking.cancelPolicyHeading')}
+              </h2>
+              <p className="text-sm lp-text-muted">{rawService.policies}</p>
+            </div>
+          ) : null}
+
+          {/* Map */}
+          {rawService?.latitude != null && rawService?.longitude != null ? (
+            <div className="mt-8">
+              <h2 className="mb-4 text-lg font-semibold lp-text-heading">
+                {t('landingBooking.locationHeading')}
+              </h2>
+              <ProviderMap
+                pins={[{
+                  id: rawService.id,
+                  name: rawService.name,
+                  type: rawService.type,
+                  latitude: rawService.latitude,
+                  longitude: rawService.longitude,
+                }]}
+                center={[rawService.latitude, rawService.longitude]}
+                zoom={13}
+                className="h-64 w-full rounded-2xl overflow-hidden"
+              />
+            </div>
+          ) : null}
         </div>{/* end lp-service-detail-main */}
 
         {/* Sticky booking sidebar */}

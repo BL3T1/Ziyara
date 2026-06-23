@@ -78,7 +78,7 @@ export function LandingSignUpPage() {
         phone: phone.trim() || undefined,
         role: 'CUSTOMER',
       })
-      navigate('/login?registered=1', { replace: true })
+      navigate(`/verify-email?email=${encodeURIComponent(email.trim())}`, { replace: true })
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, 'Registration failed'))
     } finally {

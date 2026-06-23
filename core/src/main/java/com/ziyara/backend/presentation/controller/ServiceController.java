@@ -16,12 +16,14 @@ import com.ziyara.backend.application.dto.response.RestaurantMenuResponse;
 import com.ziyara.backend.application.dto.response.RestaurantMenuSectionResponse;
 import com.ziyara.backend.application.dto.response.HotelRoomImageResponse;
 import com.ziyara.backend.application.dto.response.HotelRoomResponse;
+import com.ziyara.backend.application.dto.response.ReviewResponse;
 import com.ziyara.backend.application.dto.response.ServiceAvailabilityResponse;
 import com.ziyara.backend.application.dto.response.ServiceImageResponse;
 import com.ziyara.backend.application.dto.response.ServiceResponse;
 import com.ziyara.backend.application.query.ServiceQueryHandler;
 import com.ziyara.backend.application.service.RestaurantMenuService;
 import com.ziyara.backend.application.service.HotelRoomService;
+import com.ziyara.backend.application.service.ReviewService;
 import com.ziyara.backend.application.service.ServiceImageService;
 import com.ziyara.backend.application.service.ServiceService;
 import com.ziyara.backend.domain.enums.ServiceImageCategory;
@@ -73,6 +75,7 @@ public class ServiceController {
     private final ServiceImageService serviceImageService;
     private final RestaurantMenuService restaurantMenuService;
     private final HotelRoomService hotelRoomService;
+    private final ReviewService reviewService;
 
     @GetMapping
     @Operation(summary = "List services", description = "Paginated list with optional filters")
@@ -204,6 +207,16 @@ public class ServiceController {
                 contextKey,
                 primary);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Image uploaded", created));
+    }
+
+    /**
+     * Public endpoint — returns PUBLISHED / APPROVED reviews for a service.
+     * Deliberately kept separate from the staff-only /reviews/service/{id} which returns all statuses.
+     */
+    @GetMapping("/{id}/reviews")
+    @Operation(summary = "Get service reviews (public)", description = "Returns published/approved reviews for a service. No authentication required.")
+    public ResponseEntity<ApiResponse<List<ReviewResponse>>> getServiceReviews(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(reviewService.getServiceReviews(id)));
     }
 
     @GetMapping("/{id}/menu")

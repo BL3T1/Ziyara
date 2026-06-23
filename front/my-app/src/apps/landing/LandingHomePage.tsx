@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import { useDocumentMeta } from '../../hooks/useDocumentMeta'
 import { TRUST_ICONS } from './trustIcons'
@@ -24,6 +25,7 @@ export function LandingHomePage() {
   const navigate = useNavigate()
   const { readString: pageText } = useLandingPageContent('home')
   const servicesBrowse = '/services'
+  const [searchQuery, setSearchQuery] = useState('')
   const { services, totalServices, totalCities, averageBasePrice, popularCities } = useLandingLiveData()
   const TYPE_TO_SLUG: Record<string, string> = {
     HOTEL: 'hotels', RESORT: 'resorts', RESTAURANT: 'restaurants', TAXI: 'taxis', TRIP: 'trips',
@@ -85,6 +87,41 @@ export function LandingHomePage() {
             <ZiyaraHeroComposition />
           </div>
         </div>
+      </section>
+
+      {/* ── Quick search ─────────────────────────────────────────────────── */}
+      <section className="lp-section lp-animate" aria-label="Quick search">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            const q = searchQuery.trim()
+            if (q) {
+              navigate(`/services?q=${encodeURIComponent(q)}`)
+            } else {
+              navigate('/services')
+            }
+          }}
+          className="flex items-center gap-2 rounded-2xl border px-4 py-3"
+          style={{ borderColor: 'rgba(90,122,130,0.25)', background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(12px)' }}
+        >
+          <svg className="shrink-0 lp-text-muted" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden>
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t('landingBusiness.searchPlaceholder')}
+            className="flex-1 bg-transparent text-sm outline-none"
+            style={{ color: 'var(--ink-heading)' }}
+          />
+          <button
+            type="submit"
+            className="lp-btn lp-btn-primary lp-btn-sm shrink-0"
+          >
+            {t('landingBusiness.searchBtn')}
+          </button>
+        </form>
       </section>
 
       {/* ── Stats strip (replaces fake search bar) ───────────────────────── */}

@@ -104,7 +104,7 @@ export function LandingLoginPage() {
     }
   }
 
-  const registered = searchParams.get('registered') === '1'
+  const registered = searchParams.get('registered') === '1' || searchParams.get('verified') === '1'
 
   return (
     <div className="landing-parallax-root lp-www-root flex min-h-screen flex-col">

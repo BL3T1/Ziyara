@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import { useLandingLiveData } from './useLandingLiveData'
 import { useLandingPageContent } from './useLandingPageContent'
@@ -10,6 +11,15 @@ const TYPE_TO_SLUG: Record<string, string> = {
   TAXI: 'taxis',
   TRIP: 'trips',
 }
+
+const CATEGORIES = [
+  { key: 'all', labelKey: 'servicesPage.all', type: null },
+  { key: 'hotels', labelKey: 'title.hotels', type: 'HOTEL' },
+  { key: 'resorts', labelKey: 'title.resorts', type: 'RESORT' },
+  { key: 'restaurants', labelKey: 'title.restaurants', type: 'RESTAURANT' },
+  { key: 'trips', labelKey: 'title.trips', type: 'TRIP' },
+  { key: 'taxis', labelKey: 'title.taxis', type: 'TAXI' },
+] as const
 
 function ServiceCardSkeleton() {
   return (
@@ -28,7 +38,11 @@ export function LandingServicesPage() {
   const { t } = useLanguage()
   const { services, loading } = useLandingLiveData()
   const { readString: pageText } = useLandingPageContent('services')
-  const cards = services.slice(0, 6)
+  const [activeCategory, setActiveCategory] = useState<string>('all')
+
+  const cards = activeCategory === 'all'
+    ? services
+    : services.filter((s) => s.type === CATEGORIES.find((c) => c.key === activeCategory)?.type)
 
   return (
     <section className="landing-scroll-parallax lp-sheet">
@@ -36,6 +50,28 @@ export function LandingServicesPage() {
       <h1 className="landing-fade-up landing-fade-up-delay-1 lp-h1 mt-3">
         {pageText('title', t('landingBusiness.servicesTitle'))}
       </h1>
+
+      {/* Category tabs */}
+      <div className="mt-6 flex flex-wrap gap-2">
+        {CATEGORIES.map((cat) => {
+          const active = activeCategory === cat.key
+          return (
+            <button
+              key={cat.key}
+              type="button"
+              onClick={() => setActiveCategory(cat.key)}
+              className="rounded-full border px-4 py-1.5 text-sm font-medium transition-all"
+              style={{
+                borderColor: active ? 'var(--accent-teal)' : 'rgba(90,122,130,0.25)',
+                background: active ? 'rgba(61,112,128,0.12)' : 'transparent',
+                color: active ? 'var(--accent-teal)' : 'var(--ink-muted)',
+              }}
+            >
+              {cat.key === 'all' ? t('servicesPage.all') || 'All' : t(cat.labelKey)}
+            </button>
+          )
+        })}
+      </div>
 
       {loading ? (
         <div className="mt-8 grid gap-6 md:grid-cols-3">
