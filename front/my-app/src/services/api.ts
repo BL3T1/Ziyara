@@ -202,8 +202,10 @@ export const authAPI = {
     client.post<unknown>('/auth/login', body),
   register: (body: { firstName: string; lastName: string; email: string; password: string; phone?: string; role: 'CUSTOMER' }) =>
     client.post<unknown>('/auth/register', body),
-  sendOtp: (body: { email: string; type?: string }) => client.post<void>('/auth/otp/send', body),
-  verifyOtp: (body: { email: string; code: string }) => client.post<void>('/auth/otp/verify', body),
+  sendOtp: (body: { email: string; type?: string }) =>
+    client.post<void>('/auth/otp/send', { emailOrPhone: body.email }),
+  verifyOtp: (body: { email: string; code: string }) =>
+    client.post<void>('/auth/otp/verify', { emailOrPhone: body.email, otp: body.code }),
   forgotPassword: (body: { email: string }) => client.post<unknown>('/auth/password/forgot', body),
   resetPasswordWithToken: (body: { token: string; newPassword: string }) =>
     client.post<unknown>('/auth/password/reset', body),
