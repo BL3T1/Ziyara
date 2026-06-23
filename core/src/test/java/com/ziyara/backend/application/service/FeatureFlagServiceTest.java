@@ -4,7 +4,7 @@ import com.ziyara.backend.application.dto.request.UpsertFeatureFlagRequest;
 import com.ziyara.backend.application.dto.response.FeatureFlagResponse;
 import com.ziyara.backend.domain.entity.FeatureFlag;
 import com.ziyara.backend.domain.repository.FeatureFlagRepository;
-import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.modules.notification.api.StaffNotificationCommandPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,7 +34,7 @@ class FeatureFlagServiceTest {
         service = new FeatureFlagService(repository, auditLogService, staffNotificationCommandPublisher);
     }
 
-    // ── listAll ───────────────────────────────────────────────────────────────
+    // â”€â”€ listAll â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void listAll_returnsAllFlagsSortedByKey() {
@@ -56,7 +56,7 @@ class FeatureFlagServiceTest {
         assertThat(service.listAll()).isEmpty();
     }
 
-    // ── upsert ────────────────────────────────────────────────────────────────
+    // â”€â”€ upsert â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void upsert_newFlag_createsWithEnabledFalseByDefault() {
@@ -123,3 +123,4 @@ class FeatureFlagServiceTest {
         return f;
     }
 }
+

@@ -5,6 +5,7 @@ import com.ziyara.backend.application.dto.response.TaxiBookingResponse;
 import com.ziyara.backend.application.exception.BusinessException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import com.ziyara.backend.application.exception.UnauthorizedException;
+import com.ziyara.backend.modules.taxi.api.TaxiBookingServiceApi;
 import com.ziyara.backend.domain.entity.TaxiBooking;
 import com.ziyara.backend.domain.enums.TaxiStatus;
 import com.ziyara.backend.domain.enums.VehicleType;
@@ -27,7 +28,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class TaxiBookingService {
+public class TaxiBookingService implements TaxiBookingServiceApi {
     
     private final TaxiBookingRepository taxiBookingRepository;
     private final BookingRepository bookingRepository;

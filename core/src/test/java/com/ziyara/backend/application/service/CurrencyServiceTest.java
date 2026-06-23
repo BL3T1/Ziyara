@@ -14,19 +14,19 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CurrencyServiceTest {
 
     @Mock ExchangeRateRepository exchangeRateRepository;
+    @Mock ExchangeRateLookup exchangeRateLookup;
 
     CurrencyService service;
 
     @BeforeEach
     void setUp() {
-        service = new CurrencyService(exchangeRateRepository);
+        service = new CurrencyService(exchangeRateRepository, exchangeRateLookup);
     }
 
     // ── convert ───────────────────────────────────────────────────────────────
@@ -48,8 +48,7 @@ class CurrencyServiceTest {
         rate.setToCurrency("EUR");
         rate.setRate(BigDecimal.valueOf(0.9));
 
-        when(exchangeRateRepository.findByFromCurrencyAndToCurrency("USD", "EUR"))
-                .thenReturn(Optional.of(rate));
+        when(exchangeRateLookup.getCachedRate("USD", "EUR")).thenReturn(Optional.of(rate));
 
         BigDecimal result = service.convert(BigDecimal.valueOf(100), "USD", "EUR");
 
@@ -58,8 +57,7 @@ class CurrencyServiceTest {
 
     @Test
     void convert_rateNotFound_throwsRuntimeException() {
-        when(exchangeRateRepository.findByFromCurrencyAndToCurrency("USD", "JPY"))
-                .thenReturn(Optional.empty());
+        when(exchangeRateLookup.getCachedRate("USD", "JPY")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.convert(BigDecimal.TEN, "USD", "JPY"))
                 .isInstanceOf(RuntimeException.class)
@@ -105,8 +103,7 @@ class CurrencyServiceTest {
 
     @Test
     void convertOrKeep_rateNotFound_returnsAmountUnchanged() {
-        when(exchangeRateRepository.findByFromCurrencyAndToCurrency("USD", "GBP"))
-                .thenReturn(Optional.empty());
+        when(exchangeRateLookup.getCachedRate("USD", "GBP")).thenReturn(Optional.empty());
         BigDecimal amount = BigDecimal.valueOf(75);
 
         BigDecimal result = service.convertOrKeep(amount, "USD", "GBP");

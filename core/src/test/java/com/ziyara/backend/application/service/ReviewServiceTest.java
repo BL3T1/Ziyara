@@ -10,7 +10,7 @@ import com.ziyara.backend.domain.entity.Review;
 import com.ziyara.backend.domain.enums.ReviewStatus;
 import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.domain.repository.ReviewRepository;
-import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.modules.notification.api.StaffNotificationCommandPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -57,7 +57,7 @@ class ReviewServiceTest {
         savedReview.setStatus(ReviewStatus.PENDING);
     }
 
-    // ── getReview ─────────────────────────────────────────────────────────────
+    // â”€â”€ getReview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Nested
     class GetReview {
@@ -81,7 +81,7 @@ class ReviewServiceTest {
         }
     }
 
-    // ── getServiceReviews ─────────────────────────────────────────────────────
+    // â”€â”€ getServiceReviews â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void getServiceReviews_returnsMappedList() {
@@ -94,7 +94,7 @@ class ReviewServiceTest {
         assertThat(result.get(0).getServiceId()).isEqualTo(SERVICE_ID);
     }
 
-    // ── respondToReview ───────────────────────────────────────────────────────
+    // â”€â”€ respondToReview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void respondToReview_setsResponseAndPublished() {
@@ -107,7 +107,7 @@ class ReviewServiceTest {
         assertThat(savedReview.getResponse()).isEqualTo("Thank you!");
     }
 
-    // ── updateReview ──────────────────────────────────────────────────────────
+    // â”€â”€ updateReview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Nested
     class UpdateReview {
@@ -160,7 +160,7 @@ class ReviewServiceTest {
         }
     }
 
-    // ── deleteReview ──────────────────────────────────────────────────────────
+    // â”€â”€ deleteReview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Nested
     class DeleteReview {
@@ -193,7 +193,7 @@ class ReviewServiceTest {
         }
     }
 
-    // ── moderateReview ────────────────────────────────────────────────────────
+    // â”€â”€ moderateReview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Nested
     class ModerateReview {
@@ -226,3 +226,4 @@ class ReviewServiceTest {
         }
     }
 }
+

@@ -113,7 +113,7 @@ public class Booking {
     }
 
     public void reject(UUID rejectedBy, String reason) {
-        this.status = BookingStatus.CANCELLED;
+        this.status = BookingStatus.REJECTED;
         this.rejectionReason = reason;
         this.rejectedBy = rejectedBy;
         this.rejectedAt = LocalDateTime.now();

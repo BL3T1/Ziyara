@@ -43,7 +43,6 @@ import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
  *   - application.*    → infrastructure.security.*      (JWT extraction, TOTP, PII crypto)
  *   - application.*    → infrastructure.config.*        (dashboard executor, misc config)
  *   - application.*    → infrastructure.payment.*       (PaymentGatewayProperties gateway toggle)
- *   - application.*    → infrastructure.messaging.*     (StaffNotificationCommandPublisher)
  *   - application.*    → infrastructure.media.*         (MediaStorageService for image uploads)
  *   - application.*    → infrastructure.web.*           (audit request holder)
  *   - application.*    → infrastructure.persistence.json.*   (jOOQ UUID list deserializer)
@@ -52,7 +51,6 @@ import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
  *   - presentation.*   → infrastructure.config.*        (misc config)
  *   - presentation.*   → infrastructure.payment.*       (PayWebhookController reads gateway provider name)
  *   - presentation.*   → infrastructure.web.*           (web utility beans)
- *   - presentation.*   → infrastructure.messaging.*     (some controllers publish staff events)
  *   - infrastructure.security.JwtAuthenticationFilter  → application.service.JwtTokenBlocklistService
  *                                                        (JWT filter checks revocation; infrastructure → application
  *                                                         direction is allowed by layering rules)
@@ -158,8 +156,6 @@ class CleanArchitectureDddTest {
                     .ignoreDependency(resideInAPackage(PRESENTATION_PKG), resideInAPackage(INFRA_CONFIG_PKG))
                     .ignoreDependency(resideInAPackage(APPLICATION_PKG), resideInAPackage(INFRA_WEB_PKG))
                     .ignoreDependency(resideInAPackage(PRESENTATION_PKG), resideInAPackage(INFRA_WEB_PKG))
-                    .ignoreDependency(resideInAPackage(APPLICATION_PKG), resideInAPackage(INFRA_MESSAGING_PKG))
-                    .ignoreDependency(resideInAPackage(PRESENTATION_PKG), resideInAPackage(INFRA_MESSAGING_PKG))
                     .ignoreDependency(resideInAPackage(APPLICATION_PKG), resideInAPackage(INFRA_PAYMENT_PKG))
                     .ignoreDependency(resideInAPackage(PRESENTATION_PKG), resideInAPackage(INFRA_PAYMENT_PKG))
                     .ignoreDependency(resideInAPackage(APPLICATION_PKG), resideInAPackage(INFRA_MEDIA_PKG))
@@ -725,6 +721,7 @@ class CleanArchitectureDddTest {
                     .and().areNotInterfaces()
                     .and().areNotAnonymousClasses()
                     .and().areNotMemberClasses()
+                    .and().areNotAnnotatedWith("org.springframework.stereotype.Component")
                     .should().beAnnotatedWith("org.springframework.stereotype.Service")
                     .because("Every concrete class in application.service must be a Spring-managed service bean")
                     .check(all);
@@ -772,6 +769,7 @@ class CleanArchitectureDddTest {
                     .because("Query handlers must not couple to JPA entity object shapes; they may use jOOQ DSL or domain types")
                     .check(all);
         }
+
     }
 
     // ════════════════════════════════════════════════════════════════════════

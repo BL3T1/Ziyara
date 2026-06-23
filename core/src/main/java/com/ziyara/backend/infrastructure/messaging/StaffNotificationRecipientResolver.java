@@ -1,5 +1,6 @@
 package com.ziyara.backend.infrastructure.messaging;
 
+import com.ziyara.backend.application.dto.StaffNotificationEvent;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
 import com.ziyara.backend.domain.repository.UserRepository;

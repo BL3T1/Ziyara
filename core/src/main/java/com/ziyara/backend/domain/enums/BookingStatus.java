@@ -10,6 +10,7 @@ public enum BookingStatus {
     ACTIVE("Active"),
     COMPLETED("Completed"),
     CANCELLED("Cancelled"),
+    REJECTED("Rejected"),
     EXPIRED("Expired"),
     REFUNDING("Refunding"),
     REFUNDED("Refunded"),

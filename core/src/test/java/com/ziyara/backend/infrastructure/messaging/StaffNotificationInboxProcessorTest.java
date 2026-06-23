@@ -6,6 +6,7 @@ import com.ziyara.backend.domain.enums.NotificationChannel;
 import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.infrastructure.persistence.entity.KafkaStaffNotificationDeliveredEntity;
 import com.ziyara.backend.infrastructure.persistence.repository.KafkaStaffNotificationDeliveredJpaRepository;
+import com.ziyara.backend.application.dto.StaffNotificationEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -6,7 +6,7 @@ import com.ziyara.backend.application.exception.MfaEnrollmentRequiredException;
 import com.ziyara.backend.application.exception.RateLimitedException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import com.ziyara.backend.application.exception.UnauthorizedException;
-import com.ziyara.backend.application.service.AuthService;
+import com.ziyara.backend.application.exception.AuthenticationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -16,7 +16,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -70,8 +69,8 @@ public class GlobalExceptionHandler {
                 .body(withCorrelation(ApiResponse.errorCoded("Invalid email or password", "BAD_CREDENTIALS")));
     }
     
-    @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAuthenticationException(AuthenticationException ex) {
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthenticationException(org.springframework.security.core.AuthenticationException ex) {
         log.warn("Authentication error: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(withCorrelation(ApiResponse.errorCoded(ex.getMessage(), "AUTHENTICATION_FAILED")));
@@ -140,8 +139,8 @@ public class GlobalExceptionHandler {
                         "INVALID_PARAMETER")));
     }
 
-    @ExceptionHandler(AuthService.AuthenticationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAuthException(AuthService.AuthenticationException ex) {
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthException(AuthenticationException ex) {
         log.warn("Auth error: {}", ex.getMessage());
         // Distinguish "MFA code required" from generic auth failures so the mobile client
         // can show the TOTP challenge screen instead of a generic error message.
@@ -168,11 +167,31 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
-        log.warn("Data integrity violation: {}", ex.getMostSpecificCause().getMessage());
+        String cause = ex.getMostSpecificCause().getMessage();
+        log.warn("Data integrity violation: {}", cause);
+        String message = resolveDataIntegrityMessage(cause != null ? cause : "");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(withCorrelation(ApiResponse.errorCoded(
-                        "Data constraint violation. Check required fields and unique values.",
-                        "DATA_INTEGRITY")));
+                .body(withCorrelation(ApiResponse.errorCoded(message, "DATA_INTEGRITY")));
+    }
+
+    private static String resolveDataIntegrityMessage(String cause) {
+        String lower = cause.toLowerCase();
+        if (lower.contains("uk_sys_users_email") || (lower.contains("sys_users") && lower.contains("email"))) {
+            return "An account with this email address already exists. Please log in or use a different email.";
+        }
+        if (lower.contains("uk_sys_users_phone") || (lower.contains("sys_users") && lower.contains("phone"))) {
+            return "An account with this phone number already exists. Please use a different phone number.";
+        }
+        if (lower.contains("uk_sys_users_username") || (lower.contains("sys_users") && lower.contains("username"))) {
+            return "This username is already taken. Please choose a different one.";
+        }
+        if (lower.contains("not-null") || lower.contains("not null") || lower.contains("null value")) {
+            return "A required field is missing. Please fill in all required fields and try again.";
+        }
+        if (lower.contains("foreign key") || lower.contains("fk_") || lower.contains("violates foreign key")) {
+            return "Registration failed due to a data consistency issue. Please try again.";
+        }
+        return "This information conflicts with an existing account. Please check your details and try again.";
     }
     
     @ExceptionHandler(Exception.class)

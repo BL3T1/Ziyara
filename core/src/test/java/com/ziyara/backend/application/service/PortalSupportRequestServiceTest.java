@@ -6,7 +6,7 @@ import com.ziyara.backend.domain.entity.PortalSupportRequest;
 import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.repository.PortalSupportRequestRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
-import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.modules.notification.api.StaffNotificationCommandPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,7 +40,7 @@ class PortalSupportRequestServiceTest {
         service = new PortalSupportRequestService(repository, serviceProviderRepository, staffNotificationCommandPublisher);
     }
 
-    // ── listForProvider ───────────────────────────────────────────────────────
+    // â”€â”€ listForProvider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void listForProvider_returnsProviderRequests() {
@@ -60,7 +60,7 @@ class PortalSupportRequestServiceTest {
         assertThat(service.listForProvider(providerId)).isEmpty();
     }
 
-    // ── listAll ───────────────────────────────────────────────────────────────
+    // â”€â”€ listAll â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void listAll_includesProviderName() {
@@ -89,7 +89,7 @@ class PortalSupportRequestServiceTest {
         assertThat(result.get(0).getProviderName()).isNull();
     }
 
-    // ── create ────────────────────────────────────────────────────────────────
+    // â”€â”€ create â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void create_trimsSubjectAndBody_andPublishesNotification() {
@@ -120,3 +120,4 @@ class PortalSupportRequestServiceTest {
         return r;
     }
 }
+

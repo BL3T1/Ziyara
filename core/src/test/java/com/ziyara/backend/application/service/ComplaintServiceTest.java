@@ -11,7 +11,7 @@ import com.ziyara.backend.domain.enums.ComplaintPriority;
 import com.ziyara.backend.domain.enums.ComplaintStatus;
 import com.ziyara.backend.domain.repository.ComplaintRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
-import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.modules.notification.api.StaffNotificationCommandPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,7 +40,7 @@ class ComplaintServiceTest {
         service = new ComplaintService(complaintRepository, userRepository, staffNotificationCommandPublisher);
     }
 
-    // ── update ────────────────────────────────────────────────────────────────
+    // â”€â”€ update â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void update_complaintNotFound_throwsResourceNotFound() {
@@ -70,7 +70,7 @@ class ComplaintServiceTest {
         verify(complaintRepository).save(complaint);
     }
 
-    // ── close ─────────────────────────────────────────────────────────────────
+    // â”€â”€ close â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void close_complaintNotFound_throwsResourceNotFound() {
@@ -94,7 +94,7 @@ class ComplaintServiceTest {
         verify(complaintRepository).save(any());
     }
 
-    // ── getById ───────────────────────────────────────────────────────────────
+    // â”€â”€ getById â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void getById_notFound_throwsResourceNotFound() {
@@ -118,7 +118,7 @@ class ComplaintServiceTest {
         assertThat(result.getSubject()).isEqualTo("Test complaint");
     }
 
-    // ── resolve ───────────────────────────────────────────────────────────────
+    // â”€â”€ resolve â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void resolve_complaintNotFound_throwsBusinessException() {
@@ -127,7 +127,7 @@ class ComplaintServiceTest {
 
         ResolveComplaintRequest request = ResolveComplaintRequest.builder().notes("Resolved").build();
 
-        // SubmitComplaintUseCase will fail because complaint not found — throws BusinessException
+        // SubmitComplaintUseCase will fail because complaint not found â€” throws BusinessException
         assertThatThrownBy(() -> service.resolve(id, request, UUID.randomUUID()))
                 .isInstanceOf(RuntimeException.class);
     }
@@ -140,3 +140,4 @@ class ComplaintServiceTest {
         return c;
     }
 }
+

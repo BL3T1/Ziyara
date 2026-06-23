@@ -25,9 +25,10 @@ import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.domain.repository.DiscountCodeRepository;
 import com.ziyara.backend.domain.repository.ServiceRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
-import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
-import com.ziyara.backend.infrastructure.messaging.StaffNotificationEvent;
+import com.ziyara.backend.modules.notification.api.StaffNotificationCommandPublisher;
+import com.ziyara.backend.application.dto.StaffNotificationEvent;
 import com.ziyara.backend.modules.booking.api.BookingServiceApi;
+import com.ziyara.backend.modules.taxi.api.TaxiBookingServiceApi;
 import com.ziyara.backend.modules.webhook.api.WebhookEventPublisher;
 import lombok.RequiredArgsConstructor;
 import com.ziyara.backend.domain.common.PageQuery;
@@ -60,7 +61,7 @@ public class BookingService implements BookingServiceApi {
     private final UserRepository userRepository;
     private final DiscountCodeRepository discountCodeRepository;
     private final PricingEngineApi pricingService;
-    private final TaxiBookingService taxiBookingService;
+    private final TaxiBookingServiceApi taxiBookingService;
     // infrastructure.messaging — accepted cross-cutting dependency (see DddLayeringArchitectureTest)
     private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
     private final WebhookEventPublisher webhookEventPublisher;

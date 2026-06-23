@@ -9,7 +9,7 @@ import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.domain.repository.DiscountCodeRepository;
 import com.ziyara.backend.domain.repository.ServiceRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
-import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.modules.notification.api.StaffNotificationCommandPublisher;
 import com.ziyara.backend.modules.pricing.api.PricingEngineApi;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,7 +44,7 @@ class BookingServiceTest {
     private static final UUID BOOKING_ID = UUID.fromString("c0000000-0000-0000-0000-000000000003");
     private static final UUID SERVICE_ID = UUID.fromString("d0000000-0000-0000-0000-000000000004");
 
-    // ── getBookingById ────────────────────────────────────────────────────────
+    // â”€â”€ getBookingById â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void getBookingById_notFound_throwsResourceNotFound() {
@@ -86,7 +86,7 @@ class BookingServiceTest {
         assertThat(response.getId()).isEqualTo(BOOKING_ID);
     }
 
-    // ── cancelBooking ─────────────────────────────────────────────────────────
+    // â”€â”€ cancelBooking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void cancelBooking_differentCustomer_throwsUnauthorized() {
@@ -107,7 +107,7 @@ class BookingServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
-    // ── createBooking — conflict check ────────────────────────────────────────
+    // â”€â”€ createBooking â€” conflict check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void createBooking_conflictingDates_throwsBusinessException() {
@@ -127,7 +127,7 @@ class BookingServiceTest {
                 .hasMessageContaining("not available for the selected dates");
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
+    // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static Booking pendingBooking(UUID id, UUID customerId, UUID serviceId) {
         Booking b = new Booking();
@@ -140,3 +140,4 @@ class BookingServiceTest {
         return b;
     }
 }
+

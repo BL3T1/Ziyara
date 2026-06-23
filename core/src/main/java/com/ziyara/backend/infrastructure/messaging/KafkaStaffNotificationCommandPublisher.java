@@ -1,5 +1,8 @@
 package com.ziyara.backend.infrastructure.messaging;
 
+import com.ziyara.backend.modules.notification.api.StaffNotificationCommandPublisher;
+import com.ziyara.backend.application.dto.StaffNotificationEvent;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

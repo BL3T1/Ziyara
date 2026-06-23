@@ -1,5 +1,6 @@
 package com.ziyara.backend.domain.entity;
 
+import com.ziyara.backend.domain.common.Attributes;
 import com.ziyara.backend.domain.enums.ServiceStatus;
 import com.ziyara.backend.domain.enums.ServiceType;
 import java.math.BigDecimal;
@@ -29,8 +30,8 @@ public class Service {
     private BigDecimal basePrice;
     private String currency;
     private ServiceStatus status;
-    private Map<String, Object> attributes;
-    private Map<String, Object> amenities;
+    private Attributes attributes = Attributes.empty();
+    private Attributes amenities = Attributes.empty();
     private String policies;
     private Integer starRating;
     private Integer totalRooms;
@@ -130,10 +131,12 @@ public class Service {
     public void setCurrency(String currency) { this.currency = currency; }
     public ServiceStatus getStatus() { return status; }
     public void setStatus(ServiceStatus status) { this.status = status; }
-    public Map<String, Object> getAttributes() { return attributes; }
-    public void setAttributes(Map<String, Object> attributes) { this.attributes = attributes; }
-    public Map<String, Object> getAmenities() { return amenities; }
-    public void setAmenities(Map<String, Object> amenities) { this.amenities = amenities; }
+    public Attributes getTypedAttributes() { return attributes; }
+    public Map<String, Object> getAttributes() { return attributes == null ? null : attributes.toMap(); }
+    public void setAttributes(Map<String, Object> attributes) { this.attributes = attributes == null ? Attributes.empty() : Attributes.of(attributes); }
+    public Attributes getTypedAmenities() { return amenities; }
+    public Map<String, Object> getAmenities() { return amenities == null ? null : amenities.toMap(); }
+    public void setAmenities(Map<String, Object> amenities) { this.amenities = amenities == null ? Attributes.empty() : Attributes.of(amenities); }
     public String getPolicies() { return policies; }
     public void setPolicies(String policies) { this.policies = policies; }
     public Integer getStarRating() { return starRating; }

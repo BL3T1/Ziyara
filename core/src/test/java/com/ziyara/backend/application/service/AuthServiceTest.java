@@ -4,6 +4,7 @@ import com.ziyara.backend.application.dto.AuthRequest;
 import com.ziyara.backend.application.dto.AuthResponse;
 import com.ziyara.backend.application.dto.request.ForgotPasswordRequest;
 import com.ziyara.backend.application.dto.request.ResetPasswordRequest;
+import com.ziyara.backend.application.exception.AuthenticationException;
 import com.ziyara.backend.application.exception.MfaEnrollmentRequiredException;
 import com.ziyara.backend.domain.entity.PasswordResetToken;
 import com.ziyara.backend.domain.entity.User;
@@ -95,7 +96,7 @@ class AuthServiceTest {
     void authenticate_unknownEmail_throwsInvalidCredentials() {
         when(userRepository.findByEmail(any())).thenReturn(Optional.empty());
         assertThatThrownBy(() -> authService.authenticate(req(EMAIL, PASSWORD, null), "127.0.0.1"))
-                .isInstanceOf(AuthService.AuthenticationException.class)
+                .isInstanceOf(AuthenticationException.class)
                 .hasMessageContaining("Invalid credentials");
     }
 
@@ -105,7 +106,7 @@ class AuthServiceTest {
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> authService.authenticate(req(EMAIL, PASSWORD, null), "127.0.0.1"))
-                .isInstanceOf(AuthService.AuthenticationException.class)
+                .isInstanceOf(AuthenticationException.class)
                 .hasMessageContaining("not active");
     }
 
@@ -116,7 +117,7 @@ class AuthServiceTest {
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> authService.authenticate(req(EMAIL, PASSWORD, null), "127.0.0.1"))
-                .isInstanceOf(AuthService.AuthenticationException.class)
+                .isInstanceOf(AuthenticationException.class)
                 .hasMessageContaining("locked");
     }
 
@@ -127,7 +128,7 @@ class AuthServiceTest {
         when(passwordEncoder.matches(PASSWORD, HASH)).thenReturn(false);
 
         assertThatThrownBy(() -> authService.authenticate(req(EMAIL, PASSWORD, null), "127.0.0.1"))
-                .isInstanceOf(AuthService.AuthenticationException.class)
+                .isInstanceOf(AuthenticationException.class)
                 .hasMessageContaining("Invalid credentials");
 
         verify(userRepository).save(user);
@@ -142,7 +143,7 @@ class AuthServiceTest {
         when(passwordEncoder.matches(PASSWORD, HASH)).thenReturn(true);
 
         assertThatThrownBy(() -> authService.authenticate(req(EMAIL, PASSWORD, null), "127.0.0.1"))
-                .isInstanceOf(AuthService.AuthenticationException.class)
+                .isInstanceOf(AuthenticationException.class)
                 .hasMessage("MFA code required");
     }
 
@@ -157,7 +158,7 @@ class AuthServiceTest {
         when(totpService.verify("plaintext-secret", "000000")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.authenticate(req(EMAIL, PASSWORD, "000000"), "127.0.0.1"))
-                .isInstanceOf(AuthService.AuthenticationException.class)
+                .isInstanceOf(AuthenticationException.class)
                 .hasMessage("Invalid MFA code");
     }
 
@@ -194,7 +195,7 @@ class AuthServiceTest {
         when(jwtService.validateToken("bad-token")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.refreshToken("bad-token"))
-                .isInstanceOf(AuthService.AuthenticationException.class)
+                .isInstanceOf(AuthenticationException.class)
                 .hasMessageContaining("Invalid refresh token");
     }
 
@@ -205,7 +206,7 @@ class AuthServiceTest {
         when(jwtTokenBlocklistService.isRevoked("jti-123")).thenReturn(true);
 
         assertThatThrownBy(() -> authService.refreshToken("revoked"))
-                .isInstanceOf(AuthService.AuthenticationException.class)
+                .isInstanceOf(AuthenticationException.class)
                 .hasMessageContaining("no longer valid");
     }
 
@@ -219,7 +220,7 @@ class AuthServiceTest {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.refreshToken(token))
-                .isInstanceOf(AuthService.AuthenticationException.class)
+                .isInstanceOf(AuthenticationException.class)
                 .hasMessageContaining("User not found");
     }
 
@@ -279,7 +280,7 @@ class AuthServiceTest {
         when(passwordResetTokenRepository.findValidByToken(eq("bad-token"), any())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.resetPassword(req))
-                .isInstanceOf(AuthService.AuthenticationException.class)
+                .isInstanceOf(AuthenticationException.class)
                 .hasMessageContaining("Invalid or expired");
     }
 

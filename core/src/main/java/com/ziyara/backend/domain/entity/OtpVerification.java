@@ -11,6 +11,16 @@ public class OtpVerification {
     private Instant expiresAt;
     private Instant createdAt;
 
+    // Domain behavior
+    public boolean isExpired() {
+        return expiresAt != null && java.time.Instant.now().isAfter(expiresAt);
+    }
+
+    public boolean verify(String code) {
+        if (isExpired()) return false;
+        return this.otp != null && this.otp.equals(code);
+    }
+
     public OtpVerification() {}
 
     public UUID getId() { return id; }

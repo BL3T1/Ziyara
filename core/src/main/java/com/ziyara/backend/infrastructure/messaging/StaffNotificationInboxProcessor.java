@@ -2,6 +2,7 @@ package com.ziyara.backend.infrastructure.messaging;
 
 import com.ziyara.backend.application.dto.request.CreateNotificationRequest;
 import com.ziyara.backend.modules.notification.api.NotificationServiceApi;
+import com.ziyara.backend.application.dto.StaffNotificationEvent;
 import com.ziyara.backend.domain.enums.NotificationChannel;
 import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.infrastructure.persistence.entity.KafkaStaffNotificationDeliveredEntity;

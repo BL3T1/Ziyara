@@ -10,7 +10,7 @@ import com.ziyara.backend.domain.repository.PaymentRepository;
 import com.ziyara.backend.domain.repository.RefundRepository;
 import com.ziyara.backend.infrastructure.payment.PaymentGatewayProperties;
 import com.ziyara.backend.infrastructure.payment.ReceiptNumberGenerator;
-import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.modules.notification.api.StaffNotificationCommandPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -104,3 +104,4 @@ class PaymentServiceTest {
         assertEquals("REF123", response.getTransactionReference());
     }
 }
+

@@ -1,9 +1,9 @@
 package com.ziyara.backend.domain.entity;
 
+import com.ziyara.backend.domain.common.Attributes;
 import com.ziyara.backend.domain.enums.HotelRoomStatus;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,11 +19,39 @@ public class HotelRoom {
     private String currency;
     private Integer quantityTotal;
     private Integer quantityAvailable;
-    private Map<String, Object> amenities = new HashMap<>();
+    private Attributes amenities = Attributes.empty();
     private HotelRoomStatus status;
     private Integer sortOrder;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // Domain behavior
+    public void activate() {
+        this.status = HotelRoomStatus.ACTIVE;
+        this.updatedAt = java.time.LocalDateTime.now();
+    }
+
+    public void deactivate() {
+        this.status = HotelRoomStatus.INACTIVE;
+        this.updatedAt = java.time.LocalDateTime.now();
+    }
+
+    public void updatePrice(BigDecimal newPrice) {
+        if (newPrice == null || newPrice.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Room price must be non-negative");
+        }
+        this.basePrice = newPrice;
+        this.updatedAt = java.time.LocalDateTime.now();
+    }
+
+    public boolean hasCapacity(int requestedGuests) {
+        return capacity != null && requestedGuests <= capacity;
+    }
+
+    public boolean isAvailable() {
+        return status == HotelRoomStatus.ACTIVE
+                && (quantityAvailable == null || quantityAvailable > 0);
+    }
 
     public HotelRoom() {}
 
@@ -57,8 +85,9 @@ public class HotelRoom {
     public Integer getQuantityAvailable() { return quantityAvailable; }
     public void setQuantityAvailable(Integer quantityAvailable) { this.quantityAvailable = quantityAvailable; }
 
-    public Map<String, Object> getAmenities() { return amenities; }
-    public void setAmenities(Map<String, Object> amenities) { this.amenities = amenities; }
+    public Attributes getTypedAmenities() { return amenities; }
+    public Map<String, Object> getAmenities() { return amenities == null ? null : amenities.toMap(); }
+    public void setAmenities(Map<String, Object> amenities) { this.amenities = amenities == null ? Attributes.empty() : Attributes.of(amenities); }
 
     public HotelRoomStatus getStatus() { return status; }
     public void setStatus(HotelRoomStatus status) { this.status = status; }

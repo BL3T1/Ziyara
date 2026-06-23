@@ -21,6 +21,36 @@ public class Review {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    // Domain behavior
+    public void approve() {
+        this.status = ReviewStatus.APPROVED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void reject() {
+        this.status = ReviewStatus.REJECTED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void publish() {
+        this.status = ReviewStatus.PUBLISHED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void addProviderResponse(String responseText) {
+        if (responseText == null || responseText.isBlank()) {
+            throw new IllegalArgumentException("Provider response cannot be blank");
+        }
+        this.response = responseText;
+        this.status = ReviewStatus.PUBLISHED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public boolean isPublishable() {
+        return (status == ReviewStatus.APPROVED || status == ReviewStatus.PUBLISHED)
+                && rating >= 1 && rating <= 5;
+    }
+
     // Constructors
     public Review() {
         this.createdAt = LocalDateTime.now();
@@ -38,7 +68,12 @@ public class Review {
     public UUID getServiceId() { return serviceId; }
     public void setServiceId(UUID serviceId) { this.serviceId = serviceId; }
     public int getRating() { return rating; }
-    public void setRating(int rating) { this.rating = rating; }
+    public void setRating(int rating) {
+        if (rating < 1 || rating > 5) {
+            throw new IllegalArgumentException("Rating must be between 1 and 5, got: " + rating);
+        }
+        this.rating = rating;
+    }
     public String getComment() { return comment; }
     public void setComment(String comment) { this.comment = comment; }
     public String getResponse() { return response; }

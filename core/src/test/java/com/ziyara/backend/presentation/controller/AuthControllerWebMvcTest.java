@@ -1,5 +1,6 @@
 package com.ziyara.backend.presentation.controller;
 
+import com.ziyara.backend.application.exception.AuthenticationException;
 import com.ziyara.backend.application.service.AuthService;
 import com.ziyara.backend.application.service.JwtTokenBlocklistService;
 import com.ziyara.backend.application.service.LoginRateLimitService;
@@ -110,7 +111,7 @@ class AuthControllerWebMvcTest {
     void login_invalidCredentials_returns401() throws Exception {
         when(loginRateLimitService.allow(anyString(), anyString())).thenReturn(true);
         when(authService.authenticate(any(), anyString()))
-                .thenThrow(new AuthService.AuthenticationException("Invalid email or password"));
+                .thenThrow(new AuthenticationException("Invalid email or password"));
 
         mockMvc.perform(post("/auth/login").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)

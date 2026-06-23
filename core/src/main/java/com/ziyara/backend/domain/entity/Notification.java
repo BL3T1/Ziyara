@@ -58,7 +58,7 @@ public class Notification {
     public NotificationChannel getChannel() { return channel; }
     public void setChannel(NotificationChannel channel) { this.channel = channel; }
     public NotificationStatus getStatus() { return status; }
-    public void setStatus(NotificationStatus status) { this.status = status; status.getDisplayName(); }
+    public void setStatus(NotificationStatus status) { this.status = status; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getMessage() { return message; }

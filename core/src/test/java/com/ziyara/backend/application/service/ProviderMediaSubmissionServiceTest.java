@@ -6,7 +6,7 @@ import com.ziyara.backend.domain.repository.ProviderMediaSubmissionRepository;
 import com.ziyara.backend.domain.repository.ServiceImageRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.infrastructure.media.MediaStorageService;
-import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.modules.notification.api.StaffNotificationCommandPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,7 +43,7 @@ class ProviderMediaSubmissionServiceTest {
                 mediaStorageService, notificationPublisher, auditLogService);
     }
 
-    // ── getPendingSubmissions ─────────────────────────────────────────────────
+    // â”€â”€ getPendingSubmissions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void getPendingSubmissions_returnsPendingOnly() {
@@ -55,7 +55,7 @@ class ProviderMediaSubmissionServiceTest {
         assertThat(result).hasSize(1);
     }
 
-    // ── approve ───────────────────────────────────────────────────────────────
+    // â”€â”€ approve â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void approve_notFound_throwsIllegalArgument() {
@@ -116,7 +116,7 @@ class ProviderMediaSubmissionServiceTest {
         verify(serviceProviderRepository).save(provider);
     }
 
-    // ── reject ────────────────────────────────────────────────────────────────
+    // â”€â”€ reject â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void reject_notPending_throwsIllegalArgument() {
@@ -152,3 +152,4 @@ class ProviderMediaSubmissionServiceTest {
         return s;
     }
 }
+

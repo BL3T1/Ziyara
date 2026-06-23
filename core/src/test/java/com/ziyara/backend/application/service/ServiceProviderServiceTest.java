@@ -8,7 +8,7 @@ import com.ziyara.backend.domain.enums.ProviderStatus;
 import com.ziyara.backend.domain.repository.ProviderSubscriptionRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
-import com.ziyara.backend.infrastructure.messaging.StaffNotificationCommandPublisher;
+import com.ziyara.backend.modules.notification.api.StaffNotificationCommandPublisher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -132,3 +132,4 @@ class ServiceProviderServiceTest {
                 any(), isNull(), anyString(), isNull(), isNull());
     }
 }
+

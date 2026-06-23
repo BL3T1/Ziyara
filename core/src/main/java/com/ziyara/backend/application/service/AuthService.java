@@ -21,6 +21,7 @@ import com.ziyara.backend.infrastructure.security.crypto.PiiCryptoService;
 import com.ziyara.backend.infrastructure.security.crypto.TotpService;
 import com.ziyara.backend.infrastructure.security.JwtService;
 import com.ziyara.backend.application.annotation.Audited;
+import com.ziyara.backend.application.exception.AuthenticationException;
 import com.ziyara.backend.application.exception.MfaEnrollmentRequiredException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -346,15 +347,6 @@ public class AuthService {
                 .orElseThrow(() -> new AuthenticationException("Invalid or expired OTP"));
         otpVerificationRepository.deleteByEmailOrPhone(entity.getEmailOrPhone());
         log.info("OTP verified for {}", key);
-    }
-
-    /**
-     * Custom exception for authentication errors
-     */
-    public static class AuthenticationException extends RuntimeException {
-        public AuthenticationException(String message) {
-            super(message);
-        }
     }
 
     private static String normalizeEmail(String email) {
