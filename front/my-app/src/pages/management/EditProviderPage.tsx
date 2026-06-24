@@ -7,6 +7,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
 import { adminMediaAPI, getApiErrorMessage, providersAPI } from '../../services/api'
+import { Modal } from '../../components/Modal'
+import { PasswordInput } from '../../components/PasswordInput'
 import {
   PARTNER_SERVICE_TYPE_VALUES,
   type ProviderMediaSubmissionDto,
@@ -66,6 +68,7 @@ export function EditProviderPage() {
   const [status, setStatus] = useState<ProviderStatusDto>('ACTIVE')
   const [expiryDate, setExpiryDate] = useState('')
   const [resettingPassword, setResettingPassword] = useState(false)
+  const [showResetModal, setShowResetModal] = useState(false)
   const [mediaSubs, setMediaSubs] = useState<ProviderMediaSubmissionDto[]>([])
   const [mediaLoading, setMediaLoading] = useState(false)
   const [mediaMsg, setMediaMsg] = useState<string | null>(null)
@@ -395,22 +398,10 @@ export function EditProviderPage() {
                 <button
                   type="button"
                   disabled={resettingPassword}
-                  onClick={async () => {
-                    if (!window.confirm(t('providerEditPage.confirmResetPassword'))) return
-                    setResettingPassword(true)
-                    setError(null)
-                    try {
-                      await providersAPI.resetPassword(id)
-                      setSuccess(t('providerEditPage.resetPasswordSuccess'))
-                    } catch (err) {
-                      setError(getApiErrorMessage(err))
-                    } finally {
-                      setResettingPassword(false)
-                    }
-                  }}
+                  onClick={() => setShowResetModal(true)}
                   className="dashboard-btn-secondary disabled:opacity-50"
                 >
-                  {resettingPassword ? t('ui.loading') : t('providerEditPage.resetPassword')}
+                  {t('providerEditPage.resetPassword')}
                 </button>
                 <p className="text-xs text-slate-500 dark:text-slate-400">{t('providerEditPage.hintResetPassword')}</p>
               </div>
@@ -578,6 +569,106 @@ export function EditProviderPage() {
           </div>
         </div>
       )}
+
+      {showResetModal && (
+        <ProviderResetPasswordModal
+          onClose={() => setShowResetModal(false)}
+          onConfirm={async (newPassword) => {
+            setResettingPassword(true)
+            setError(null)
+            try {
+              await providersAPI.resetPassword(id, { newPassword })
+              setSuccess(t('providerEditPage.resetPasswordSuccess'))
+              setShowResetModal(false)
+            } catch (err) {
+              setError(getApiErrorMessage(err))
+            } finally {
+              setResettingPassword(false)
+            }
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+function ProviderResetPasswordModal({
+  onClose,
+  onConfirm,
+}: {
+  onClose: () => void
+  onConfirm: (pw: string) => Promise<void>
+}) {
+  const { t } = useLanguage()
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [localError, setLocalError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (password.length < 6) { setLocalError('Password must be at least 6 characters.'); return }
+    if (password !== confirm) { setLocalError('Passwords do not match.'); return }
+    setSubmitting(true)
+    setLocalError('')
+    try {
+      await onConfirm(password)
+    } catch {
+      // error shown by parent
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('providerEditPage.resetPassword')}
+      size="sm"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+            {t('ui.cancel')}
+          </button>
+          <button type="submit" form="edit-provider-reset-pw-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+            {t('staffUserPage.resetPasswordSubmit')}
+          </button>
+        </>
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="edit-provider-reset-pw-form" onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+            {t('staffUserPage.resetPasswordLabel')}
+          </label>
+          <PasswordInput
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="modal-input mt-1.5 w-full"
+            autoFocus
+            required
+            minLength={6}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+            {t('portalStaffPage.confirmPasswordLabel')}
+          </label>
+          <PasswordInput
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            className="modal-input mt-1.5 w-full"
+            required
+            minLength={6}
+          />
+        </div>
+      </form>
+    </Modal>
   )
 }

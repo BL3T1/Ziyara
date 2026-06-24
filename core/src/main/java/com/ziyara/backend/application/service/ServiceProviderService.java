@@ -17,8 +17,10 @@ import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
 import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
 import com.ziyara.backend.domain.repository.ProviderSubscriptionRepository;
+import com.ziyara.backend.domain.repository.RoleRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
+import com.ziyara.backend.domain.repository.UserRoleAssignmentRepository;
 import com.ziyara.backend.modules.notification.api.StaffNotificationCommandPublisher;
 import com.ziyara.backend.application.dto.StaffNotificationEvent;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +59,8 @@ public class ServiceProviderService {
     private final StaffNotificationCommandPublisher staffNotificationCommandPublisher;
     private final UserPasswordService userPasswordService;
     private final AuthEmailNotificationService authEmailNotificationService;
+    private final RoleRepository roleRepository;
+    private final UserRoleAssignmentRepository userRoleAssignmentRepository;
 
     /**
      * Creates a provider; activation vs pending depends on whether the creator
@@ -121,11 +125,13 @@ public class ServiceProviderService {
             managerUser.setRole(UserRole.STAFF);
             managerUser.setStatus(canApprove ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION);
             managerUser = userRepository.save(managerUser);
+            assignProviderManagerRole(managerUser.getId());
         }
 
         if (!createNewManager) {
             managerUser.setStatus(canApprove ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION);
             userRepository.save(managerUser);
+            assignProviderManagerRole(managerUser.getId());
         }
 
         ServiceProvider provider = new ServiceProvider();
@@ -274,6 +280,7 @@ public class ServiceProviderService {
             userRepository.findById(saved.getUserId()).ifPresent(u -> {
                 u.setStatus(UserStatus.ACTIVE);
                 userRepository.save(u);
+                assignProviderManagerRole(u.getId());
                 providerWorkflowEmailService.notifyActivated(saved, u.getEmail());
             });
         }
@@ -349,7 +356,7 @@ public class ServiceProviderService {
     }
 
     @Transactional
-    public void resetProviderManagerPassword(UUID providerId, UUID actorUserId) {
+    public void resetProviderManagerPassword(UUID providerId, UUID actorUserId, String newPassword) {
         ServiceProvider provider = serviceProviderRepository.findById(providerId)
                 .orElseThrow(() -> new IllegalArgumentException("Service provider not found"));
         if (provider.getUserId() == null) {
@@ -357,20 +364,17 @@ public class ServiceProviderService {
         }
         User managerUser = userRepository.findById(provider.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("Provider manager user not found"));
-        String tempPassword = generateTempPassword();
-        userPasswordService.resetPassword(managerUser.getId(), tempPassword);
-        authEmailNotificationService.sendTempPasswordReset(managerUser.getEmail(), tempPassword);
+        userPasswordService.resetPassword(managerUser.getId(), newPassword);
         auditLogService.logAction("PROVIDER_PASSWORD_RESET", "ServiceProvider", providerId.toString(), actorUserId,
                 null, "manager=" + managerUser.getEmail(), null, null);
         log.info("Password reset for provider manager {} by actor {}", managerUser.getEmail(), actorUserId);
     }
 
-    private static String generateTempPassword() {
-        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#";
-        java.security.SecureRandom rng = new java.security.SecureRandom();
-        StringBuilder sb = new StringBuilder(12);
-        for (int i = 0; i < 12; i++) sb.append(chars.charAt(rng.nextInt(chars.length())));
-        return sb.toString();
+    private void assignProviderManagerRole(UUID userId) {
+        roleRepository.findByCode("PROVIDER_MANAGER").ifPresentOrElse(
+            role -> userRoleAssignmentRepository.setPrimaryRoleForUser(userId, role.getId()),
+            () -> log.warn("PROVIDER_MANAGER system role not found — user {} will have no portal:access", userId)
+        );
     }
 
     private void ensureSubscription(UUID providerId, String requestedPlan, Integer requestedLimit) {

@@ -554,7 +554,7 @@ export const providersAPI = {
     client.post<unknown>(`/providers/${id}/reject`, body ?? {}),
   suspend: (id: string) => client.post<unknown>(`/providers/${id}/suspend`),
   delete: (id: string) => client.delete<unknown>(`/providers/${id}`),
-  resetPassword: (id: string) => client.post<unknown>(`/providers/${id}/reset-password`),
+  resetPassword: (id: string, body: { newPassword: string }) => client.post<unknown>(`/providers/${id}/reset-password`, body),
   adminToken: (id: string) => client.post<unknown>(`/providers/${id}/admin-token`),
 }
 

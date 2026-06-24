@@ -180,14 +180,20 @@ public class ServiceProviderController {
 
     @PostMapping("/{id}/reset-password")
     @PreAuthorize(COMPANY_STAFF)
-    @Operation(summary = "Reset provider manager password", description = "Generates temp password, emails it to the manager, forces password change on next login")
-    public ResponseEntity<ApiResponse<Void>> resetProviderPassword(@PathVariable UUID id) {
+    @Operation(summary = "Reset provider manager password", description = "Sets the provider manager's password to the supplied value")
+    public ResponseEntity<ApiResponse<Void>> resetProviderPassword(
+            @PathVariable UUID id,
+            @RequestBody java.util.Map<String, String> body) {
         UUID actorId = getCurrentUserId();
         if (actorId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
         }
-        providerService.resetProviderManagerPassword(id, actorId);
-        return ResponseEntity.ok(ApiResponse.success("Password reset email sent to provider manager", null));
+        String newPassword = body.get("newPassword");
+        if (newPassword == null || newPassword.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("newPassword is required"));
+        }
+        providerService.resetProviderManagerPassword(id, actorId, newPassword);
+        return ResponseEntity.ok(ApiResponse.success("Provider manager password reset", null));
     }
 
     @PatchMapping("/{id}/discount-balance")

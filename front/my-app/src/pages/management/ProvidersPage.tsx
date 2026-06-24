@@ -12,6 +12,8 @@ import { getApiErrorMessage } from '../../services/api'
 import type { PageDto, ServiceProviderDto } from '../../types/api'
 import { BulkActionBar } from '../../components/BulkActionBar'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { Modal } from '../../components/Modal'
+import { PasswordInput } from '../../components/PasswordInput'
 import { statusLabel } from '../../i18n/enumLabels'
 import { usePermission } from '../../hooks/usePermission'
 import { useAuth } from '../../context/AuthContext'
@@ -136,10 +138,11 @@ export function ProvidersPage() {
     }
   }
 
-  const executeResetPassword = async (id: string) => {
+  const executeResetPassword = async (id: string, newPassword: string) => {
     setError(null)
     try {
-      await providersAPI.resetPassword(id)
+      await providersAPI.resetPassword(id, { newPassword })
+      setPendingReset(null)
     } catch (e) {
       setError(getApiErrorMessage(e))
     }
@@ -484,15 +487,13 @@ export function ProvidersPage() {
         onConfirm={() => executeSuspend(pendingSuspend!.id)}
       />
 
-      <ConfirmDialog
-        open={!!pendingReset}
-        onClose={() => setPendingReset(null)}
-        title={t('providersPage.resetPassword')}
-        description={t('providersPage.confirmResetPassword', { name: pendingReset?.name ?? '' })}
-        confirmLabel={t('providersPage.resetPassword')}
-        variant="default"
-        onConfirm={() => executeResetPassword(pendingReset!.id)}
-      />
+      {pendingReset && (
+        <ProviderResetPasswordModal
+          providerName={pendingReset.name}
+          onClose={() => setPendingReset(null)}
+          onConfirm={(pw) => executeResetPassword(pendingReset.id, pw)}
+        />
+      )}
 
       <ConfirmDialog
         open={!!pendingDelete}
@@ -504,5 +505,86 @@ export function ProvidersPage() {
         onConfirm={() => executeDelete(pendingDelete!.id)}
       />
     </>
+  )
+}
+
+function ProviderResetPasswordModal({
+  providerName,
+  onClose,
+  onConfirm,
+}: {
+  providerName: string
+  onClose: () => void
+  onConfirm: (pw: string) => void
+}) {
+  const { t } = useLanguage()
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [localError, setLocalError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (password.length < 6) { setLocalError(t('staffUserPage.pwTooShort') || 'Min 6 characters.'); return }
+    if (password !== confirm) { setLocalError(t('staffUserPage.pwMismatch') || 'Passwords do not match.'); return }
+    setSubmitting(true)
+    setLocalError('')
+    try {
+      await onConfirm(password)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('providersPage.resetPassword') + ' — ' + providerName}
+      size="sm"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+            {t('ui.cancel')}
+          </button>
+          <button type="submit" form="provider-reset-pw-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+            {t('staffUserPage.resetPasswordSubmit')}
+          </button>
+        </>
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="provider-reset-pw-form" onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+            {t('staffUserPage.resetPasswordLabel')}
+          </label>
+          <PasswordInput
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="modal-input mt-1.5 w-full"
+            autoFocus
+            required
+            minLength={6}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+            {t('portalStaffPage.confirmPasswordLabel')}
+          </label>
+          <PasswordInput
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            className="modal-input mt-1.5 w-full"
+            required
+            minLength={6}
+          />
+        </div>
+      </form>
+    </Modal>
   )
 }
