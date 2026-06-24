@@ -27,7 +27,6 @@ export function LandingShell() {
     document.documentElement.classList.remove('dark')
   }, [])
 
-  // Close user menu on outside click
   useEffect(() => {
     if (!userMenuOpen) return
     function handleClick(e: MouseEvent) {
@@ -46,7 +45,7 @@ export function LandingShell() {
   }
 
   return (
-    <div className="landing-parallax-root lp-www-root flex min-h-screen flex-col">
+    <div className="landing-parallax-root lp-www-root min-h-screen flex flex-col bg-background antialiased">
       {/* Mobile menu backdrop */}
       {menuOpen && (
         <div
@@ -57,21 +56,30 @@ export function LandingShell() {
       )}
 
       <LandingToastProvider>
-      <div className="lp-www-inner">
-        <header className="lp-nav" role="banner">
+        {/* ── Floating Navigation Bar ───────────────────────────────────── */}
+        <header
+          role="banner"
+          className="fixed top-3 left-1/2 -translate-x-1/2 w-[95%] max-w-container-max rounded-xl bg-white/70 backdrop-blur-2xl border border-outline-variant/20 shadow-md z-50 flex justify-between items-center h-16 px-6 flex-wrap"
+        >
           {/* Brand */}
-          <NavLink to="/" className="lp-nav-brand no-underline" end onClick={() => setMenuOpen(false)}>
-            <img src="/logo.png" alt="Ziyara" className="lp-brand-logo shrink-0" width={220} height={64} />
+          <NavLink to="/" end onClick={() => setMenuOpen(false)} className="no-underline flex-shrink-0">
+            <span className="font-headline-md text-headline-md font-bold text-on-primary bg-[#0E1626] px-4 py-1 rounded-full select-none cursor-pointer hover:scale-95 duration-150 ease-in-out transition-transform">
+              Ziyara
+            </span>
           </NavLink>
 
-          {/* Desktop nav links — hidden on mobile */}
-          <nav className="lp-nav-links lp-nav-links--desktop" aria-label="Primary">
+          {/* Desktop nav links — centered */}
+          <nav className="hidden md:flex items-center gap-8" aria-label="Primary">
             {LANDING_NAV_ITEMS.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.to === '/'}
-                className={({ isActive }) => (isActive ? 'lp-nav-active' : undefined)}
+                className={({ isActive }) =>
+                  isActive
+                    ? 'font-label-md text-label-md text-stitch-primary font-bold border-b-2 border-stitch-primary pb-1 px-3 py-2 no-underline transition-colors'
+                    : 'font-label-md text-label-md text-on-surface-variant font-medium hover:text-stitch-primary hover:bg-surface-variant/50 transition-colors px-3 py-2 rounded-lg no-underline'
+                }
               >
                 {t(item.labelKey)}
               </NavLink>
@@ -79,14 +87,15 @@ export function LandingShell() {
           </nav>
 
           {/* Actions */}
-          <div className="lp-nav-actions">
+          <div className="flex items-center gap-3">
+            {/* Language + currency utilities */}
+            <div className="hidden lg:flex gap-1 items-center text-on-surface-variant">
+              <CurrencySwitcher />
+              <LanguageToggleButton ariaLabel={t('common.changeLanguage')} className="p-2 rounded-full hover:bg-surface-variant/50 transition-colors" />
+            </div>
+
             {user?.role === 'user' ? (
               <>
-                {/* Browse CTA */}
-                <Link to="/services" className="lp-btn lp-btn-outline lp-btn-sm lp-nav-cta-browse">
-                  {t('landingTraveler.ctaBrowse')}
-                </Link>
-
                 {/* User dropdown */}
                 <div className="lp-user-menu" ref={userMenuRef}>
                   <button
@@ -122,30 +131,35 @@ export function LandingShell() {
               </>
             ) : (
               <>
-                <Link to="/signup" className="lp-btn lp-btn-outline lp-btn-sm">
-                  {t('landingAuth.createAccount')}
-                </Link>
-                <Link to="/login" className="lp-btn lp-btn-primary lp-btn-sm">
+                <Link
+                  to="/login"
+                  className="hidden sm:block font-label-md text-label-md text-stitch-primary font-semibold px-4 py-2 hover:bg-stitch-primary/5 rounded-lg transition-colors no-underline"
+                >
                   {t('landingTraveler.ctaSignIn')}
+                </Link>
+                <Link
+                  to="/signup"
+                  className="no-underline bg-stitch-primary text-on-primary font-label-md text-label-md px-5 py-2 rounded-lg hover:bg-surface-tint hover:shadow-md transition-all hidden md:block"
+                >
+                  {t('landingAuth.createAccount')}
                 </Link>
               </>
             )}
-            <CurrencySwitcher />
-            <div className="lp-lang-shell">
-              <LanguageToggleButton ariaLabel={t('common.changeLanguage')} />
-            </div>
 
             {/* Hamburger — mobile only */}
             <button
               type="button"
-              className="lp-hamburger"
+              className="md:hidden p-2 rounded-full hover:bg-surface-variant/50 text-on-surface"
               aria-label={menuOpen ? t('landingBusiness.navClose') : t('landingBusiness.navMenu')}
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((v) => !v)}
             >
-              <span className={`lp-hamburger__bar ${menuOpen ? 'lp-hamburger__bar--top-open' : ''}`} />
-              <span className={`lp-hamburger__bar ${menuOpen ? 'lp-hamburger__bar--mid-open' : ''}`} />
-              <span className={`lp-hamburger__bar ${menuOpen ? 'lp-hamburger__bar--bot-open' : ''}`} />
+              <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24" aria-hidden>
+                {menuOpen
+                  ? <><path d="M6 6l12 12M6 18L18 6"/></>
+                  : <><path d="M3 6h18M3 12h18M3 18h18"/></>
+                }
+              </svg>
             </button>
           </div>
 
@@ -189,15 +203,20 @@ export function LandingShell() {
                 </Link>
               </>
             )}
+            <div className="lp-mobile-drawer__divider" />
+            <div className="flex items-center gap-2 px-2 py-1">
+              <CurrencySwitcher />
+              <LanguageToggleButton ariaLabel={t('common.changeLanguage')} />
+            </div>
           </nav>
         </header>
 
-        <main className="lp-main">
+        {/* ── Page content (pt-20 to clear fixed nav) ───────────────────── */}
+        <main className="flex-1 pt-20">
           <Outlet />
         </main>
 
         <LandingPublicFooter />
-      </div>
       </LandingToastProvider>
     </div>
   )

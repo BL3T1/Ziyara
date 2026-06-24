@@ -16,15 +16,7 @@ interface LandingServiceBookingPanelProps {
 
 function BookingCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div
-      className={`mb-4 rounded-[22px] border p-5 sm:p-6 ${className}`}
-      style={{
-        borderColor: 'rgba(255, 255, 255, 0.72)',
-        background: 'linear-gradient(145deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.44) 100%)',
-        boxShadow: '0 8px 32px rgba(40,55,68,0.07), inset 0 1px 0 rgba(255,255,255,0.9)',
-        backdropFilter: 'blur(14px)',
-      }}
-    >
+    <div className={`mb-4 rounded-xl border border-outline-variant/30 bg-surface-container p-4 ${className}`}>
       {children}
     </div>
   )
@@ -137,7 +129,7 @@ export function LandingServiceBookingPanel({ service }: LandingServiceBookingPan
   const inputCls = 'lp-input mt-1'
 
   return (
-    <div className="mt-8">
+    <div className="mt-4">
       {/* Date / guest picker for hotels & resorts */}
       {isStay ? (
         <BookingCard>
@@ -372,77 +364,64 @@ export function LandingServiceBookingPanel({ service }: LandingServiceBookingPan
         </BookingCard>
       ) : null}
 
-      {/* Booking summary + CTA */}
-      <div
-        className="rounded-[22px] border p-5 sm:p-6"
-        style={{
-          borderColor: 'rgba(184, 150, 110, 0.3)',
-          background: 'linear-gradient(135deg, rgba(184,150,110,0.08) 0%, rgba(61,112,128,0.06) 100%)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)',
-        }}
-      >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <p className="lp-eyebrow lp-eyebrow--tight" style={{ marginBottom: 4 }}>
-              {isStay
-                ? nights > 0
-                  ? t('landingBooking.totalForNights')
-                  : t('landingBooking.pricePerNight')
-                : isTaxi
-                  ? t('landingBooking.startingFrom')
-                  : t('landingBooking.startingFrom')}
-            </p>
-            <p className="text-3xl font-bold" style={{ color: 'var(--ink-heading)', letterSpacing: '-0.02em' }}>
-              {priceLine}
-            </p>
-          </div>
-
-          <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-            {isStay && !roomPhase ? (
-              <button
-                type="button"
-                disabled={!checkIn || !checkOut || nights <= 0}
-                onClick={() => setRoomPhase(true)}
-                className="lp-btn lp-btn-primary px-7 py-3 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {t('landingBooking.selectRoom')}
-              </button>
-            ) : null}
-            {isStay && roomPhase ? (
-              <button
-                type="button"
-                disabled={!canConfirmStay}
-                onClick={proceed}
-                className="lp-btn lp-btn-primary px-7 py-3 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isAuthenticated ? t('landingBooking.confirmBooking') : t('landingBooking.confirmContinue')}
-              </button>
-            ) : null}
-            {!isStay && !isTaxi ? (
-              <button
-                type="button"
-                disabled={
-                  (isRestaurant && (!bookingDate || !bookingTime)) ||
-                  (isTrip && !bookingDate)
-                }
-                onClick={proceed}
-                className="lp-btn lp-btn-primary px-7 py-3 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isAuthenticated ? t('landingBooking.confirmBooking') : t('landingBooking.bookNow')}
-              </button>
-            ) : null}
-            {isTaxi ? (
-              <button
-                type="button"
-                disabled={!canConfirmTaxi}
-                onClick={proceed}
-                className="lp-btn lp-btn-primary px-7 py-3 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isAuthenticated ? t('landingBooking.confirmBooking') : t('landingBooking.requestRide')}
-              </button>
-            ) : null}
-          </div>
+      {/* Nights total (shows when dates are set) */}
+      {isStay && nights > 0 && (
+        <div className="mb-3 px-1 flex items-center justify-between text-sm text-on-surface-variant">
+          <span>{t('landingBooking.totalForNights')}</span>
+          <span className="font-label-md text-label-md text-on-surface font-bold">{priceLine}</span>
         </div>
+      )}
+
+      {/* CTA buttons */}
+      <div className="flex flex-col gap-2">
+        {isStay && !roomPhase && (
+          <button
+            type="button"
+            disabled={!checkIn || !checkOut || nights <= 0}
+            onClick={() => setRoomPhase(true)}
+            className="w-full h-[52px] bg-primary-container text-white font-label-md text-label-md font-bold rounded-lg hover:bg-stitch-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {t('landingBooking.selectRoom')}
+          </button>
+        )}
+        {isStay && roomPhase && (
+          <button
+            type="button"
+            disabled={!canConfirmStay}
+            onClick={proceed}
+            className="w-full h-[52px] bg-primary-container text-white font-label-md text-label-md font-bold rounded-lg hover:bg-stitch-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAuthenticated ? t('landingBooking.confirmBooking') : t('landingBooking.confirmContinue')}
+          </button>
+        )}
+        {!isStay && !isTaxi && (
+          <button
+            type="button"
+            disabled={
+              (isRestaurant && (!bookingDate || !bookingTime)) ||
+              (isTrip && !bookingDate)
+            }
+            onClick={proceed}
+            className="w-full h-[52px] bg-primary-container text-white font-label-md text-label-md font-bold rounded-lg hover:bg-stitch-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAuthenticated ? t('landingBooking.confirmBooking') : t('landingBooking.bookNow')}
+          </button>
+        )}
+        {isTaxi && (
+          <button
+            type="button"
+            disabled={!canConfirmTaxi}
+            onClick={proceed}
+            className="w-full h-[52px] bg-primary-container text-white font-label-md text-label-md font-bold rounded-lg hover:bg-stitch-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAuthenticated ? t('landingBooking.confirmBooking') : t('landingBooking.requestRide')}
+          </button>
+        )}
+        {isStay && (
+          <p className="text-center text-xs text-on-surface-variant mt-1">
+            {t('landingBooking.noChargeYet') || "You won't be charged yet"}
+          </p>
+        )}
       </div>
     </div>
   )
