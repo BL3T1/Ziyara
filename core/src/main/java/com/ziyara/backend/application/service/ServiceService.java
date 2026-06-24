@@ -70,6 +70,7 @@ public class ServiceService implements ServiceServiceApi {
         if (request.getLatitude() != null) svc.setLatitude(request.getLatitude());
         if (request.getLongitude() != null) svc.setLongitude(request.getLongitude());
         if (request.getPolicies() != null) svc.setPolicies(request.getPolicies());
+        svc.setStatus(com.ziyara.backend.domain.enums.ServiceStatus.ACTIVE);
         com.ziyara.backend.domain.entity.Service saved = serviceRepository.save(svc);
         log.info("Service created: {} for provider {}", saved.getId(), request.getProviderId());
         return toResponse(saved);
