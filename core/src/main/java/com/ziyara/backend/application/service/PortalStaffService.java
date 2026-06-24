@@ -194,6 +194,14 @@ public class PortalStaffService {
         providerStaffRepository.save(link);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            String newEmail = request.getEmail().trim().toLowerCase();
+            if (userRepository.existsByEmail(newEmail) && !newEmail.equals(user.getEmail())) {
+                throw new BusinessException("Email is already in use");
+            }
+            user.setEmail(newEmail);
+            userRepository.save(user);
+        }
         return mapUser(user, false, link.getId(), link.getTitle(), link.getCreatedAt());
     }
 

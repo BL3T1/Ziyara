@@ -347,7 +347,7 @@ export const portalStaffAPI = {
     client.post<PortalStaffMemberDto>('/portal/staff/users', body),
   listAssignableRoles: () =>
     client.get<{ id: string; code: string; name: string }[]>('/portal/staff/roles'),
-  update: (userId: string, body: { title?: string }) =>
+  update: (userId: string, body: { title?: string; email?: string }) =>
     client.patch<PortalStaffMemberDto>(`/portal/staff/${userId}`, body),
   remove: (userId: string) => client.delete<void>(`/portal/staff/${userId}`),
   resetPassword: (userId: string, body: { newPassword: string }) =>

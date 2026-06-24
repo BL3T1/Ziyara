@@ -13,4 +13,7 @@ public class UpdatePortalStaffRequest {
 
     @Schema(description = "Job title label")
     private String title;
+
+    @Schema(description = "Email address")
+    private String email;
 }

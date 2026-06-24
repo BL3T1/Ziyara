@@ -7,6 +7,8 @@ import { Link } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
 import { usersAPI, providersAPI, portalStaffAPI, getApiErrorMessage } from '../../services/api'
 import { Card } from '../../components/Card'
+import { Modal } from '../../components/Modal'
+import { PasswordInput } from '../../components/PasswordInput'
 import type { LinkableUserDto, PortalStaffMemberDto, ServiceProviderDto } from '../../types/api'
 
 type MeUser = {
@@ -46,6 +48,8 @@ export function PortalStaffPage() {
   const [editTitle, setEditTitle] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [resetPwMember, setResetPwMember] = useState<PortalStaffMemberDto | null>(null)
+  const [editEmailMember, setEditEmailMember] = useState<PortalStaffMemberDto | null>(null)
 
   const loadTeam = useCallback(() => {
     setTeamLoading(true)
@@ -258,7 +262,7 @@ export function PortalStaffPage() {
                     <td className="px-4 py-3 text-sm">{m.owner ? t('portalStaffPage.badgeOwner') : '—'}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm">
                       {!m.owner && (
-                        <>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                           <button
                             type="button"
                             onClick={() => {
@@ -269,7 +273,23 @@ export function PortalStaffPage() {
                           >
                             {t('portalStaffPage.editTitle')}
                           </button>
-                          <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+                          <span className="text-slate-300 dark:text-slate-600">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setEditEmailMember(m)}
+                            className="text-primary hover:underline"
+                          >
+                            {t('portalStaffPage.editEmail')}
+                          </button>
+                          <span className="text-slate-300 dark:text-slate-600">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setResetPwMember(m)}
+                            className="text-amber-600 hover:underline dark:text-amber-400"
+                          >
+                            {t('portalStaffPage.resetPassword')}
+                          </button>
+                          <span className="text-slate-300 dark:text-slate-600">|</span>
                           <button
                             type="button"
                             disabled={removingId === m.userId}
@@ -278,7 +298,7 @@ export function PortalStaffPage() {
                           >
                             {t('portalStaffPage.remove')}
                           </button>
-                        </>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -412,6 +432,185 @@ export function PortalStaffPage() {
           </div>
         </div>
       )}
+
+      {resetPwMember && (
+        <StaffResetPasswordModal
+          member={resetPwMember}
+          onClose={() => setResetPwMember(null)}
+          onSuccess={() => { setResetPwMember(null); setError(null); }}
+          onError={(msg) => { setResetPwMember(null); setError(msg); }}
+        />
+      )}
+
+      {editEmailMember && (
+        <StaffEditEmailModal
+          member={editEmailMember}
+          onClose={() => setEditEmailMember(null)}
+          onSuccess={() => { setEditEmailMember(null); loadTeam(); }}
+          onError={(msg) => { setEditEmailMember(null); setError(msg); }}
+        />
+      )}
     </>
+  )
+}
+
+function StaffResetPasswordModal({
+  member,
+  onClose,
+  onSuccess,
+  onError,
+}: {
+  member: PortalStaffMemberDto
+  onClose: () => void
+  onSuccess: () => void
+  onError: (msg: string) => void
+}) {
+  const { t } = useLanguage()
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [localError, setLocalError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (password.length < 6) { setLocalError(t('portalStaffPage.pwTooShort')); return }
+    if (password !== confirm) { setLocalError(t('portalStaffPage.pwMismatch')); return }
+    setSubmitting(true)
+    setLocalError('')
+    try {
+      await portalStaffAPI.resetPassword(member.userId, { newPassword: password })
+      onSuccess()
+    } catch (err) {
+      const msg = getApiErrorMessage(err, t('portalStaffPage.resetPasswordError'))
+      setLocalError(msg)
+      onError(msg)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('portalStaffPage.resetPasswordTitle', { email: member.email ?? member.userId })}
+      size="sm"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+            {t('ui.cancel')}
+          </button>
+          <button type="submit" form="staff-reset-pw-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+            {t('portalStaffPage.resetPasswordSubmit')}
+          </button>
+        </>
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="staff-reset-pw-form" onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+            {t('portalStaffPage.newPasswordLabel')}
+          </label>
+          <PasswordInput
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="modal-input mt-1.5 w-full"
+            autoFocus
+            required
+            minLength={6}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+            {t('portalStaffPage.confirmPasswordLabel')}
+          </label>
+          <PasswordInput
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            className="modal-input mt-1.5 w-full"
+            required
+            minLength={6}
+          />
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function StaffEditEmailModal({
+  member,
+  onClose,
+  onSuccess,
+  onError,
+}: {
+  member: PortalStaffMemberDto
+  onClose: () => void
+  onSuccess: () => void
+  onError: (msg: string) => void
+}) {
+  const { t } = useLanguage()
+  const [email, setEmail] = useState(member.email ?? '')
+  const [submitting, setSubmitting] = useState(false)
+  const [localError, setLocalError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = email.trim()
+    if (!trimmed) { setLocalError(t('portalStaffPage.emailRequired')); return }
+    setSubmitting(true)
+    setLocalError('')
+    try {
+      await portalStaffAPI.update(member.userId, { email: trimmed })
+      onSuccess()
+    } catch (err) {
+      const msg = getApiErrorMessage(err, t('portalStaffPage.editEmailError'))
+      setLocalError(msg)
+      onError(msg)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('portalStaffPage.editEmailTitle', { email: member.email ?? member.userId })}
+      size="sm"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className="dashboard-btn-secondary">
+            {t('ui.cancel')}
+          </button>
+          <button type="submit" form="staff-edit-email-form" disabled={submitting} className="dashboard-btn-primary disabled:opacity-70">
+            {t('portalStaffPage.saveEmail')}
+          </button>
+        </>
+      }
+    >
+      {localError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {localError}
+        </div>
+      )}
+      <form id="staff-edit-email-form" onSubmit={handleSubmit}>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+          {t('portalStaffPage.newEmailLabel')}
+        </label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="modal-input mt-1.5 w-full"
+          autoFocus
+          required
+        />
+      </form>
+    </Modal>
   )
 }
