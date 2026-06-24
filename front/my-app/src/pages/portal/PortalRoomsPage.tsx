@@ -9,6 +9,70 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 
 const ROOM_STATUSES = ['ACTIVE', 'INACTIVE'] as const
 
+const INPUT_CLS =
+  'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800'
+
+function RoomForm({
+  form,
+  setForm,
+  formError,
+}: {
+  form: CreateHotelRoomPayload
+  setForm: React.Dispatch<React.SetStateAction<CreateHotelRoomPayload>>
+  formError: string
+}) {
+  const { t } = useLanguage()
+  return (
+    <div className="space-y-3">
+      {formError && <p className="text-sm text-red-500">{formError}</p>}
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldName')}</label>
+        <input className={INPUT_CLS} value={form.roomName}
+          onChange={(e) => setForm((f) => ({ ...f, roomName: e.target.value }))} />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldType')}</label>
+        <input className={INPUT_CLS} value={form.roomType}
+          onChange={(e) => setForm((f) => ({ ...f, roomType: e.target.value }))} />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldDescription')}</label>
+        <textarea className={INPUT_CLS} rows={2} value={form.description ?? ''}
+          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldCapacity')}</label>
+          <input type="number" min={1} className={INPUT_CLS} value={form.capacity}
+            onChange={(e) => setForm((f) => ({ ...f, capacity: Number(e.target.value) }))} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldBasePrice')}</label>
+          <input type="number" min={0} step="0.01" className={INPUT_CLS} value={form.basePrice ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, basePrice: e.target.value ? Number(e.target.value) : undefined }))} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldQuantityTotal')}</label>
+          <input type="number" min={1} className={INPUT_CLS} value={form.quantityTotal}
+            onChange={(e) => setForm((f) => ({ ...f, quantityTotal: Number(e.target.value) }))} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldQuantityAvailable')}</label>
+          <input type="number" min={0} className={INPUT_CLS} value={form.quantityAvailable}
+            onChange={(e) => setForm((f) => ({ ...f, quantityAvailable: Number(e.target.value) }))} />
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldStatus')}</label>
+        <select className={INPUT_CLS} value={form.status ?? 'ACTIVE'}
+          onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as 'ACTIVE' | 'INACTIVE' }))}>
+          {ROOM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+    </div>
+  )
+}
+
 export function PortalRoomsPage() {
   const { id } = useParams<{ id: string }>()
   const { t } = useLanguage()
@@ -112,61 +176,6 @@ export function PortalRoomsPage() {
     }
   }
 
-  const inputCls =
-    'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800'
-
-  function RoomForm() {
-    return (
-      <div className="space-y-3">
-        {formError && <p className="text-sm text-red-500">{formError}</p>}
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldName')}</label>
-          <input className={inputCls} value={form.roomName}
-            onChange={(e) => setForm((f) => ({ ...f, roomName: e.target.value }))} />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldType')}</label>
-          <input className={inputCls} value={form.roomType}
-            onChange={(e) => setForm((f) => ({ ...f, roomType: e.target.value }))} />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldDescription')}</label>
-          <textarea className={inputCls} rows={2} value={form.description ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldCapacity')}</label>
-            <input type="number" min={1} className={inputCls} value={form.capacity}
-              onChange={(e) => setForm((f) => ({ ...f, capacity: Number(e.target.value) }))} />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldBasePrice')}</label>
-            <input type="number" min={0} step="0.01" className={inputCls} value={form.basePrice ?? ''}
-              onChange={(e) => setForm((f) => ({ ...f, basePrice: e.target.value ? Number(e.target.value) : undefined }))} />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldQuantityTotal')}</label>
-            <input type="number" min={1} className={inputCls} value={form.quantityTotal}
-              onChange={(e) => setForm((f) => ({ ...f, quantityTotal: Number(e.target.value) }))} />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldQuantityAvailable')}</label>
-            <input type="number" min={0} className={inputCls} value={form.quantityAvailable}
-              onChange={(e) => setForm((f) => ({ ...f, quantityAvailable: Number(e.target.value) }))} />
-          </div>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">{t('portalPages.roomFieldStatus')}</label>
-          <select className={inputCls} value={form.status ?? 'ACTIVE'}
-            onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as 'ACTIVE' | 'INACTIVE' }))}>
-            {ROOM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <>
       <div className="mb-4 flex items-center justify-between">
@@ -233,7 +242,7 @@ export function PortalRoomsPage() {
       </Card>
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title={t('portalPages.roomAdd')}>
-        <RoomForm />
+        <RoomForm form={form} setForm={setForm} formError={formError} />
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={() => setAddOpen(false)}
             className="rounded-xl border border-slate-300 px-4 py-2 text-sm">{t('ui.cancel')}</button>
@@ -243,7 +252,7 @@ export function PortalRoomsPage() {
       </Modal>
 
       <Modal open={!!editRoom} onClose={() => setEditRoom(null)} title={t('portalPages.roomEdit')}>
-        <RoomForm />
+        <RoomForm form={form} setForm={setForm} formError={formError} />
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={() => setEditRoom(null)}
             className="rounded-xl border border-slate-300 px-4 py-2 text-sm">{t('ui.cancel')}</button>
