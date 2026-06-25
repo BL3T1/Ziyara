@@ -2172,6 +2172,7 @@ const en = {
     notificationMarkAllRead: 'Mark all as read',
   },
   mediaSubmissionsPage: {
+    pageTitle: 'Approvals',
     title: 'Media submissions',
     intro: 'Review image submissions from providers. Approve to make images live, or reject with a note.',
     noPending: 'No pending submissions.',
@@ -4681,6 +4682,7 @@ const ar: typeof en = {
     notificationMarkAllRead: 'تعيين الكل كمقروء',
   },
   mediaSubmissionsPage: {
+    pageTitle: 'الموافقات',
     title: 'طلبات الوسائط',
     intro: 'راجع طلبات الصور من مقدمي الخدمات. اعتمد لنشر الصورة، أو ارفض مع ملاحظة.',
     noPending: 'لا توجد طلبات معلقة.',
