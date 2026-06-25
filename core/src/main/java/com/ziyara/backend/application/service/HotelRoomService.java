@@ -40,6 +40,20 @@ public class HotelRoomService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<HotelRoomResponse> listFiltered(UUID serviceId, Integer floor, String category, HotelRoomStatus status) {
+        requireHotelService(serviceId);
+        return roomRepository.findFiltered(serviceId, floor, category, status).stream()
+                .map(this::toRoomResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<Integer> getDistinctFloors(UUID serviceId) {
+        requireHotelService(serviceId);
+        return roomRepository.findDistinctFloors(serviceId);
+    }
+
     @Transactional
     public HotelRoomResponse create(UUID serviceId, CreateHotelRoomRequest request) {
         requireHotelService(serviceId);
@@ -57,6 +71,13 @@ public class HotelRoomService {
         room.setAmenities(request.getAmenities());
         room.setStatus(request.getStatus() != null ? request.getStatus() : HotelRoomStatus.ACTIVE);
         room.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
+        room.setFloorNumber(request.getFloorNumber());
+        room.setRoomCategory(request.getRoomCategory() != null ? request.getRoomCategory() : "STANDARD");
+        room.setBedType(request.getBedType());
+        room.setAreaSqm(request.getAreaSqm());
+        room.setViewType(request.getViewType());
+        room.setSmokingAllowed(Boolean.TRUE.equals(request.getSmokingAllowed()));
+        room.setAccessible(Boolean.TRUE.equals(request.getIsAccessible()));
         HotelRoom saved = roomRepository.save(room);
         recalculateServiceRoomTotals(serviceId);
         return toRoomResponse(saved);
@@ -78,6 +99,13 @@ public class HotelRoomService {
         if (request.getAmenities() != null) room.setAmenities(request.getAmenities());
         if (request.getStatus() != null) room.setStatus(request.getStatus());
         if (request.getSortOrder() != null) room.setSortOrder(request.getSortOrder());
+        if (request.getFloorNumber() != null) room.setFloorNumber(request.getFloorNumber());
+        if (request.getRoomCategory() != null) room.setRoomCategory(request.getRoomCategory());
+        if (request.getBedType() != null) room.setBedType(request.getBedType());
+        if (request.getAreaSqm() != null) room.setAreaSqm(request.getAreaSqm());
+        if (request.getViewType() != null) room.setViewType(request.getViewType());
+        if (request.getSmokingAllowed() != null) room.setSmokingAllowed(request.getSmokingAllowed());
+        if (request.getIsAccessible() != null) room.setAccessible(request.getIsAccessible());
         validateQuantities(room.getQuantityTotal(), room.getQuantityAvailable());
         HotelRoom saved = roomRepository.save(room);
         recalculateServiceRoomTotals(serviceId);
@@ -174,6 +202,13 @@ public class HotelRoomService {
                 .amenities(room.getAmenities() != null ? room.getAmenities() : Map.of())
                 .status(room.getStatus())
                 .sortOrder(room.getSortOrder() != null ? room.getSortOrder() : 0)
+                .floorNumber(room.getFloorNumber())
+                .roomCategory(room.getRoomCategory())
+                .bedType(room.getBedType())
+                .areaSqm(room.getAreaSqm())
+                .viewType(room.getViewType())
+                .smokingAllowed(room.isSmokingAllowed())
+                .isAccessible(room.isAccessible())
                 .images(roomImageRepository.findByRoomId(room.getId()).stream()
                         .map(this::toImageResponse)
                         .collect(Collectors.toList()))

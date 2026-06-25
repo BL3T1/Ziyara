@@ -78,6 +78,27 @@ public class HotelRoomJpaEntity {
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder = 0;
 
+    @Column(name = "floor_number")
+    private Integer floorNumber;
+
+    @Column(name = "room_category", nullable = false, length = 32)
+    private String roomCategory = "STANDARD";
+
+    @Column(name = "bed_type", length = 16)
+    private String bedType;
+
+    @Column(name = "area_sqm", precision = 5, scale = 1)
+    private BigDecimal areaSqm;
+
+    @Column(name = "view_type", length = 16)
+    private String viewType;
+
+    @Column(name = "smoking_allowed", nullable = false)
+    private boolean smokingAllowed = false;
+
+    @Column(name = "is_accessible", nullable = false)
+    private boolean isAccessible = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -29,5 +29,12 @@ public class HotelRoomResponse {
     private Map<String, Object> amenities;
     private HotelRoomStatus status;
     private int sortOrder;
+    private Integer floorNumber;
+    private String roomCategory;
+    private String bedType;
+    private BigDecimal areaSqm;
+    private String viewType;
+    private boolean smokingAllowed;
+    private boolean isAccessible;
     private List<HotelRoomImageResponse> images;
 }

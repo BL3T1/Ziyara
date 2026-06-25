@@ -51,4 +51,21 @@ public class CreateHotelRoomRequest {
     private HotelRoomStatus status;
 
     private Integer sortOrder;
+
+    private Integer floorNumber;
+
+    @Size(max = 32)
+    private String roomCategory;
+
+    @Size(max = 16)
+    private String bedType;
+
+    private BigDecimal areaSqm;
+
+    @Size(max = 16)
+    private String viewType;
+
+    private Boolean smokingAllowed;
+
+    private Boolean isAccessible;
 }

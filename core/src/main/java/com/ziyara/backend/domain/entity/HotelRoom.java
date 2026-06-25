@@ -22,6 +22,13 @@ public class HotelRoom {
     private Attributes amenities = Attributes.empty();
     private HotelRoomStatus status;
     private Integer sortOrder;
+    private Integer floorNumber;
+    private String roomCategory = "STANDARD";
+    private String bedType;
+    private BigDecimal areaSqm;
+    private String viewType;
+    private boolean smokingAllowed = false;
+    private boolean isAccessible = false;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -94,6 +101,27 @@ public class HotelRoom {
 
     public Integer getSortOrder() { return sortOrder; }
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
+
+    public Integer getFloorNumber() { return floorNumber; }
+    public void setFloorNumber(Integer floorNumber) { this.floorNumber = floorNumber; }
+
+    public String getRoomCategory() { return roomCategory; }
+    public void setRoomCategory(String roomCategory) { this.roomCategory = roomCategory; }
+
+    public String getBedType() { return bedType; }
+    public void setBedType(String bedType) { this.bedType = bedType; }
+
+    public BigDecimal getAreaSqm() { return areaSqm; }
+    public void setAreaSqm(BigDecimal areaSqm) { this.areaSqm = areaSqm; }
+
+    public String getViewType() { return viewType; }
+    public void setViewType(String viewType) { this.viewType = viewType; }
+
+    public boolean isSmokingAllowed() { return smokingAllowed; }
+    public void setSmokingAllowed(boolean smokingAllowed) { this.smokingAllowed = smokingAllowed; }
+
+    public boolean isAccessible() { return isAccessible; }
+    public void setAccessible(boolean accessible) { isAccessible = accessible; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

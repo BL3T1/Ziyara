@@ -23,6 +23,13 @@ public class HotelRoomMapper {
         room.setAmenities(entity.getAmenities());
         room.setStatus(entity.getStatus());
         room.setSortOrder(entity.getSortOrder());
+        room.setFloorNumber(entity.getFloorNumber());
+        room.setRoomCategory(entity.getRoomCategory());
+        room.setBedType(entity.getBedType());
+        room.setAreaSqm(entity.getAreaSqm());
+        room.setViewType(entity.getViewType());
+        room.setSmokingAllowed(entity.isSmokingAllowed());
+        room.setAccessible(entity.isAccessible());
         room.setCreatedAt(entity.getCreatedAt());
         room.setUpdatedAt(entity.getUpdatedAt());
         return room;
@@ -44,6 +51,13 @@ public class HotelRoomMapper {
                 .amenities(room.getAmenities())
                 .status(room.getStatus())
                 .sortOrder(room.getSortOrder())
+                .floorNumber(room.getFloorNumber())
+                .roomCategory(room.getRoomCategory())
+                .bedType(room.getBedType())
+                .areaSqm(room.getAreaSqm())
+                .viewType(room.getViewType())
+                .smokingAllowed(room.isSmokingAllowed())
+                .isAccessible(room.isAccessible())
                 .createdAt(room.getCreatedAt())
                 .updatedAt(room.getUpdatedAt())
                 .build();

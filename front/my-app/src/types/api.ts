@@ -423,8 +423,12 @@ export interface HotelRoomDto {
   status: HotelRoomStatusDto
   sortOrder: number
   floorNumber?: number
-  suiteTier?: string
   roomCategory?: string
+  bedType?: string
+  areaSqm?: number
+  viewType?: string
+  smokingAllowed: boolean
+  isAccessible: boolean
   images: HotelRoomImageDto[]
 }
 
@@ -441,8 +445,12 @@ export interface CreateHotelRoomPayload {
   status?: HotelRoomStatusDto
   sortOrder?: number
   floorNumber?: number
-  suiteTier?: string
   roomCategory?: string
+  bedType?: string
+  areaSqm?: number
+  viewType?: string
+  smokingAllowed?: boolean
+  isAccessible?: boolean
 }
 
 export interface UpdateHotelRoomPayload {
@@ -458,8 +466,12 @@ export interface UpdateHotelRoomPayload {
   status?: HotelRoomStatusDto
   sortOrder?: number
   floorNumber?: number
-  suiteTier?: string
   roomCategory?: string
+  bedType?: string
+  areaSqm?: number
+  viewType?: string
+  smokingAllowed?: boolean
+  isAccessible?: boolean
 }
 
 // Profile edit request (approval workflow)
