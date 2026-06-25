@@ -17,6 +17,7 @@ import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
 import com.ziyara.backend.domain.repository.RoleRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
+import com.ziyara.backend.domain.repository.UserRoleAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
@@ -47,6 +48,7 @@ public class UserCommandHandler {
     private final PasswordHistoryService passwordHistoryService;
     private final PasswordPolicyService passwordPolicyService;
     private final UserPasswordService userPasswordService;
+    private final UserRoleAssignmentRepository userRoleAssignmentRepository;
     private final DSLContext dsl;
 
     /**
@@ -216,6 +218,7 @@ public class UserCommandHandler {
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
         user.softDelete();
         userRepository.save(user);
+        userRoleAssignmentRepository.clearAssignmentsForUser(id);
     }
 
     @Audited(action = "USER_FREEZE", entityType = "User", entityIdArgIndex = 0)
