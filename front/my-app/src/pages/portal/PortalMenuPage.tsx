@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
-import { getApiErrorMessage, portalServicesAPI } from '../../services/api'
+import { getApiErrorMessage, portalAPI, portalServicesAPI } from '../../services/api'
 import type {
   RestaurantMenuDto,
   RestaurantMenuSectionDto,
@@ -14,8 +14,8 @@ import { Modal } from '../../components/Modal'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 
 export function PortalMenuPage() {
-  const { id } = useParams<{ id: string }>()
   const { t } = useLanguage()
+  const [serviceId, setServiceId] = useState<string | null>(null)
 
   const [menu, setMenu] = useState<RestaurantMenuDto | null>(null)
   const [loading, setLoading] = useState(true)
@@ -37,12 +37,20 @@ export function PortalMenuPage() {
   const [itemError, setItemError] = useState('')
 
   useEffect(() => {
-    if (!id) return
-    portalServicesAPI.getMenu(id)
-      .then((r) => setMenu(r.data))
+    setLoading(true)
+    portalAPI.listServices({ page: 0, size: 1 })
+      .then((r) => {
+        const page = r.data as { content?: Array<{ id: string }> }
+        const sid = page?.content?.[0]?.id ?? null
+        setServiceId(sid)
+        if (!sid) { setError('No service found for this account.'); setLoading(false); return }
+        return portalServicesAPI.getMenu(sid)
+          .then((mr) => setMenu(mr.data))
+          .catch((e) => setError(getApiErrorMessage(e)))
+      })
       .catch((e) => setError(getApiErrorMessage(e)))
       .finally(() => setLoading(false))
-  }, [id])
+  }, [])
 
   // ── Section operations ─────────────────────────────────────────────────────
 
@@ -59,12 +67,12 @@ export function PortalMenuPage() {
   }
 
   async function handleAddSection() {
-    if (!id || !sectionTitle.trim()) return
+    if (!serviceId || !sectionTitle.trim()) return
     setSaving(true)
     setSectionError('')
     const payload: CreateMenuSectionPayload = { title: sectionTitle.trim() }
     try {
-      const res = await portalServicesAPI.createMenuSection(id, payload)
+      const res = await portalServicesAPI.createMenuSection(serviceId, payload)
       setMenu((prev) => prev ? { ...prev, sections: [...prev.sections, { ...res.data, items: [] }] } : prev)
       setAddSectionOpen(false)
     } catch (e) {
@@ -75,11 +83,11 @@ export function PortalMenuPage() {
   }
 
   async function handleEditSection() {
-    if (!id || !editSection) return
+    if (!serviceId || !editSection) return
     setSaving(true)
     setSectionError('')
     try {
-      const res = await portalServicesAPI.updateMenuSection(id, editSection.id, { title: sectionTitle.trim() })
+      const res = await portalServicesAPI.updateMenuSection(serviceId, editSection.id, { title: sectionTitle.trim() })
       setMenu((prev) => prev ? {
         ...prev,
         sections: prev.sections.map((s) => s.id === editSection.id ? { ...s, title: res.data.title } : s),
@@ -93,10 +101,10 @@ export function PortalMenuPage() {
   }
 
   async function handleDeleteSection() {
-    if (!id || !deleteSection) return
+    if (!serviceId || !deleteSection) return
     setSaving(true)
     try {
-      await portalServicesAPI.deleteMenuSection(id, deleteSection.id)
+      await portalServicesAPI.deleteMenuSection(serviceId, deleteSection.id)
       setMenu((prev) => prev ? { ...prev, sections: prev.sections.filter((s) => s.id !== deleteSection.id) } : prev)
     } catch (e) {
       setError(getApiErrorMessage(e))
@@ -121,11 +129,11 @@ export function PortalMenuPage() {
   }
 
   async function handleAddItem() {
-    if (!id || !addItemSection) return
+    if (!serviceId || !addItemSection) return
     setSaving(true)
     setItemError('')
     try {
-      const res = await portalServicesAPI.createMenuItem(id, addItemSection.id, itemForm)
+      const res = await portalServicesAPI.createMenuItem(serviceId, addItemSection.id, itemForm)
       setMenu((prev) => prev ? {
         ...prev,
         sections: prev.sections.map((s) =>
@@ -141,11 +149,11 @@ export function PortalMenuPage() {
   }
 
   async function handleEditItem() {
-    if (!id || !editItem) return
+    if (!serviceId || !editItem) return
     setSaving(true)
     setItemError('')
     try {
-      const res = await portalServicesAPI.updateMenuItem(id, editItem.item.id, itemForm)
+      const res = await portalServicesAPI.updateMenuItem(serviceId, editItem.item.id, itemForm)
       setMenu((prev) => prev ? {
         ...prev,
         sections: prev.sections.map((s) =>
@@ -163,10 +171,10 @@ export function PortalMenuPage() {
   }
 
   async function handleDeleteItem() {
-    if (!id || !deleteItem) return
+    if (!serviceId || !deleteItem) return
     setSaving(true)
     try {
-      await portalServicesAPI.deleteMenuItem(id, deleteItem.id)
+      await portalServicesAPI.deleteMenuItem(serviceId, deleteItem.id)
       setMenu((prev) => prev ? {
         ...prev,
         sections: prev.sections.map((s) => ({
@@ -218,9 +226,9 @@ export function PortalMenuPage() {
   return (
     <>
       <div className="mb-4 flex items-center justify-between">
-        <Link to={`/portal/listings/${id}`}
+        <Link to="/portal/profile"
           className="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
-          ← {t('portalPages.listingEditTitle')}
+          ← {t('portalPages.profileTitle')}
         </Link>
         <button onClick={openAddSection} className="dashboard-btn-primary">
           {t('portalPages.menuSectionAdd')}

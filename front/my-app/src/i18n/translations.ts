@@ -128,6 +128,7 @@ const en = {
     admin_cash: 'Cash Reconciliation',
     profile_edit_requests: 'Profile Edit Requests',
     identity_verifications: 'ID Verifications',
+    menu: 'Menu',
   },
   identityVerificationsPage: {
     title: 'Identity Verifications',
@@ -2647,6 +2648,7 @@ const ar: typeof en = {
     admin_cash: 'تسوية النقد',
     profile_edit_requests: 'طلبات تعديل الملف الشخصي',
     identity_verifications: 'التحقق من الهوية',
+    menu: 'القائمة',
   },
   identityVerificationsPage: {
     title: 'التحقق من الهوية',

@@ -169,11 +169,16 @@ export const PORTAL_NAV_PERMISSIONS: Record<string, string | undefined> = {
   portal_cash: 'portal:finance',
   earnings:    'portal:finance',
   discounts:   'portal:finance',
+  rooms:       'portal:manage',
+  menu:        'portal:manage',
 }
 
-/** Filter PORTAL_SIDEBAR_SECTIONS to only items the user has permission to see. */
-export function filterPortalSectionsByPermissions(has: (code: string) => boolean): SidebarSection[] {
-  return PORTAL_SIDEBAR_SECTIONS
+/** Filter portal sidebar sections to only items the user has permission to see. */
+export function filterPortalSectionsByPermissions(
+  has: (code: string) => boolean,
+  sections: SidebarSection[] = PORTAL_SIDEBAR_SECTIONS,
+): SidebarSection[] {
+  return sections
     .map((s) => ({
       ...s,
       items: s.items.filter((i) => {
@@ -184,23 +189,59 @@ export function filterPortalSectionsByPermissions(has: (code: string) => boolean
     .filter((s) => s.items.length > 0)
 }
 
-/** Client Portal (Provider Dashboard) sidebar – scoped to provider. */
+/** Shared portal items present for every provider type. */
+const PORTAL_COMMON_ITEMS: SidebarItem[] = [
+  { id: 'overview',    label: 'Overview',   href: '/portal' },
+  { id: 'bookings',   label: 'Bookings',   href: '/portal/bookings' },
+  { id: 'portal_cash', label: 'Cash Sheet', href: '/portal/cash' },
+  { id: 'staff',      label: 'Staff',      href: '/portal/staff' },
+  { id: 'earnings',   label: 'Earnings',   href: '/portal/earnings' },
+  { id: 'discounts',  label: 'Discounts',  href: '/portal/discounts' },
+  { id: 'media',      label: 'Media',      href: '/portal/media' },
+  { id: 'portal_map', label: 'Map',        href: '/portal/map' },
+  { id: 'profile',    label: 'Profile',    href: '/portal/profile' },
+  { id: 'support',    label: 'Support',    href: '/portal/support' },
+]
+
+/** Client Portal (Provider Dashboard) sidebar – hotel / resort / apartment / default. */
 export const PORTAL_SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     id: 'portal',
     label: 'PORTAL',
     items: [
-      { id: 'overview', label: 'Overview', href: '/portal' },
+      PORTAL_COMMON_ITEMS[0],
       { id: 'rooms', label: 'Rooms', href: '/portal/rooms' },
-      { id: 'bookings', label: 'Bookings', href: '/portal/bookings' },
-      { id: 'portal_cash', label: 'Cash Sheet', href: '/portal/cash' },
-      { id: 'staff', label: 'Staff', href: '/portal/staff' },
-      { id: 'earnings', label: 'Earnings', href: '/portal/earnings' },
-      { id: 'discounts', label: 'Discounts', href: '/portal/discounts' },
-      { id: 'media', label: 'Media', href: '/portal/media' },
-      { id: 'portal_map', label: 'Map', href: '/portal/map' },
-      { id: 'profile', label: 'Profile', href: '/portal/profile' },
-      { id: 'support', label: 'Support', href: '/portal/support' },
+      ...PORTAL_COMMON_ITEMS.slice(1),
     ],
   },
 ]
+
+/** Restaurant-specific portal sidebar. */
+export const PORTAL_SIDEBAR_SECTIONS_RESTAURANT: SidebarSection[] = [
+  {
+    id: 'portal',
+    label: 'PORTAL',
+    items: [
+      PORTAL_COMMON_ITEMS[0],
+      { id: 'menu', label: 'Menu', href: '/portal/menu' },
+      ...PORTAL_COMMON_ITEMS.slice(1),
+    ],
+  },
+]
+
+/** Generic portal sidebar for provider types without room/menu management (taxi, trip, etc.). */
+export const PORTAL_SIDEBAR_SECTIONS_DEFAULT: SidebarSection[] = [
+  {
+    id: 'portal',
+    label: 'PORTAL',
+    items: [...PORTAL_COMMON_ITEMS],
+  },
+]
+
+/** Return the correct portal sidebar sections based on provider type string (e.g. "HOTEL", "RESTAURANT"). */
+export function getPortalSidebarSections(providerType: string | null | undefined): SidebarSection[] {
+  const t = (providerType ?? '').toUpperCase()
+  if (t === 'RESTAURANT') return PORTAL_SIDEBAR_SECTIONS_RESTAURANT
+  if (t === 'HOTEL' || t === 'RESORT' || t === 'APARTMENT' || t === 'EVENT_SPACE') return PORTAL_SIDEBAR_SECTIONS
+  return PORTAL_SIDEBAR_SECTIONS_DEFAULT
+}

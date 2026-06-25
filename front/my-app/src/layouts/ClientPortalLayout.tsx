@@ -1,19 +1,21 @@
-import { Suspense } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { NavLink } from 'react-router-dom'
 import { useLayout } from '../context/LayoutContext'
 import { useLanguage } from '../context/LanguageContext'
-import { filterPortalSectionsByPermissions } from '../config/sidebar'
+import { filterPortalSectionsByPermissions, getPortalSidebarSections } from '../config/sidebar'
 import type { SidebarItem } from '../config/sidebar'
 import { getPageTitleKeyForPath } from '../config/routes'
 import { Logo } from '../components/Logo'
 import { DashboardFooter, DashboardHeader, RoutePageFallback } from '../components'
 import { SidebarIcons, type SidebarIconId } from '../components/SidebarIcons'
 import { usePermissions } from '../context/PermissionsContext'
+import { providersAPI } from '../services/api'
 
 const PORTAL_ITEM_ICON: Partial<Record<string, SidebarIconId>> = {
   overview: 'dashboard',
-  listings: 'hotels',
+  rooms: 'hotels',
+  menu: 'restaurants',
   bookings: 'bookings',
   portal_cash: 'payments',
   staff: 'users',
@@ -52,12 +54,12 @@ const CollapseIcon = ({ collapsed, rtl }: { collapsed: boolean; rtl: boolean }) 
   </svg>
 )
 
-function PortalSidebar() {
+function PortalSidebar({ providerType }: { providerType: string | null }) {
   const { sidebarCollapsed, setSidebarCollapsed } = useLayout()
   const { t, locale } = useLanguage()
   const { has } = usePermissions()
   const isRtl = locale === 'ar'
-  const sections = filterPortalSectionsByPermissions(has)
+  const sections = filterPortalSectionsByPermissions(has, getPortalSidebarSections(providerType))
 
   const railBorder = isRtl ? 'right-0 border-l' : 'left-0 border-r'
   const railShadow = isRtl
@@ -182,10 +184,18 @@ function ClientPortalLayoutInner() {
   const contentPadding = sidebarCollapsed ? 'pl-[3.75rem]' : 'pl-60'
   const contentPaddingRtl = sidebarCollapsed ? 'pr-[3.75rem]' : 'pr-60'
   const pageTitle = t(getPageTitleKeyForPath(pathname))
+  const [providerType, setProviderType] = useState<string | null>(null)
+
+  useEffect(() => {
+    providersAPI.getMe().then((res) => {
+      const data = res.data as { type?: string }
+      setProviderType(data?.type ?? null)
+    }).catch(() => {})
+  }, [])
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-black transition-colors duration-300 dark:bg-[#111827] dark:text-slate-100">
-      <PortalSidebar />
+      <PortalSidebar providerType={providerType} />
       <div
         className={`flex flex-1 flex-col transition-[padding] duration-200 ${isRtl ? contentPaddingRtl : contentPadding}`}
       >

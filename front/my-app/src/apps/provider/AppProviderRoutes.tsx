@@ -15,12 +15,6 @@ const ResetPasswordPage = lazy(() => import('../../pages/ResetPasswordPage').the
 const ClientPortalOverview = lazy(() =>
   import('../../pages/portal/ClientPortalOverview').then((m) => ({ default: m.ClientPortalOverview })),
 )
-const PortalListingsPage = lazy(() =>
-  import('../../pages/portal/PortalListingsPage').then((m) => ({ default: m.PortalListingsPage })),
-)
-const PortalListingFormPage = lazy(() =>
-  import('../../pages/portal/PortalListingFormPage').then((m) => ({ default: m.PortalListingFormPage })),
-)
 const PortalBookingsPage = lazy(() =>
   import('../../pages/portal/PortalBookingsPage').then((m) => ({ default: m.PortalBookingsPage })),
 )
@@ -54,7 +48,6 @@ const PortalRoomsPage = lazy(() =>
 const PortalMenuPage = lazy(() =>
   import('../../pages/portal/PortalMenuPage').then((m) => ({ default: m.PortalMenuPage })),
 )
-
 export function AppProviderRoutes() {
   return (
     <Routes>
@@ -67,10 +60,8 @@ export function AppProviderRoutes() {
         <Route element={<RequireSurfaceRole surface="provider" />}>
           <Route element={<ClientPortalLayout />}>
             <Route path="/portal" element={<ClientPortalOverview />} />
-            <Route path="/portal/listings/:id/rooms" element={<RequirePermission code="portal:manage"><PortalRoomsPage /></RequirePermission>} />
-            <Route path="/portal/listings/:id/menu" element={<RequirePermission code="portal:manage"><PortalMenuPage /></RequirePermission>} />
-            <Route path="/portal/listings/:id" element={<RequirePermission code="portal:manage"><PortalListingFormPage /></RequirePermission>} />
-            <Route path="/portal/listings" element={<PortalListingsPage />} />
+            <Route path="/portal/rooms" element={<RequirePermission code="portal:manage"><PortalRoomsPage /></RequirePermission>} />
+            <Route path="/portal/menu" element={<RequirePermission code="portal:manage"><PortalMenuPage /></RequirePermission>} />
             <Route path="/portal/bookings" element={<PortalBookingsPage />} />
             <Route path="/portal/staff" element={<PortalStaffPage />} />
             <Route path="/portal/earnings" element={<RequirePermission code="portal:finance"><PortalEarningsPage /></RequirePermission>} />
