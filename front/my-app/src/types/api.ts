@@ -422,6 +422,9 @@ export interface HotelRoomDto {
   amenities?: Record<string, unknown>
   status: HotelRoomStatusDto
   sortOrder: number
+  floorNumber?: number
+  suiteTier?: string
+  roomCategory?: string
   images: HotelRoomImageDto[]
 }
 
@@ -437,6 +440,9 @@ export interface CreateHotelRoomPayload {
   amenities?: Record<string, unknown>
   status?: HotelRoomStatusDto
   sortOrder?: number
+  floorNumber?: number
+  suiteTier?: string
+  roomCategory?: string
 }
 
 export interface UpdateHotelRoomPayload {
@@ -451,6 +457,65 @@ export interface UpdateHotelRoomPayload {
   amenities?: Record<string, unknown>
   status?: HotelRoomStatusDto
   sortOrder?: number
+  floorNumber?: number
+  suiteTier?: string
+  roomCategory?: string
+}
+
+// Profile edit request (approval workflow)
+export interface ProfileEditRequestDto {
+  id: string
+  providerId: string
+  requestedBy: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  diffJson: Record<string, { old: string; new: string }>
+  reviewedBy?: string
+  reviewedAt?: string
+  rejectionReason?: string
+  createdAt?: string
+}
+
+// Provider restaurant
+export interface ProviderRestaurantDto {
+  id: string
+  providerId: string
+  name: string
+  nameAr?: string
+  description?: string
+  logoUrl?: string
+  openingHours?: Record<string, string>
+}
+
+// Identity verification
+export interface IdentityStatusDto {
+  status: 'NONE' | 'PENDING' | 'VERIFIED'
+  documentUrl?: string
+}
+
+export interface IdentityVerificationEntryDto {
+  userId: string
+  firstName: string
+  lastName: string
+  status: 'PENDING' | 'VERIFIED'
+  documentUrl?: string
+  reviewedAt?: string
+  reviewedBy?: string
+}
+
+// Provider feature set (per type)
+export interface ProviderFeatureSetDto {
+  hasRestaurant: boolean
+  hasFloors: boolean
+  hasBookingConflictResolution: boolean
+  spaceLabel: string
+  suiteLabel: string
+}
+
+// Walk-in occupation
+export interface MarkRoomOccupiedPayload {
+  checkInDate: string
+  checkOutDate: string
+  reason?: string
 }
 
 // Providers

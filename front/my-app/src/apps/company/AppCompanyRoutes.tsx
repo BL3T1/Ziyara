@@ -57,7 +57,6 @@ const AuditLogsPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('../../pages/admin/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 )
-const ApiPage = lazy(() => import('../../pages/admin/ApiPage').then((m) => ({ default: m.ApiPage })))
 const IntegrationsPage = lazy(() =>
   import('../../pages/admin/IntegrationsPage').then((m) => ({ default: m.IntegrationsPage })),
 )
@@ -105,6 +104,12 @@ const MediaSubmissionsPage = lazy(() =>
 )
 const AdminCashReconciliationPage = lazy(() =>
   import('../../pages/management/AdminCashReconciliationPage').then((m) => ({ default: m.AdminCashReconciliationPage })),
+)
+const ProfileEditRequestsPage = lazy(() =>
+  import('../../pages/admin/ProfileEditRequestsPage').then((m) => ({ default: m.ProfileEditRequestsPage })),
+)
+const IdentityVerificationsPage = lazy(() =>
+  import('../../pages/admin/IdentityVerificationsPage').then((m) => ({ default: m.IdentityVerificationsPage })),
 )
 export function AppCompanyRoutes() {
   return (
@@ -158,12 +163,13 @@ export function AppCompanyRoutes() {
             <Route path="/admin/find-customer" element={<RequirePermission code="customers:read"><CustomerSearchPage /></RequirePermission>} />
             <Route path="/admin/customers/:userId" element={<RequirePermission code="customers:read"><CustomerProfilePage /></RequirePermission>} />
             <Route path="/admin/deleted-items" element={<RequirePermission code="deleted_items:company:read"><DeletedItemsPage /></RequirePermission>} />
-            <Route path="/admin/api" element={<RequirePermission code="settings:read"><ApiPage /></RequirePermission>} />
-            <Route path="/admin/integrations" element={<RequirePermission code="settings:read"><IntegrationsPage /></RequirePermission>} />
+<Route path="/admin/integrations" element={<RequirePermission code="settings:read"><IntegrationsPage /></RequirePermission>} />
             <Route path="/admin/webhooks" element={<RequirePermission code="webhooks:read"><WebhookSubscriptionsPage /></RequirePermission>} />
             <Route path="/admin/content" element={<RequirePermission code="content:read"><ContentPagesPage /></RequirePermission>} />
             <Route path="/admin/media-submissions" element={<RequirePermission code="media_submissions:approve"><MediaSubmissionsPage /></RequirePermission>} />
             <Route path="/media-approvals" element={<RequirePermission code="media_submissions:approve"><MediaSubmissionsPage /></RequirePermission>} />
+            <Route path="/admin/profile-edit-requests" element={<RequirePermission code="profile_edits:approve"><ProfileEditRequestsPage /></RequirePermission>} />
+            <Route path="/admin/identity-verifications" element={<RequirePermission code="customers:read"><IdentityVerificationsPage /></RequirePermission>} />
           </Route>
         </Route>
       </Route>

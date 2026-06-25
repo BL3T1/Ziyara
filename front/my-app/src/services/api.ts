@@ -58,6 +58,12 @@ import type {
   DeliveryLocationDto,
   LinkableUserDto,
   ReviewDto,
+  ProfileEditRequestDto,
+  ProviderRestaurantDto,
+  IdentityStatusDto,
+  IdentityVerificationEntryDto,
+  ProviderFeatureSetDto,
+  MarkRoomOccupiedPayload,
 } from '../types/api'
 
 /** Extract a user-friendly message from an API error (Axios or thrown object). */
@@ -779,6 +785,7 @@ export const notificationsAPI = {
   get: (id: string) => client.get<unknown>(`/notifications/${id}`),
   markAsRead: (id: string) => client.patch<unknown>(`/notifications/${id}/read`),
   markAllAsRead: () => client.post<unknown>('/notifications/read-all'),
+  getUnreadCount: () => client.get<number>('/notifications/unread-count'),
 }
 
 // --- Audit logs ---
@@ -898,6 +905,68 @@ export const webhooksAPI = {
   listDeliveries: (id: string, params?: { page?: number; size?: number }) =>
     client.get<WebhookDeliveryDto[]>(`/admin/webhooks/${id}/deliveries`, { params }),
   listEvents: () => client.get<string[]>('/admin/webhooks/events'),
+}
+
+// --- Portal profile edit approval ---
+export const portalProfileAPI = {
+  submitEdit: (body: Record<string, unknown>) =>
+    client.put<ProfileEditRequestDto>('/portal/profile', body),
+  getEditStatus: () =>
+    client.get<ProfileEditRequestDto | null>('/portal/profile/edit-status'),
+  uploadLogo: (form: FormData) =>
+    client.post<string>('/portal/profile/logo', form),
+}
+
+// --- Admin profile edit requests ---
+export const adminProfileEditAPI = {
+  listPending: () =>
+    client.get<ProfileEditRequestDto[]>('/admin/profile-edit-requests'),
+  approve: (id: string) =>
+    client.post<ProfileEditRequestDto>(`/admin/profile-edit-requests/${id}/approve`),
+  reject: (id: string, reason?: string) =>
+    client.post<ProfileEditRequestDto>(`/admin/profile-edit-requests/${id}/reject`, { reason }),
+}
+
+// --- Portal restaurant ---
+export const portalRestaurantAPI = {
+  get: () => client.get<ProviderRestaurantDto>('/portal/restaurant'),
+  create: (body: { name: string; nameAr?: string; description?: string; logoUrl?: string; openingHours?: Record<string, string> }) =>
+    client.post<ProviderRestaurantDto>('/portal/restaurant', body),
+  update: (body: { name?: string; nameAr?: string; description?: string; logoUrl?: string; openingHours?: Record<string, string> }) =>
+    client.put<ProviderRestaurantDto>('/portal/restaurant', body),
+}
+
+// --- Walk-in conflict ---
+export const portalWalkInAPI = {
+  markOccupied: (serviceId: string, roomId: string, body: MarkRoomOccupiedPayload) =>
+    client.post<unknown>(`/portal/services/${serviceId}/rooms/${roomId}/walk-in`, body),
+  getFloors: (serviceId: string) =>
+    client.get<number[]>(`/portal/services/${serviceId}/rooms/floors`),
+  getFilteredRooms: (serviceId: string, params?: { floor?: number; category?: string; status?: string }) =>
+    client.get<HotelRoomDto[]>(`/portal/services/${serviceId}/rooms/filtered`, { params }),
+}
+
+// --- Identity verification ---
+export const identityAPI = {
+  getStatus: () => client.get<IdentityStatusDto>('/profile/identity-status'),
+  upload: (form: FormData) =>
+    client.post<IdentityStatusDto>('/profile/identity-document', form),
+}
+
+// --- Admin identity verification ---
+export const adminIdentityAPI = {
+  list: (status?: string) =>
+    client.get<IdentityVerificationEntryDto[]>('/admin/customers/identity-verifications', { params: { status } }),
+  verify: (userId: string, body: { approved: boolean; reason?: string }) =>
+    client.post<IdentityStatusDto>(`/admin/customers/${userId}/verify-identity`, body),
+}
+
+// --- Admin provider type ---
+export const adminProviderTypeAPI = {
+  updateType: (providerId: string, providerType: string) =>
+    client.put<ProviderFeatureSetDto>(`/admin/providers/${providerId}/type`, { providerType }),
+  getFeatures: (providerId: string) =>
+    client.get<ProviderFeatureSetDto>(`/admin/providers/${providerId}/features`),
 }
 
 export default client

@@ -7,6 +7,7 @@ import com.ziyara.backend.infrastructure.persistence.repository.CustomerJpaRepos
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,5 +26,17 @@ public class CustomerRepositoryAdapter implements CustomerRepository {
     @Override
     public Optional<Customer> findByUserId(UUID userId) {
         return jpaRepository.findByUserId(userId).map(mapper::toDomain);
+    }
+
+    @Override
+    public List<Customer> findPendingIdentityVerifications() {
+        return jpaRepository.findByIdDocumentUrlNotNullAndIdentityVerified(false)
+                .stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Customer> findVerifiedIdentityDocuments() {
+        return jpaRepository.findByIdentityVerifiedTrue()
+                .stream().map(mapper::toDomain).toList();
     }
 }

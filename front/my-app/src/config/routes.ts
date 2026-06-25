@@ -20,6 +20,7 @@ export const ROUTE_TITLES: Record<string, string> = {
   '/management/payments': 'Payments',
   '/management/discounts': 'Discounts',
   '/admin/profile-edit-requests': 'Profile Edit Requests',
+  '/admin/identity-verifications': 'ID Verifications',
   '/management/reports': 'Reports',
   '/support/complaints': 'Complaints',
   '/support/reviews': 'Reviews',
@@ -72,6 +73,7 @@ export const ROUTE_TITLE_KEYS: Record<string, string> = {
   '/portal/cash': 'title.portalCash',
   '/admin/cash': 'title.adminCash',
   '/admin/profile-edit-requests': 'title.profileEditRequests',
+  '/admin/identity-verifications': 'title.identityVerifications',
 }
 
 /** Path to header icon (sidebar item id). Header shows this icon for the current page. */
@@ -110,6 +112,7 @@ export const ROUTE_ICONS: Record<string, SidebarIconId> = {
   '/portal/profile': 'settings',
   '/portal/support': 'chat',
   '/admin/profile-edit-requests': 'providers',
+  '/admin/identity-verifications': 'users',
 }
 
 const SERVICE_TYPE_TITLES: Record<string, string> = {

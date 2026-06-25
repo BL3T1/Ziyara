@@ -12,19 +12,28 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/admin/customers")
 @RequiredArgsConstructor
-@PreAuthorize(ApiAuthorizationExpressions.CUSTOMERS_WRITE)
 @Tag(name = "Admin Identity Verification", description = "Admin endpoints for verifying customer identity documents")
 @SecurityRequirement(name = "bearerAuth")
 public class AdminIdentityController {
 
     private final IdentityDocumentService identityDocumentService;
 
+    @GetMapping("/identity-verifications")
+    @PreAuthorize(ApiAuthorizationExpressions.CUSTOMERS_READ)
+    @Operation(summary = "List customers with submitted identity documents (filter: ALL, PENDING, VERIFIED)")
+    public ResponseEntity<ApiResponse<List<IdentityDocumentService.IdentityVerificationEntry>>> list(
+            @RequestParam(defaultValue = "ALL") String status) {
+        return ResponseEntity.ok(ApiResponse.success(identityDocumentService.listVerifications(status)));
+    }
+
     @PostMapping("/{userId}/verify-identity")
+    @PreAuthorize(ApiAuthorizationExpressions.CUSTOMERS_WRITE)
     @Operation(summary = "Approve or reject a customer's identity document")
     public ResponseEntity<ApiResponse<IdentityDocumentService.IdentityStatus>> verifyIdentity(
             @PathVariable UUID userId,

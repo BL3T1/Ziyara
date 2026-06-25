@@ -8,8 +8,8 @@ import { useAuth } from '../../context/AuthContext'
 import { useDisplayCurrency } from '../../context/DisplayCurrencyContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { usePermission } from '../../hooks/usePermission'
-import { adminSuperAPI, getApiErrorMessage, usersAPI } from '../../services/api'
-import type { BookingDto, PageDto, PaymentDto, UserDto } from '../../types/api'
+import { adminIdentityAPI, adminSuperAPI, getApiErrorMessage, usersAPI } from '../../services/api'
+import type { BookingDto, IdentityVerificationEntryDto, PageDto, PaymentDto, UserDto } from '../../types/api'
 import { Modal } from '../../components/Modal'
 import { FormField } from '../../components/FormField'
 import { PasswordInput } from '../../components/PasswordInput'
@@ -50,6 +50,15 @@ export function CustomerProfilePage() {
   const [paymentsPage, setPaymentsPage] = useState(0)
   const [paymentsTotalPages, setPaymentsTotalPages] = useState(0)
   const [loadingPayments, setLoadingPayments] = useState(false)
+
+  // Identity verification
+  const [identity, setIdentity] = useState<IdentityVerificationEntryDto | null>(null)
+  const [identityLoading, setIdentityLoading] = useState(false)
+  const [identityError, setIdentityError] = useState<string | null>(null)
+  const [identitySuccess, setIdentitySuccess] = useState<string | null>(null)
+  const [rejectMode, setRejectMode] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [identityActing, setIdentityActing] = useState(false)
 
   // Reset password
   const [resetPwdModal, setResetPwdModal] = useState(false)
@@ -122,6 +131,51 @@ export function CustomerProfilePage() {
       })
       .finally(() => setLoadingPayments(false))
   }, [userId, customerOk, paymentsPage])
+
+  useEffect(() => {
+    if (!userId || !customerOk) return
+    setIdentityLoading(true)
+    adminIdentityAPI
+      .list('ALL')
+      .then((res) => {
+        const all = (res.data as IdentityVerificationEntryDto[]) ?? []
+        setIdentity(all.find((e) => e.userId === userId) ?? null)
+      })
+      .catch(() => setIdentity(null))
+      .finally(() => setIdentityLoading(false))
+  }, [userId, customerOk])
+
+  async function handleIdentityApprove() {
+    if (!userId) return
+    setIdentityActing(true)
+    setIdentityError(null)
+    try {
+      await adminIdentityAPI.verify(userId, { approved: true })
+      setIdentity((prev) => prev ? { ...prev, status: 'VERIFIED', reviewedAt: new Date().toISOString() } : prev)
+      setIdentitySuccess(t('identityVerificationsPage.approveSuccess'))
+    } catch (e) {
+      setIdentityError(getApiErrorMessage(e))
+    } finally {
+      setIdentityActing(false)
+    }
+  }
+
+  async function handleIdentityReject() {
+    if (!userId) return
+    setIdentityActing(true)
+    setIdentityError(null)
+    try {
+      await adminIdentityAPI.verify(userId, { approved: false, reason: rejectReason || undefined })
+      setIdentity(null)
+      setRejectMode(false)
+      setRejectReason('')
+      setIdentitySuccess(t('identityVerificationsPage.rejectSuccess'))
+    } catch (e) {
+      setIdentityError(getApiErrorMessage(e))
+    } finally {
+      setIdentityActing(false)
+    }
+  }
 
   if (!user) return null
 
@@ -286,6 +340,98 @@ export function CustomerProfilePage() {
 
       {customerOk && (
         <>
+          <h2 className="mt-10 text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {t('identityVerificationsPage.cardTitle')}
+          </h2>
+          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            {identityLoading ? (
+              <p className="text-sm text-slate-400">{t('ui.loading')}</p>
+            ) : !identity ? (
+              <p className="text-sm text-slate-400">{t('identityVerificationsPage.noDocument')}</p>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      identity.status === 'VERIFIED'
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    }`}
+                  >
+                    {identity.status}
+                  </span>
+                  {identity.documentUrl && (
+                    <a href={identity.documentUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
+                      {t('identityVerificationsPage.viewDocument')}
+                    </a>
+                  )}
+                  {identity.reviewedAt && (
+                    <span className="text-xs text-slate-400">
+                      {t('identityVerificationsPage.reviewedOn')} {new Date(identity.reviewedAt).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+
+                {identityError && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{identityError}</p>
+                )}
+                {identitySuccess && (
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400">{identitySuccess}</p>
+                )}
+
+                {canWrite && identity.status === 'PENDING' && (
+                  <>
+                    {rejectMode ? (
+                      <div className="flex flex-col gap-2">
+                        <input
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+                          placeholder={t('identityVerificationsPage.rejectReasonPlaceholder')}
+                          value={rejectReason}
+                          onChange={(e) => setRejectReason(e.target.value)}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => { setRejectMode(false); setRejectReason('') }}
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600"
+                          >
+                            {t('ui.cancel')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleIdentityReject}
+                            disabled={identityActing}
+                            className="rounded-lg bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {t('identityVerificationsPage.confirmReject')}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleIdentityApprove}
+                          disabled={identityActing}
+                          className="dashboard-btn-primary disabled:opacity-50"
+                        >
+                          {identityActing ? t('ui.submitting') : t('identityVerificationsPage.approve')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRejectMode(true)}
+                          className="rounded-xl border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400"
+                        >
+                          {t('identityVerificationsPage.reject')}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
           <h2 className="mt-10 text-lg font-semibold text-slate-900 dark:text-slate-100">{t('customerProfilePage.bookingsTitle')}</h2>
           <div className="mt-4 table-shell">
             {loadingBookings ? (
