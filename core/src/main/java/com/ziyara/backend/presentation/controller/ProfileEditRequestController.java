@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/admin/profile-edit-requests")
+@RequestMapping("/admin/profile-edit-requests")
 @RequiredArgsConstructor
 @PreAuthorize(ApiAuthorizationExpressions.PROFILE_EDITS_APPROVE)
 @Tag(name = "Admin Profile Edit Requests", description = "Admin review of provider profile edit requests")
