@@ -125,6 +125,7 @@ const en = {
     portal_map: 'Map',
     portal_cash: 'Cash Sheet',
     admin_cash: 'Cash Reconciliation',
+    profile_edit_requests: 'Profile Edit Requests',
   },
   section: {
     main: 'MAIN',
@@ -2610,6 +2611,7 @@ const ar: typeof en = {
     portal_map: 'الخريطة',
     portal_cash: 'كشف النقد',
     admin_cash: 'تسوية النقد',
+    profile_edit_requests: 'طلبات تعديل الملف الشخصي',
   },
   section: {
     main: 'الرئيسية',
