@@ -19,6 +19,7 @@ export const ROUTE_TITLES: Record<string, string> = {
   '/management/bookings': 'Bookings',
   '/management/payments': 'Payments',
   '/management/discounts': 'Discounts',
+  '/admin/profile-edit-requests': 'Profile Edit Requests',
   '/management/reports': 'Reports',
   '/support/complaints': 'Complaints',
   '/support/reviews': 'Reviews',
@@ -62,8 +63,7 @@ export const ROUTE_TITLE_KEYS: Record<string, string> = {
   '/admin/api': 'title.api',
   '/admin/integrations': 'title.integrations',
   '/portal': 'title.portalOverview',
-  '/portal/listings/new': 'title.listingNew',
-  '/portal/listings': 'title.listings',
+  '/portal/rooms': 'title.rooms',
   '/portal/bookings': 'title.bookings',
   '/portal/staff': 'title.staff',
   '/portal/earnings': 'title.earnings',
@@ -71,6 +71,7 @@ export const ROUTE_TITLE_KEYS: Record<string, string> = {
   '/portal/support': 'title.portalSupport',
   '/portal/cash': 'title.portalCash',
   '/admin/cash': 'title.adminCash',
+  '/admin/profile-edit-requests': 'title.profileEditRequests',
 }
 
 /** Path to header icon (sidebar item id). Header shows this icon for the current page. */
@@ -102,13 +103,13 @@ export const ROUTE_ICONS: Record<string, SidebarIconId> = {
   '/admin/api': 'api',
   '/admin/integrations': 'integrations',
   '/portal': 'dashboard',
-  '/portal/listings/new': 'hotels',
-  '/portal/listings': 'hotels',
+  '/portal/rooms': 'hotels',
   '/portal/bookings': 'bookings',
   '/portal/staff': 'users',
   '/portal/earnings': 'sales',
   '/portal/profile': 'settings',
   '/portal/support': 'chat',
+  '/admin/profile-edit-requests': 'providers',
 }
 
 const SERVICE_TYPE_TITLES: Record<string, string> = {
@@ -150,9 +151,6 @@ export function getPageTitleKeyForPath(pathname: string): string {
   ) {
     return 'title.providerEdit'
   }
-  if (pathname.startsWith('/portal/listings/') && pathname !== '/portal/listings/new') {
-    return 'title.listingEdit'
-  }
   const servicesMatch = pathname.match(/^\/services\/([^/]+)(?:\/([^/]+))?/)
   if (servicesMatch) {
     const [, type] = servicesMatch
@@ -173,7 +171,7 @@ export function getPageIconForPath(pathname: string): SidebarIconId {
   ) {
     return 'providers'
   }
-  if (pathname.startsWith('/portal/listings')) return 'hotels'
+  if (pathname.startsWith('/portal/rooms')) return 'hotels'
   if (pathname.startsWith('/support/reviews')) return 'reviews'
   const servicesMatch = pathname.match(/^\/services\/([^/]+)/)
   if (servicesMatch) {

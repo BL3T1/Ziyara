@@ -41,6 +41,7 @@ public final class CompanySidebarCatalog {
             new ItemDef("payouts", "management", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.ADMIN, SidebarSurface.FINANCE, SidebarSurface.EXECUTIVE)),
             new ItemDef("discounts", "management", null),
             new ItemDef("media_approvals", "management", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.ADMIN)),
+            new ItemDef("profile_edit_requests", "management", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.ADMIN)),
             new ItemDef("reports", "management", null),
             new ItemDef("taxi_trips", "management", null),
             new ItemDef("currency_rates", "management", EnumSet.of(SidebarSurface.SUPER_ADMIN, SidebarSurface.EXECUTIVE, SidebarSurface.FINANCE)),
