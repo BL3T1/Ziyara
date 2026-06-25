@@ -52,6 +52,22 @@ export function PortalBookingsPage() {
   const [payments, setPayments] = useState<PaymentDto[]>([])
   const [paymentsLoading, setPaymentsLoading] = useState(false)
 
+  // booking confirmation
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+
+  const handleConfirmBooking = async (b: BookingDto) => {
+    setConfirmingId(b.id)
+    setError(null)
+    try {
+      await portalAPI.confirmBooking(b.id)
+      load()
+    } catch (e) {
+      setError(getApiErrorMessage(e))
+    } finally {
+      setConfirmingId(null)
+    }
+  }
+
   // cash approval
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [approveCashBooking, setApproveCashBooking] = useState<BookingDto | null>(null)
@@ -231,6 +247,7 @@ export function PortalBookingsPage() {
                 const isCashUnpaid =
                   (b.paymentMethod ?? '').toUpperCase() === 'CASH' &&
                   (b.paymentStatus ?? '').toUpperCase() !== 'PAID'
+                const isPending = (b.status ?? '').toUpperCase() === 'PENDING'
                 return (
                   <tr key={b.id}>
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-700 dark:text-slate-200">{b.bookingReference ?? '—'}</td>
@@ -258,6 +275,16 @@ export function PortalBookingsPage() {
                         >
                           {t('ui.view')}
                         </button>
+                        {isPending && (
+                          <button
+                            type="button"
+                            disabled={confirmingId === b.id}
+                            onClick={() => handleConfirmBooking(b)}
+                            className="font-semibold text-emerald-600 hover:underline disabled:opacity-40 dark:text-emerald-400"
+                          >
+                            {confirmingId === b.id ? t('ui.saving') : t('portalBookings.confirmBooking')}
+                          </button>
+                        )}
                         {canFinance && isCashUnpaid && (
                           <button
                             type="button"
@@ -267,7 +294,7 @@ export function PortalBookingsPage() {
                               setApproveNotes('')
                               setApproveCashBooking(b)
                             }}
-                            className="font-semibold text-emerald-600 hover:underline disabled:opacity-40 dark:text-emerald-400"
+                            className="font-semibold text-amber-600 hover:underline disabled:opacity-40 dark:text-amber-400"
                           >
                             {t('portalBookings.approveCash')}
                           </button>

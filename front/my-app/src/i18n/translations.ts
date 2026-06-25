@@ -2407,6 +2407,7 @@ const en = {
   portalBookings: {
     paymentMethod: 'Payment method',
     paymentStatus: 'Payment status',
+    confirmBooking: 'Confirm',
     approveCash: 'Approve cash',
     approveCashConfirm: 'Confirm cash collection for booking {ref} — {amount}?',
     addPayment: 'Record payment',
@@ -4923,6 +4924,7 @@ const ar: typeof en = {
   portalBookings: {
     paymentMethod: 'طريقة الدفع',
     paymentStatus: 'حالة الدفع',
+    confirmBooking: 'تأكيد الحجز',
     approveCash: 'تأكيد الدفع النقدي',
     approveCashConfirm: 'تأكيد استلام النقد للحجز {ref} — {amount}؟',
     addPayment: 'تسجيل دفعة',

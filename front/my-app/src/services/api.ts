@@ -305,6 +305,7 @@ export const portalAPI = {
     client.patch<ServiceDto>(`/portal/services/${id}`, body),
   deleteService: (id: string) => client.delete<void>(`/portal/services/${id}`),
   listBookings: () => client.get<BookingDto[]>('/portal/bookings'),
+  confirmBooking: (id: string) => client.post<BookingDto>(`/bookings/${id}/confirm`),
   listBookingPayments: (bookingId: string) =>
     client.get<PaymentDto[]>(`/portal/bookings/${bookingId}/payments`),
   approveCashPayment: (bookingId: string, body: { amount: number; currency: string; notes?: string }) =>

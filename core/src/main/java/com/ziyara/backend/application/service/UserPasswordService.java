@@ -33,7 +33,10 @@ public class UserPasswordService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setLastPasswordChange(LocalDateTime.now());
         user.setMustChangePassword(true);
-        user.incrementTokenVersion();
+        // Do NOT increment token version here — the user's existing session must stay
+        // valid so they can reach the change-password endpoint. Token version is
+        // incremented in UserCommandHandler.changePassword() once they successfully set
+        // their new password, which then invalidates all other sessions.
         userRepository.save(user);
     }
 }
