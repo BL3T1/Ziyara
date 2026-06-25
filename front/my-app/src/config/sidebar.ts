@@ -104,6 +104,7 @@ export const NAV_READ_PERMISSIONS: Record<string, string | undefined> = {
   discounts:          'discounts:read',
   media_approvals:    'media_submissions:approve',
   profile_edit_requests: 'profile_edits:approve',
+  identity_verifications: 'customers:read',
   reports:            'reports:read',
   taxi_trips:         'taxi:read',
   currency_rates:     'currency:read',
