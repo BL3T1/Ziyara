@@ -4,6 +4,7 @@ import com.ziyara.backend.domain.common.PageQuery;
 import com.ziyara.backend.domain.common.PagedResult;
 import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.enums.ProviderStatus;
+import com.ziyara.backend.domain.enums.ProviderType;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.infrastructure.persistence.entity.ServiceProviderJpaEntity;
 import com.ziyara.backend.infrastructure.persistence.mapper.ServiceProviderMapper;
@@ -66,12 +67,16 @@ public class ServiceProviderRepositoryAdapter implements ServiceProviderReposito
         if (type == null || type.isBlank()) {
             return List.of();
         }
-        String norm = type.trim().toUpperCase();
-        return serviceProviderJpaRepository.findByProviderType(norm).stream()
-                .map(serviceProviderMapper::toDomainEntity)
-                .collect(Collectors.toList());
+        try {
+            ProviderType pt = ProviderType.valueOf(type.trim().toUpperCase());
+            return serviceProviderJpaRepository.findByProviderTypeAndDeletedAtIsNull(pt).stream()
+                    .map(serviceProviderMapper::toDomainEntity)
+                    .collect(Collectors.toList());
+        } catch (IllegalArgumentException e) {
+            return List.of();
+        }
     }
-    
+
     @Override
     public List<ServiceProvider> findAll() {
         return serviceProviderJpaRepository.findAll().stream()
@@ -81,22 +86,32 @@ public class ServiceProviderRepositoryAdapter implements ServiceProviderReposito
 
     @Override
     public PagedResult<ServiceProvider> findAll(PageQuery pageQuery) {
-        return PageConverter.toPagedResult(serviceProviderJpaRepository.findAll(PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
+        return PageConverter.toPagedResult(serviceProviderJpaRepository.findByDeletedAtIsNull(PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
     }
 
     @Override
     public PagedResult<ServiceProvider> findByStatus(ProviderStatus status, PageQuery pageQuery) {
-        return PageConverter.toPagedResult(serviceProviderJpaRepository.findByStatus(status, PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
+        return PageConverter.toPagedResult(serviceProviderJpaRepository.findByStatusAndDeletedAtIsNull(status, PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
     }
 
     @Override
     public PagedResult<ServiceProvider> findByProviderType(String providerType, PageQuery pageQuery) {
-        return PageConverter.toPagedResult(serviceProviderJpaRepository.findByProviderType(providerType, PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
+        try {
+            ProviderType pt = ProviderType.valueOf(providerType.trim().toUpperCase());
+            return PageConverter.toPagedResult(serviceProviderJpaRepository.findByProviderTypeAndDeletedAtIsNull(pt, PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
+        } catch (IllegalArgumentException e) {
+            return PageConverter.toPagedResult(org.springframework.data.domain.Page.empty(), serviceProviderMapper::toDomainEntity);
+        }
     }
 
     @Override
     public PagedResult<ServiceProvider> findByStatusAndProviderType(ProviderStatus status, String providerType, PageQuery pageQuery) {
-        return PageConverter.toPagedResult(serviceProviderJpaRepository.findByStatusAndProviderType(status, providerType, PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
+        try {
+            ProviderType pt = ProviderType.valueOf(providerType.trim().toUpperCase());
+            return PageConverter.toPagedResult(serviceProviderJpaRepository.findByStatusAndProviderTypeAndDeletedAtIsNull(status, pt, PageConverter.toPageable(pageQuery)), serviceProviderMapper::toDomainEntity);
+        } catch (IllegalArgumentException e) {
+            return PageConverter.toPagedResult(org.springframework.data.domain.Page.empty(), serviceProviderMapper::toDomainEntity);
+        }
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.ziyara.backend.infrastructure.persistence.repository;
 
 import com.ziyara.backend.domain.enums.ProviderStatus;
+import com.ziyara.backend.domain.enums.ProviderType;
 import com.ziyara.backend.infrastructure.persistence.entity.ServiceProviderJpaEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,13 +25,15 @@ public interface ServiceProviderJpaRepository extends JpaRepository<ServiceProvi
     Optional<ServiceProviderJpaEntity> findByCompanyName(String companyName);
     List<ServiceProviderJpaEntity> findByStatus(ProviderStatus status);
 
-    Page<ServiceProviderJpaEntity> findByStatus(ProviderStatus status, Pageable pageable);
+    Page<ServiceProviderJpaEntity> findByStatusAndDeletedAtIsNull(ProviderStatus status, Pageable pageable);
 
-    List<ServiceProviderJpaEntity> findByProviderType(String providerType);
+    Page<ServiceProviderJpaEntity> findByDeletedAtIsNull(Pageable pageable);
 
-    Page<ServiceProviderJpaEntity> findByProviderType(String providerType, Pageable pageable);
+    List<ServiceProviderJpaEntity> findByProviderTypeAndDeletedAtIsNull(ProviderType providerType);
 
-    Page<ServiceProviderJpaEntity> findByStatusAndProviderType(ProviderStatus status, String providerType, Pageable pageable);
+    Page<ServiceProviderJpaEntity> findByProviderTypeAndDeletedAtIsNull(ProviderType providerType, Pageable pageable);
+
+    Page<ServiceProviderJpaEntity> findByStatusAndProviderTypeAndDeletedAtIsNull(ProviderStatus status, ProviderType providerType, Pageable pageable);
     boolean existsByCompanyName(String companyName);
 
     @Query("SELECT e FROM ServiceProviderJpaEntity e WHERE e.expiryDate = :date AND e.deletedAt IS NULL")
