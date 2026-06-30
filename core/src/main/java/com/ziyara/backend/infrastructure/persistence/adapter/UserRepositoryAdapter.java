@@ -122,8 +122,9 @@ public class UserRepositoryAdapter implements UserRepository {
         if (email == null || email.isBlank()) {
             return false;
         }
-        String t = email.trim();
-        return userJpaRepository.existsByEmail(t) || userJpaRepository.existsByEmailIgnoreCase(t);
+        // Use native query so soft-deleted rows are included — the DB unique constraint
+        // on email applies to all rows, not just non-deleted ones.
+        return userJpaRepository.existsByEmailIncludingDeleted(email.trim());
     }
     
     @Override
@@ -176,5 +177,12 @@ public class UserRepositoryAdapter implements UserRepository {
         }
         List<UUID> ids = userJpaRepository.findDistinctIdsByRoleInAndStatus(roles, status);
         return ids != null ? ids : Collections.emptyList();
+    }
+
+    @Override
+    public List<User> findUnlinkedActiveStaff() {
+        return userJpaRepository.findUnlinkedActiveStaff().stream()
+                .map(userMapper::toDomainEntity)
+                .collect(Collectors.toList());
     }
 }

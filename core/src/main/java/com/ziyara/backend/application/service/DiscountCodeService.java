@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ziyara.backend.modules.discount.api.DiscountCodeApi;
 import com.ziyara.backend.modules.webhook.api.WebhookEventPublisher;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -37,7 +38,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class DiscountCodeService {
+public class DiscountCodeService implements DiscountCodeApi {
 
     private static final Set<String> ALLOWED_SPONSORS = Set.of("COMPANY", "PROVIDER", "BOTH");
 

@@ -21,13 +21,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ziyara.backend.modules.service.api.RestaurantMenuApi;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class RestaurantMenuService {
+public class RestaurantMenuService implements RestaurantMenuApi {
 
     private static final int MAX_SECTIONS = 50;
     private static final int MAX_ITEMS_PER_SECTION = 200;

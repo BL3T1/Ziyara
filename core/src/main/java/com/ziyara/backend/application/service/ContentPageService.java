@@ -5,6 +5,7 @@ import com.ziyara.backend.application.dto.response.ContentPageResponse;
 import com.ziyara.backend.application.locale.RequestLocaleHolder;
 import com.ziyara.backend.domain.entity.ContentPage;
 import com.ziyara.backend.domain.repository.ContentPageRepository;
+import com.ziyara.backend.domain.usecase.content.UpsertContentPageUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,17 +36,13 @@ public class ContentPageService {
 
     @Transactional
     public ContentPageResponse upsert(String slug, UpsertContentPageRequest request) {
-        String normalizedSlug = normalizeSlug(slug);
-        ContentPage page = contentPageRepository.findBySlug(normalizedSlug)
-                .orElseGet(() -> {
-                    ContentPage p = new ContentPage();
-                    p.setSlug(normalizedSlug);
-                    return p;
-                });
-        page.setContentEn(copyOrEmpty(request.getContentEn()));
-        page.setContentAr(copyOrEmpty(request.getContentAr()));
-        page.setPublished(request.getPublished() != null ? request.getPublished() : Boolean.TRUE);
-        ContentPage saved = contentPageRepository.save(page);
+        ContentPage saved = new UpsertContentPageUseCase(contentPageRepository)
+                .execute(new UpsertContentPageUseCase.Input(
+                        normalizeSlug(slug),
+                        request.getContentEn(),
+                        request.getContentAr(),
+                        request.getPublished()
+                ));
         return ContentPageResponse.builder()
                 .slug(saved.getSlug())
                 .content(resolveLocalizedContent(saved, "en"))
@@ -65,10 +62,6 @@ public class ContentPageService {
 
     private static String normalizeSlug(String slug) {
         return slug == null ? "" : slug.trim().toLowerCase();
-    }
-
-    private static Map<String, Object> copyOrEmpty(Map<String, Object> source) {
-        return source == null ? new HashMap<>() : new HashMap<>(source);
     }
 
     private static ContentPage createFallbackPage(String slug) {

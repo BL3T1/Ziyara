@@ -6,6 +6,7 @@ import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.enums.ProviderStatus;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,6 +32,8 @@ public interface ServiceProviderRepository {
     PagedResult<ServiceProvider> findByStatusAndProviderType(ProviderStatus status, String providerType, PageQuery pageQuery);
 
     List<ServiceProvider> findByExpiryDate(LocalDate date);
+
+    List<ServiceProvider> findAllById(Collection<UUID> ids);
 
     long count();
     void deleteById(UUID id);

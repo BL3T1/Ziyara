@@ -13,13 +13,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ziyara.backend.modules.service.api.ServiceImageApi;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class ServiceImageService {
+public class ServiceImageService implements ServiceImageApi {
 
     private static final int MAX_IMAGES_PER_SERVICE = 100;
 

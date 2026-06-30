@@ -6,6 +6,11 @@ import com.ziyara.backend.application.dto.request.CreateWebhookSubscriptionReque
 import com.ziyara.backend.application.dto.response.WebhookDeliveryResponse;
 import com.ziyara.backend.application.dto.response.WebhookSubscriptionResponse;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
+import com.ziyara.backend.domain.entity.WebhookDelivery;
+import com.ziyara.backend.domain.entity.WebhookRetryTask;
+import com.ziyara.backend.domain.entity.WebhookSubscription;
+import com.ziyara.backend.domain.repository.WebhookDeliveryRepository;
+import com.ziyara.backend.domain.repository.WebhookSubscriptionRepository;
 import com.ziyara.backend.modules.webhook.api.WebhookEventPublisher;
 import com.ziyara.backend.modules.webhook.api.WebhookRetryApi;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +19,6 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -25,9 +29,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,16 +47,19 @@ public class WebhookService implements WebhookEventPublisher, WebhookRetryApi {
     private static final List<String> SUPPORTED_EVENTS =
             List.of("booking.created", "content.approved", "payout.processed");
 
-    private final JdbcTemplate jdbc;
+    private final WebhookSubscriptionRepository subscriptionRepository;
+    private final WebhookDeliveryRepository deliveryRepository;
     private final TaskExecutor asyncExecutor;
     private final ObjectMapper objectMapper;
     private final RestTemplate webhookRestTemplate;
 
-    public WebhookService(JdbcTemplate jdbc,
+    public WebhookService(WebhookSubscriptionRepository subscriptionRepository,
+                          WebhookDeliveryRepository deliveryRepository,
                           @org.springframework.beans.factory.annotation.Qualifier("taskExecutor") TaskExecutor asyncExecutor,
                           ObjectMapper objectMapper,
                           RestTemplate webhookRestTemplate) {
-        this.jdbc = jdbc;
+        this.subscriptionRepository = subscriptionRepository;
+        this.deliveryRepository = deliveryRepository;
         this.asyncExecutor = asyncExecutor;
         this.objectMapper = objectMapper;
         this.webhookRestTemplate = webhookRestTemplate;
@@ -79,19 +84,7 @@ public class WebhookService implements WebhookEventPublisher, WebhookRetryApi {
     // ── Dispatch ──────────────────────────────────────────────────────────────
 
     private void dispatchEvent(String event, Map<String, Object> data) {
-        String eventFilter = "[\"" + event + "\"]";
-        List<Map<String, Object>> subs;
-        try {
-            subs = jdbc.queryForList(
-                    "SELECT id::text, url, secret FROM webhook_subscriptions " +
-                    "WHERE active = TRUE AND events @> ?::jsonb",
-                    eventFilter
-            );
-        } catch (Exception ex) {
-            log.warn("webhook: subscription query failed for event '{}': {}", event, ex.getMessage());
-            return;
-        }
-
+        List<WebhookSubscription> subs = subscriptionRepository.findActiveByEvent(event);
         if (subs.isEmpty()) return;
 
         Map<String, Object> envelope = new LinkedHashMap<>();
@@ -108,24 +101,21 @@ public class WebhookService implements WebhookEventPublisher, WebhookRetryApi {
             return;
         }
 
-        for (Map<String, Object> sub : subs) {
-            UUID subId = UUID.fromString((String) sub.get("id"));
-            String url = (String) sub.get("url");
-            String secret = (String) sub.get("secret");
-            doDeliver(subId, event, url, secret, payloadJson);
+        for (WebhookSubscription sub : subs) {
+            doDeliver(sub.getId(), event, sub.getUrl(), sub.getSecret(), payloadJson);
         }
     }
 
     private void doDeliver(UUID subId, String event, String url, String secret, String payloadJson) {
-        UUID deliveryId = UUID.randomUUID();
-        Instant now = Instant.now();
-
-        // Insert delivery log as PENDING
-        jdbc.update(
-                "INSERT INTO webhook_deliveries (id, subscription_id, event, payload, status, attempt_count, created_at) " +
-                "VALUES (?, ?, ?, ?, 'PENDING', 0, ?)",
-                deliveryId, subId, event, payloadJson, Timestamp.from(now)
-        );
+        WebhookDelivery delivery = new WebhookDelivery();
+        delivery.setId(UUID.randomUUID());
+        delivery.setSubscriptionId(subId);
+        delivery.setEvent(event);
+        delivery.setPayload(payloadJson);
+        delivery.setStatus("PENDING");
+        delivery.setAttemptCount(0);
+        delivery.setCreatedAt(Instant.now());
+        deliveryRepository.insert(delivery);
 
         try {
             String signature = "sha256=" + hmacSha256(secret, payloadJson);
@@ -134,7 +124,7 @@ public class WebhookService implements WebhookEventPublisher, WebhookRetryApi {
             headers.set("Content-Type", "application/json");
             headers.set("X-Ziyara-Signature", signature);
             headers.set("X-Ziyara-Event", event);
-            headers.set("X-Ziyara-Delivery", deliveryId.toString());
+            headers.set("X-Ziyara-Delivery", delivery.getId().toString());
 
             var response = webhookRestTemplate.exchange(
                     url, HttpMethod.POST,
@@ -146,26 +136,21 @@ public class WebhookService implements WebhookEventPublisher, WebhookRetryApi {
             String respBody = response.getBody();
             boolean success = httpStatus >= 200 && httpStatus < 300;
 
-            jdbc.update(
-                    "UPDATE webhook_deliveries SET status = ?, http_status = ?, response_body = ?, " +
-                    "attempt_count = 1, last_attempt_at = ? WHERE id = ?",
-                    success ? "DELIVERED" : "FAILED",
-                    httpStatus,
-                    respBody != null && respBody.length() > 500 ? respBody.substring(0, 500) : respBody,
-                    Timestamp.from(Instant.now()),
-                    deliveryId
-            );
-            log.info("webhook: {} → {} [{}] delivery={}", event, url, httpStatus, deliveryId);
+            delivery.setStatus(success ? "DELIVERED" : "FAILED");
+            delivery.setHttpStatus(httpStatus);
+            delivery.setResponseBody(respBody != null && respBody.length() > 500 ? respBody.substring(0, 500) : respBody);
+            delivery.setAttemptCount(1);
+            delivery.setLastAttemptAt(Instant.now());
+            deliveryRepository.update(delivery);
+            log.info("webhook: {} → {} [{}] delivery={}", event, url, httpStatus, delivery.getId());
 
         } catch (Exception ex) {
-            jdbc.update(
-                    "UPDATE webhook_deliveries SET status = 'FAILED', response_body = ?, " +
-                    "attempt_count = 1, last_attempt_at = ? WHERE id = ?",
-                    ex.getMessage() != null ? ex.getMessage().substring(0, Math.min(500, ex.getMessage().length())) : "error",
-                    Timestamp.from(Instant.now()),
-                    deliveryId
-            );
-            log.warn("webhook: {} → {} FAILED delivery={}: {}", event, url, deliveryId, ex.getMessage());
+            delivery.setStatus("FAILED");
+            delivery.setResponseBody(truncate(ex.getMessage(), 500));
+            delivery.setAttemptCount(1);
+            delivery.setLastAttemptAt(Instant.now());
+            deliveryRepository.update(delivery);
+            log.warn("webhook: {} → {} FAILED delivery={}: {}", event, url, delivery.getId(), ex.getMessage());
         }
     }
 
@@ -177,57 +162,43 @@ public class WebhookService implements WebhookEventPublisher, WebhookRetryApi {
 
     @Transactional
     public int retryFailedDeliveries() {
-        List<Map<String, Object>> failed = jdbc.queryForList(
-                "SELECT d.id::text, d.event, d.payload, d.attempt_count, " +
-                "       s.url, s.secret " +
-                "FROM webhook_deliveries d " +
-                "JOIN webhook_subscriptions s ON s.id = d.subscription_id " +
-                "WHERE d.status = 'FAILED' AND d.attempt_count < 3 AND s.active = TRUE " +
-                "ORDER BY d.last_attempt_at ASC NULLS FIRST " +
-                "LIMIT 50"
-        );
+        List<WebhookRetryTask> tasks = deliveryRepository.findFailedForRetry(50);
         int retried = 0;
-        for (Map<String, Object> row : failed) {
-            UUID deliveryId = UUID.fromString((String) row.get("id"));
-            String event     = (String) row.get("event");
-            String payload   = (String) row.get("payload");
-            String url       = (String) row.get("url");
-            String secret    = (String) row.get("secret");
-            int attemptCount = ((Number) row.get("attempt_count")).intValue();
+        for (WebhookRetryTask task : tasks) {
+            WebhookDelivery d = task.delivery();
+            String url = task.url();
+            String secret = task.secret();
+            int attemptCount = d.getAttemptCount();
             try {
-                String signature = "sha256=" + hmacSha256(secret, payload);
+                String signature = "sha256=" + hmacSha256(secret, d.getPayload());
                 HttpHeaders headers = new HttpHeaders();
                 headers.set("Content-Type", "application/json");
                 headers.set("X-Ziyara-Signature", signature);
-                headers.set("X-Ziyara-Event", event);
-                headers.set("X-Ziyara-Delivery", deliveryId.toString());
+                headers.set("X-Ziyara-Event", d.getEvent());
+                headers.set("X-Ziyara-Delivery", d.getId().toString());
                 var response = webhookRestTemplate.exchange(
                         url, HttpMethod.POST,
-                        new HttpEntity<>(payload, headers),
+                        new HttpEntity<>(d.getPayload(), headers),
                         String.class
                 );
                 int httpStatus = response.getStatusCode().value();
                 boolean success = httpStatus >= 200 && httpStatus < 300;
                 int newCount = attemptCount + 1;
-                String newStatus = success ? "DELIVERED" : (newCount >= 3 ? "PERMANENTLY_FAILED" : "FAILED");
-                jdbc.update(
-                        "UPDATE webhook_deliveries SET status = ?, http_status = ?, response_body = ?, " +
-                        "attempt_count = ?, last_attempt_at = ? WHERE id = ?",
-                        newStatus, httpStatus,
-                        response.getBody() != null && response.getBody().length() > 500 ? response.getBody().substring(0, 500) : response.getBody(),
-                        newCount, Timestamp.from(Instant.now()), deliveryId
-                );
-                log.info("webhook retry: {} → {} [{}] delivery={} attempt={}", event, url, httpStatus, deliveryId, newCount);
+                d.setStatus(success ? "DELIVERED" : (newCount >= 3 ? "PERMANENTLY_FAILED" : "FAILED"));
+                d.setHttpStatus(httpStatus);
+                d.setResponseBody(truncate(response.getBody(), 500));
+                d.setAttemptCount(newCount);
+                d.setLastAttemptAt(Instant.now());
+                deliveryRepository.update(d);
+                log.info("webhook retry: {} → {} [{}] delivery={} attempt={}", d.getEvent(), url, httpStatus, d.getId(), newCount);
             } catch (Exception ex) {
                 int newCount = attemptCount + 1;
-                String newStatus = newCount >= 3 ? "PERMANENTLY_FAILED" : "FAILED";
-                jdbc.update(
-                        "UPDATE webhook_deliveries SET status = ?, attempt_count = ?, last_attempt_at = ?, response_body = ? WHERE id = ?",
-                        newStatus, newCount, Timestamp.from(Instant.now()),
-                        ex.getMessage() != null ? ex.getMessage().substring(0, Math.min(500, ex.getMessage().length())) : "error",
-                        deliveryId
-                );
-                log.warn("webhook retry failed: {} → {} delivery={} attempt={}: {}", event, url, deliveryId, newCount, ex.getMessage());
+                d.setStatus(newCount >= 3 ? "PERMANENTLY_FAILED" : "FAILED");
+                d.setAttemptCount(newCount);
+                d.setLastAttemptAt(Instant.now());
+                d.setResponseBody(truncate(ex.getMessage(), 500));
+                deliveryRepository.update(d);
+                log.warn("webhook retry failed: {} → {} delivery={} attempt={}: {}", d.getEvent(), url, d.getId(), newCount, ex.getMessage());
             }
             retried++;
         }
@@ -243,96 +214,79 @@ public class WebhookService implements WebhookEventPublisher, WebhookRetryApi {
                 throw new IllegalArgumentException("Unsupported event: " + event + ". Supported: " + SUPPORTED_EVENTS);
             }
         }
-        UUID id = UUID.randomUUID();
-        String secret = generateSecret();
-        String eventsJson;
-        try {
-            eventsJson = objectMapper.writeValueAsString(req.getEvents());
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to serialize events list", e);
-        }
-        jdbc.update(
-                "INSERT INTO webhook_subscriptions (id, provider_id, name, url, events, secret, active, created_at) " +
-                "VALUES (?, ?, ?, ?, ?::jsonb, ?, TRUE, CURRENT_TIMESTAMP)",
-                id, req.getProviderId(), req.getName(), req.getUrl(), eventsJson, secret
-        );
+        WebhookSubscription sub = new WebhookSubscription();
+        sub.setId(UUID.randomUUID());
+        sub.setProviderId(req.getProviderId());
+        sub.setName(req.getName());
+        sub.setUrl(req.getUrl());
+        sub.setEvents(req.getEvents());
+        sub.setSecret(generateSecret());
+        sub.setActive(true);
+        sub.setCreatedAt(Instant.now());
+        subscriptionRepository.save(sub);
+
         return WebhookSubscriptionResponse.builder()
-                .id(id)
-                .providerId(req.getProviderId())
-                .name(req.getName())
-                .url(req.getUrl())
-                .events(req.getEvents())
+                .id(sub.getId())
+                .providerId(sub.getProviderId())
+                .name(sub.getName())
+                .url(sub.getUrl())
+                .events(sub.getEvents())
                 .active(true)
-                .createdAt(Instant.now())
-                .secret(secret)   // returned once only
+                .createdAt(sub.getCreatedAt())
+                .secret(sub.getSecret())
                 .build();
     }
 
     @Transactional(readOnly = true)
     public List<WebhookSubscriptionResponse> list(int page, int size) {
-        int offset = page * size;
-        return jdbc.query(
-                "SELECT id::text, provider_id::text, name, url, events::text, active, created_at " +
-                "FROM webhook_subscriptions ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                (rs, rowNum) -> WebhookSubscriptionResponse.builder()
-                        .id(UUID.fromString(rs.getString("id")))
-                        .providerId(rs.getString("provider_id") != null ? UUID.fromString(rs.getString("provider_id")) : null)
-                        .name(rs.getString("name"))
-                        .url(rs.getString("url"))
-                        .events(parseJsonArray(rs.getString("events")))
-                        .active(rs.getBoolean("active"))
-                        .createdAt(rs.getTimestamp("created_at").toInstant())
-                        .build(),
-                size, offset
-        );
+        return subscriptionRepository.findAll(size, (long) page * size).stream()
+                .map(sub -> WebhookSubscriptionResponse.builder()
+                        .id(sub.getId())
+                        .providerId(sub.getProviderId())
+                        .name(sub.getName())
+                        .url(sub.getUrl())
+                        .events(sub.getEvents())
+                        .active(sub.isActive())
+                        .createdAt(sub.getCreatedAt())
+                        .build())
+                .toList();
     }
 
     @Transactional
     public void delete(UUID id) {
-        int rows = jdbc.update("DELETE FROM webhook_subscriptions WHERE id = ?", id);
-        if (rows == 0) throw new ResourceNotFoundException("Webhook subscription not found");
+        subscriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Webhook subscription not found"));
+        subscriptionRepository.deleteById(id);
     }
 
     @Transactional
     public void setActive(UUID id, boolean active) {
-        int rows = jdbc.update(
-                "UPDATE webhook_subscriptions SET active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                active, id
-        );
-        if (rows == 0) throw new ResourceNotFoundException("Webhook subscription not found");
+        subscriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Webhook subscription not found"));
+        subscriptionRepository.setActive(id, active);
     }
 
     public void ping(UUID id) {
-        var row = jdbc.queryForList(
-                "SELECT url, secret FROM webhook_subscriptions WHERE id = ?", id
-        );
-        if (row.isEmpty()) throw new ResourceNotFoundException("Webhook subscription not found");
-        String url = (String) row.get(0).get("url");
-        String secret = (String) row.get(0).get("secret");
+        WebhookSubscription sub = subscriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Webhook subscription not found"));
         Map<String, Object> testData = Map.of("message", "Ziyara webhook ping", "subscriptionId", id.toString());
-        doDeliver(id, "ping", url, secret, buildPingJson(id, testData));
+        doDeliver(id, "ping", sub.getUrl(), sub.getSecret(), buildPingJson(id, testData));
     }
 
     @Transactional(readOnly = true)
     public List<WebhookDeliveryResponse> listDeliveries(UUID subscriptionId, int page, int size) {
-        int offset = page * size;
-        return jdbc.query(
-                "SELECT id::text, subscription_id::text, event, status, http_status, " +
-                "attempt_count, last_attempt_at, created_at " +
-                "FROM webhook_deliveries WHERE subscription_id = ? " +
-                "ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                (rs, rowNum) -> WebhookDeliveryResponse.builder()
-                        .id(UUID.fromString(rs.getString("id")))
-                        .subscriptionId(UUID.fromString(rs.getString("subscription_id")))
-                        .event(rs.getString("event"))
-                        .status(rs.getString("status"))
-                        .httpStatus(rs.getObject("http_status", Integer.class))
-                        .attemptCount(rs.getInt("attempt_count"))
-                        .lastAttemptAt(rs.getTimestamp("last_attempt_at") != null ? rs.getTimestamp("last_attempt_at").toInstant() : null)
-                        .createdAt(rs.getTimestamp("created_at").toInstant())
-                        .build(),
-                subscriptionId, size, offset
-        );
+        return deliveryRepository.findBySubscriptionId(subscriptionId, size, (long) page * size).stream()
+                .map(d -> WebhookDeliveryResponse.builder()
+                        .id(d.getId())
+                        .subscriptionId(d.getSubscriptionId())
+                        .event(d.getEvent())
+                        .status(d.getStatus())
+                        .httpStatus(d.getHttpStatus())
+                        .attemptCount(d.getAttemptCount())
+                        .lastAttemptAt(d.getLastAttemptAt())
+                        .createdAt(d.getCreatedAt())
+                        .build())
+                .toList();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -353,13 +307,9 @@ public class WebhookService implements WebhookEventPublisher, WebhookRetryApi {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private List<String> parseJsonArray(String json) {
-        try {
-            return objectMapper.readValue(json, List.class);
-        } catch (Exception e) {
-            return new ArrayList<>();
-        }
+    private static String truncate(String s, int maxLen) {
+        if (s == null) return "error";
+        return s.length() > maxLen ? s.substring(0, maxLen) : s;
     }
 
     private String buildPingJson(UUID subId, Map<String, Object> data) {

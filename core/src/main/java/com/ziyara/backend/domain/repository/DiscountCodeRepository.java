@@ -17,4 +17,10 @@ public interface DiscountCodeRepository {
     List<DiscountCode> findAll();
     void deleteById(UUID id);
     boolean existsByCode(String code);
+
+    List<DiscountCode> findByProviderId(UUID providerId, int limit, long offset);
+
+    long countByProviderId(UUID providerId);
+
+    boolean existsByIdAndProviderId(UUID id, UUID providerId);
 }

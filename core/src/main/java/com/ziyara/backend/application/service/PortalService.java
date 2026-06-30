@@ -28,8 +28,12 @@ import com.ziyara.backend.application.dto.response.HotelRoomResponse;
 import com.ziyara.backend.application.dto.response.ServiceImageResponse;
 import com.ziyara.backend.application.dto.response.ServiceResponse;
 import com.ziyara.backend.application.query.ServiceQueryHandler;
-import com.ziyara.backend.domain.enums.DiscountStatus;
+import com.ziyara.backend.modules.discount.api.DiscountCodeApi;
 import com.ziyara.backend.modules.notification.api.NotificationServiceApi;
+import com.ziyara.backend.modules.provider.api.ProviderProfileEditApi;
+import com.ziyara.backend.modules.service.api.HotelRoomApi;
+import com.ziyara.backend.modules.service.api.RestaurantMenuApi;
+import com.ziyara.backend.modules.service.api.ServiceImageApi;
 import com.ziyara.backend.modules.service.api.ServiceServiceApi;
 import com.ziyara.backend.modules.webhook.api.WebhookEventPublisher;
 import com.ziyara.backend.domain.entity.Booking;
@@ -40,7 +44,13 @@ import com.ziyara.backend.domain.enums.NotificationChannel;
 import com.ziyara.backend.domain.enums.NotificationType;
 import com.ziyara.backend.domain.enums.ServiceImageCategory;
 import com.ziyara.backend.domain.enums.UserRole;
+import com.ziyara.backend.domain.entity.ProviderDiscountBalance;
+import com.ziyara.backend.domain.entity.ServiceEarningData;
 import com.ziyara.backend.domain.repository.BookingRepository;
+import com.ziyara.backend.domain.repository.DiscountCodeRepository;
+import com.ziyara.backend.domain.repository.PortalEarningsRepository;
+import com.ziyara.backend.domain.repository.PortalPayoutRequestRepository;
+import com.ziyara.backend.domain.repository.ProviderDiscountBalanceRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.domain.repository.PaymentRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
@@ -79,17 +89,20 @@ public class PortalService {
     private final ServiceRepository serviceRepository;
     private final ServiceQueryHandler serviceQueryHandler;
     private final BookingRepository bookingRepository;
-    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final PaymentRepository paymentRepository;
     private final ServiceServiceApi serviceService;
-    private final ServiceImageService serviceImageService;
-    private final RestaurantMenuService restaurantMenuService;
-    private final HotelRoomService hotelRoomService;
+    private final ServiceImageApi serviceImageService;
+    private final RestaurantMenuApi restaurantMenuService;
+    private final HotelRoomApi hotelRoomService;
     private final NotificationServiceApi notificationService;
     private final UserRepository userRepository;
-    private final DiscountCodeService discountCodeService;
+    private final DiscountCodeApi discountCodeService;
+    private final DiscountCodeRepository discountCodeRepository;
     private final WebhookEventPublisher webhookEventPublisher;
-    private final ProviderProfileEditService profileEditService;
+    private final ProviderProfileEditApi profileEditService;
+    private final PortalPayoutRequestRepository payoutRequestRepository;
+    private final PortalEarningsRepository portalEarningsRepository;
+    private final ProviderDiscountBalanceRepository discountBalanceRepository;
 
     @Transactional(readOnly = true)
     public PortalDashboardResponse getDashboard(UUID providerId) {
@@ -429,47 +442,22 @@ public class PortalService {
                 .map(sp -> sp.getCommissionRate() != null ? sp.getCommissionRate() : BigDecimal.TEN)
                 .orElse(BigDecimal.TEN);
 
-        // Per-service breakdown via JDBC (handles date filter + joins in one query)
-        List<Object> params = new ArrayList<>();
-        StringBuilder dateJoin = new StringBuilder();
-        if (start != null) {
-            dateJoin.append(" AND b.created_at >= CAST(? AS TIMESTAMPTZ)");
-            params.add(start.toString());
-        }
-        if (end != null) {
-            dateJoin.append(" AND b.created_at < (CAST(? AS DATE) + INTERVAL '1 day')::TIMESTAMPTZ");
-            params.add(end.toString());
-        }
-        params.add(providerId);
-
-        String sql =
-            "SELECT hs.id::text AS service_id, hs.name AS service_name, " +
-            "COUNT(DISTINCT b.id) AS booking_count, " +
-            "COALESCE(SUM(CASE WHEN p.status = 'COMPLETED' THEN p.amount ELSE 0 END), 0) AS gross_revenue " +
-            "FROM hotel_services hs " +
-            "LEFT JOIN bkg_bookings b ON b.service_id = hs.id" + dateJoin + " " +
-            "LEFT JOIN pay_payments p ON p.booking_id = b.id " +
-            "WHERE hs.provider_id = ? AND hs.deleted_at IS NULL " +
-            "GROUP BY hs.id, hs.name ORDER BY gross_revenue DESC LIMIT 20";
-
         final BigDecimal cpct = commissionPct;
-        List<PortalEarningsResponse.ServiceEarningRow> rows = jdbcTemplate.query(
-                sql, params.toArray(),
-                (rs, rowNum) -> {
-                    BigDecimal gross = rs.getBigDecimal("gross_revenue");
-                    if (gross == null) gross = BigDecimal.ZERO;
-                    BigDecimal fee = gross.multiply(cpct)
+        List<PortalEarningsResponse.ServiceEarningRow> rows = portalEarningsRepository
+                .findServiceEarnings(providerId, start, end).stream()
+                .map(d -> {
+                    BigDecimal fee = d.grossRevenue().multiply(cpct)
                             .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
                     return PortalEarningsResponse.ServiceEarningRow.builder()
-                            .serviceId(java.util.UUID.fromString(rs.getString("service_id")))
-                            .serviceName(rs.getString("service_name"))
-                            .bookingCount(rs.getInt("booking_count"))
-                            .grossRevenue(gross)
+                            .serviceId(d.serviceId())
+                            .serviceName(d.serviceName())
+                            .bookingCount(d.bookingCount())
+                            .grossRevenue(d.grossRevenue())
                             .platformFee(fee)
-                            .providerNet(gross.subtract(fee))
+                            .providerNet(d.grossRevenue().subtract(fee))
                             .build();
-                }
-        );
+                })
+                .collect(Collectors.toList());
 
         BigDecimal grossTotal = rows.stream()
                 .map(PortalEarningsResponse.ServiceEarningRow::getGrossRevenue)
@@ -479,10 +467,7 @@ public class PortalService {
         BigDecimal netTotal = grossTotal.subtract(feeTotal);
         int bookingCount = rows.stream().mapToInt(PortalEarningsResponse.ServiceEarningRow::getBookingCount).sum();
 
-        BigDecimal pendingPayouts = jdbcTemplate.queryForObject(
-            "SELECT COALESCE(SUM(amount), 0) FROM portal_payout_requests WHERE provider_id = ? AND status = 'PENDING'",
-            BigDecimal.class, providerId);
-        if (pendingPayouts == null) pendingPayouts = BigDecimal.ZERO;
+        BigDecimal pendingPayouts = payoutRequestRepository.sumPendingAmountByProvider(providerId);
         BigDecimal availableForPayout = netTotal.subtract(pendingPayouts).max(BigDecimal.ZERO);
 
         return PortalEarningsResponse.builder()
@@ -534,41 +519,41 @@ public class PortalService {
     @Transactional(readOnly = true)
     public org.springframework.data.domain.Page<PayoutRequestResponse> listPayoutRequests(UUID providerId, int page, int size) {
         ensureProviderExists(providerId);
-        int offset = page * size;
-        Long total = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM portal_payout_requests WHERE provider_id = ?", Long.class, providerId);
-        java.util.List<PayoutRequestResponse> content = jdbcTemplate.query(
-                "SELECT id, amount, currency, notes, status, requested_at FROM portal_payout_requests " +
-                "WHERE provider_id = ? ORDER BY requested_at DESC LIMIT ? OFFSET ?",
-                (rs, rowNum) -> PayoutRequestResponse.builder()
-                        .id(java.util.UUID.fromString(rs.getString("id")))
-                        .amount(rs.getBigDecimal("amount"))
-                        .currency(rs.getString("currency"))
-                        .notes(rs.getString("notes"))
-                        .status(rs.getString("status"))
-                        .requestedAt(rs.getTimestamp("requested_at").toInstant())
-                        .build(),
-                providerId, size, offset
-        );
+        long total = payoutRequestRepository.countByProviderId(providerId);
+        List<PayoutRequestResponse> content = payoutRequestRepository.findByProviderId(providerId, size, (long) page * size)
+                .stream()
+                .map(r -> PayoutRequestResponse.builder()
+                        .id(r.getId())
+                        .amount(r.getAmount())
+                        .currency(r.getCurrency())
+                        .notes(r.getNotes())
+                        .status(r.getStatus())
+                        .requestedAt(r.getRequestedAt())
+                        .build())
+                .collect(Collectors.toList());
         return new org.springframework.data.domain.PageImpl<>(
                 content,
                 org.springframework.data.domain.PageRequest.of(page, size),
-                total != null ? total : 0L
+                total
         );
     }
 
     @Transactional
     public PayoutRequestResponse createPayoutRequest(UUID providerId, PayoutRequestPayload payload) {
         ensureProviderExists(providerId);
-        UUID id = UUID.randomUUID();
-        java.time.Instant now = java.time.Instant.now();
-        jdbcTemplate.update(
-                "INSERT INTO portal_payout_requests (id, provider_id, amount, currency, notes, status, requested_at) " +
-                "VALUES (?, ?, ?, ?, ?, 'PENDING', ?)",
-                id, providerId, payload.getAmount(), CURRENCY,
-                payload.getNotes(), java.sql.Timestamp.from(now));
+        com.ziyara.backend.domain.entity.PortalPayoutRequest payout =
+                new com.ziyara.backend.domain.entity.PortalPayoutRequest();
+        payout.setId(UUID.randomUUID());
+        payout.setProviderId(providerId);
+        payout.setAmount(payload.getAmount());
+        payout.setCurrency(CURRENCY);
+        payout.setNotes(payload.getNotes());
+        payout.setStatus("PENDING");
+        payout.setRequestedAt(java.time.Instant.now());
+        payoutRequestRepository.save(payout);
+
         webhookEventPublisher.publishAfterCommit("payout.processed", Map.of(
-                "payoutId", id.toString(),
+                "payoutId", payout.getId().toString(),
                 "providerId", providerId.toString(),
                 "amount", payload.getAmount(),
                 "currency", CURRENCY,
@@ -576,11 +561,11 @@ public class PortalService {
         ));
 
         return PayoutRequestResponse.builder()
-                .id(id)
+                .id(payout.getId())
                 .amount(payload.getAmount())
                 .currency(CURRENCY)
                 .status("PENDING")
-                .requestedAt(now)
+                .requestedAt(payout.getRequestedAt())
                 .build();
     }
 
@@ -589,55 +574,47 @@ public class PortalService {
     @Transactional(readOnly = true)
     public PortalDiscountBalanceResponse getDiscountBalance(UUID providerId) {
         ensureProviderExists(providerId);
-        return jdbcTemplate.query(
-                "SELECT currency, allocated_amount, spent_amount FROM provider_discount_balance WHERE provider_id = ?",
-                (rs, rowNum) -> PortalDiscountBalanceResponse.builder()
+        return discountBalanceRepository.findByProviderId(providerId)
+                .map(b -> PortalDiscountBalanceResponse.builder()
                         .providerId(providerId)
-                        .currency(rs.getString("currency"))
-                        .allocatedAmount(rs.getBigDecimal("allocated_amount"))
-                        .spentAmount(rs.getBigDecimal("spent_amount"))
-                        .availableAmount(rs.getBigDecimal("allocated_amount").subtract(rs.getBigDecimal("spent_amount")))
-                        .build(),
-                providerId
-        ).stream().findFirst().orElse(PortalDiscountBalanceResponse.builder()
-                .providerId(providerId).currency("USD")
-                .allocatedAmount(BigDecimal.ZERO).spentAmount(BigDecimal.ZERO).availableAmount(BigDecimal.ZERO)
-                .build());
+                        .currency(b.getCurrency())
+                        .allocatedAmount(b.getAllocatedAmount())
+                        .spentAmount(b.getSpentAmount())
+                        .availableAmount(b.getAvailableAmount())
+                        .build())
+                .orElse(PortalDiscountBalanceResponse.builder()
+                        .providerId(providerId).currency("USD")
+                        .allocatedAmount(BigDecimal.ZERO).spentAmount(BigDecimal.ZERO).availableAmount(BigDecimal.ZERO)
+                        .build());
     }
 
     @Transactional(readOnly = true)
     public org.springframework.data.domain.Page<DiscountResponse> listProviderDiscounts(UUID providerId, int page, int size) {
         ensureProviderExists(providerId);
-        int offset = page * size;
-        Long total = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM disc_discount_codes WHERE provider_id = ?", Long.class, providerId);
-        List<DiscountResponse> content = jdbcTemplate.query(
-                "SELECT id, code, description, type, value, min_booking_amount, max_discount_amount, " +
-                "end_date, usage_limit, usage_count, status, created_at, sponsor " +
-                "FROM disc_discount_codes WHERE provider_id = ? " +
-                "ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                (rs, rowNum) -> DiscountResponse.builder()
-                        .id(java.util.UUID.fromString(rs.getString("id")))
-                        .code(rs.getString("code"))
-                        .description(rs.getString("description"))
-                        .type(rs.getString("type"))
-                        .value(rs.getBigDecimal("value"))
-                        .minBookingAmount(rs.getBigDecimal("min_booking_amount"))
-                        .maxDiscountAmount(rs.getBigDecimal("max_discount_amount"))
-                        .endDate(rs.getTimestamp("end_date") != null ? rs.getTimestamp("end_date").toLocalDateTime() : null)
-                        .usageLimit(rs.getObject("usage_limit", Integer.class))
-                        .usageCount(rs.getInt("usage_count"))
-                        .status(parseDiscountStatus(rs.getString("status")))
-                        .createdAt(rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : null)
-                        .sponsor(rs.getString("sponsor"))
+        long total = discountCodeRepository.countByProviderId(providerId);
+        List<DiscountResponse> content = discountCodeRepository.findByProviderId(providerId, size, (long) page * size)
+                .stream()
+                .map(d -> DiscountResponse.builder()
+                        .id(d.getId())
+                        .code(d.getCode())
+                        .description(d.getDescription())
+                        .type(d.getType())
+                        .value(d.getValue())
+                        .minBookingAmount(d.getMinBookingAmount())
+                        .maxDiscountAmount(d.getMaxDiscountAmount())
+                        .endDate(d.getEndDate())
+                        .usageLimit(d.getUsageLimit())
+                        .usageCount(d.getUsageCount())
+                        .status(d.getStatus())
+                        .createdAt(d.getCreatedAt())
+                        .sponsor(d.getSponsor())
                         .providerId(providerId)
-                        .build(),
-                providerId, size, offset
-        );
+                        .build())
+                .collect(Collectors.toList());
         return new org.springframework.data.domain.PageImpl<>(
                 content,
                 org.springframework.data.domain.PageRequest.of(page, size),
-                total != null ? total : 0L
+                total
         );
     }
 
@@ -646,28 +623,14 @@ public class PortalService {
         ensureProviderExists(providerId);
         BigDecimal debitAmount = req.getValue();
         // Pessimistic lock: prevents two concurrent requests from both reading sufficient balance
-        List<PortalDiscountBalanceResponse> rows = jdbcTemplate.query(
-                "SELECT currency, allocated_amount, spent_amount, " +
-                "(allocated_amount - spent_amount) AS available_amount " +
-                "FROM provider_discount_balance WHERE provider_id = ? FOR UPDATE",
-                (rs, r) -> PortalDiscountBalanceResponse.builder()
-                        .providerId(providerId)
-                        .currency(rs.getString("currency"))
-                        .allocatedAmount(rs.getBigDecimal("allocated_amount"))
-                        .spentAmount(rs.getBigDecimal("spent_amount"))
-                        .availableAmount(rs.getBigDecimal("available_amount"))
-                        .build(),
-                providerId);
-        if (rows.isEmpty() || rows.get(0).getAvailableAmount().compareTo(debitAmount) < 0) {
-            String available = rows.isEmpty() ? "0" : rows.get(0).getAvailableAmount().toPlainString();
-            String currency  = rows.isEmpty() ? "" : " " + rows.get(0).getCurrency();
+        ProviderDiscountBalance balance = discountBalanceRepository.lockByProviderId(providerId).orElse(null);
+        if (balance == null || balance.getAvailableAmount().compareTo(debitAmount) < 0) {
+            String available = balance == null ? "0" : balance.getAvailableAmount().toPlainString();
+            String currency  = balance == null ? "" : " " + balance.getCurrency();
             throw new com.ziyara.backend.application.exception.BusinessException(
                     "Insufficient discount balance. Available: " + available + currency);
         }
-        jdbcTemplate.update(
-                "UPDATE provider_discount_balance SET spent_amount = spent_amount + ?, " +
-                "updated_at = CURRENT_TIMESTAMP WHERE provider_id = ?",
-                debitAmount, providerId);
+        discountBalanceRepository.debitSpent(providerId, debitAmount);
         CreateDiscountRequest createReq = CreateDiscountRequest.builder()
                 .code(req.getCode().trim().toUpperCase())
                 .type(req.getType())
@@ -682,21 +645,16 @@ public class PortalService {
                 .providerId(providerId)
                 .build();
         DiscountResponse created = discountCodeService.create(createReq, null, false);
-        jdbcTemplate.update(
-                "INSERT INTO provider_discount_debits (provider_id, discount_code_id, amount, description) VALUES (?, ?, ?, ?)",
-                providerId, created.getId(), debitAmount, "Code: " + created.getCode()
-        );
+        discountBalanceRepository.recordDebit(providerId, created.getId(), debitAmount, "Code: " + created.getCode());
         return created;
     }
 
     @Transactional
     public void deactivateProviderDiscount(UUID providerId, UUID discountId) {
         ensureProviderExists(providerId);
-        int rows = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM disc_discount_codes WHERE id = ? AND provider_id = ?",
-                Integer.class, discountId, providerId
-        );
-        if (rows == 0) throw new ResourceNotFoundException("Discount not found or access denied");
+        if (!discountCodeRepository.existsByIdAndProviderId(discountId, providerId)) {
+            throw new ResourceNotFoundException("Discount not found or access denied");
+        }
         discountCodeService.deactivate(discountId);
     }
 
@@ -706,18 +664,8 @@ public class PortalService {
         if (grantAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Grant amount must be positive");
         }
-        jdbcTemplate.update(
-                "INSERT INTO provider_discount_balance (provider_id, currency, allocated_amount) VALUES (?, ?, ?) " +
-                "ON CONFLICT (provider_id) DO UPDATE SET allocated_amount = provider_discount_balance.allocated_amount + ?, " +
-                "currency = EXCLUDED.currency, updated_at = CURRENT_TIMESTAMP",
-                providerId, currency != null ? currency : "USD", grantAmount, grantAmount
-        );
+        discountBalanceRepository.upsertAllocated(providerId, grantAmount, currency);
         return getDiscountBalance(providerId);
-    }
-
-    private static DiscountStatus parseDiscountStatus(String v) {
-        if (v == null) return null;
-        try { return DiscountStatus.valueOf(v.trim()); } catch (IllegalArgumentException e) { return null; }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

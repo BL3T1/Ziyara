@@ -15,6 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -139,5 +140,13 @@ public class ServiceProviderRepositoryAdapter implements ServiceProviderReposito
     @Override
     public boolean existsByName(String name) {
         return serviceProviderJpaRepository.existsByCompanyName(name);
+    }
+
+    @Override
+    public List<ServiceProvider> findAllById(Collection<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        return serviceProviderJpaRepository.findAllById(ids).stream()
+                .map(serviceProviderMapper::toDomainEntity)
+                .collect(Collectors.toList());
     }
 }

@@ -19,13 +19,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import com.ziyara.backend.modules.service.api.HotelRoomApi;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class HotelRoomService {
+public class HotelRoomService implements HotelRoomApi {
 
     private final ServiceRepository serviceRepository;
     private final HotelRoomRepository roomRepository;

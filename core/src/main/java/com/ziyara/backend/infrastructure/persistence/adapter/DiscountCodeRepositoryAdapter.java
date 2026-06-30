@@ -66,4 +66,21 @@ public class DiscountCodeRepositoryAdapter implements DiscountCodeRepository {
     public boolean existsByCode(String code) {
         return discountCodeJpaRepository.existsByCode(code);
     }
+
+    @Override
+    public List<DiscountCode> findByProviderId(UUID providerId, int limit, long offset) {
+        return discountCodeJpaRepository.findByProviderIdPaged(providerId, limit, offset).stream()
+                .map(discountCodeMapper::toDomainEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countByProviderId(UUID providerId) {
+        return discountCodeJpaRepository.countByProviderId(providerId);
+    }
+
+    @Override
+    public boolean existsByIdAndProviderId(UUID id, UUID providerId) {
+        return discountCodeJpaRepository.existsByIdAndProviderId(id, providerId);
+    }
 }

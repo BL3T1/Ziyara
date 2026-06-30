@@ -7,12 +7,13 @@ import com.ziyara.backend.application.exception.BusinessException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import com.ziyara.backend.domain.entity.Employee;
 import com.ziyara.backend.domain.repository.EmployeeRepository;
+import com.ziyara.backend.domain.usecase.employee.OffboardEmployeeUseCase;
+import com.ziyara.backend.domain.usecase.employee.OnboardEmployeeUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -65,20 +66,16 @@ public class EmployeeService {
     @Transactional
     public EmployeeResponse createEmployee(CreateEmployeeRequest request) {
         log.info("Creating employee for user: {}", request.getUserId());
-
-        if (employeeRepository.existsByEmployeeId(request.getEmployeeId())) {
-            throw new BusinessException("Employee ID already exists");
-        }
-
-        Employee employee = new Employee();
-        employee.setUserId(request.getUserId());
-        employee.setDepartmentId(request.getDepartmentId());
-        employee.setEmployeeId(request.getEmployeeId());
-        employee.setLevel(request.getLevel());
-        employee.setDesignation(request.getDesignation());
-        employee.setJoiningDate(LocalDateTime.now());
-
-        return mapToResponse(employeeRepository.save(employee));
+        var result = new OnboardEmployeeUseCase(employeeRepository)
+                .execute(new OnboardEmployeeUseCase.Input(
+                        request.getUserId(),
+                        request.getDepartmentId(),
+                        request.getEmployeeId(),
+                        request.getLevel(),
+                        request.getDesignation()
+                ));
+        if (!result.success()) throw new BusinessException(result.error());
+        return mapToResponse(result.employee());
     }
 
     @Transactional
@@ -110,18 +107,12 @@ public class EmployeeService {
      */
     @Transactional
     public void offboardEmployee(UUID id, UUID actorUserId, String reason) {
-        Employee employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found"));
-
-        if (employee.isOffboarded()) {
-            throw new BusinessException("Employee has already been offboarded");
+        var result = new OffboardEmployeeUseCase(employeeRepository)
+                .execute(new OffboardEmployeeUseCase.Input(id, actorUserId, reason));
+        if (!result.success()) {
+            if ("Employee not found".equals(result.error())) throw new ResourceNotFoundException(result.error());
+            throw new BusinessException(result.error());
         }
-
-        employee.setOffboardedAt(LocalDateTime.now());
-        employee.setOffboardedBy(actorUserId);
-        employee.setOffboardReason(reason);
-        employeeRepository.save(employee);
-
         log.info("Employee {} soft-offboarded by {}, reason: {}", id, actorUserId, reason);
     }
 

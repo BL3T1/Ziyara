@@ -7,22 +7,24 @@ import com.ziyara.backend.application.dto.response.AdminPayoutResponse;
 import com.ziyara.backend.application.dto.response.AdminPayoutSummaryResponse;
 import com.ziyara.backend.application.annotation.Audited;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
+import com.ziyara.backend.domain.entity.PortalPayoutRequest;
+import com.ziyara.backend.domain.entity.ServiceProvider;
+import com.ziyara.backend.domain.repository.PortalPayoutRequestRepository;
+import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,7 +33,8 @@ public class AdminPayoutService {
 
     private static final String CURRENCY = "USD";
 
-    private final JdbcTemplate jdbcTemplate;
+    private final PortalPayoutRequestRepository payoutRepository;
+    private final ServiceProviderRepository serviceProviderRepository;
 
     // -------------------------------------------------------------------------
     // Query
@@ -39,34 +42,18 @@ public class AdminPayoutService {
 
     @Transactional(readOnly = true)
     public AdminPayoutSummaryResponse getSummary(String start, String end) {
-        List<Object> dateParams = new ArrayList<>();
-        String dateFilter = buildDateFilter(start, end, "r.requested_at", dateParams);
-
-        BigDecimal totalPayable = jdbcTemplate.queryForObject(
-                "SELECT COALESCE(SUM(amount), 0) FROM portal_payout_requests WHERE status = 'PENDING'",
-                BigDecimal.class);
-
-        Long pendingCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM portal_payout_requests WHERE status = 'PENDING'",
-                Long.class);
-
-        Long processingCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM portal_payout_requests WHERE status = 'PROCESSING'",
-                Long.class);
-
-        String completedQuery = "SELECT COALESCE(SUM(r.amount), 0) FROM portal_payout_requests r WHERE r.status = 'COMPLETED'" + dateFilter;
-        BigDecimal totalCompleted = jdbcTemplate.queryForObject(completedQuery, BigDecimal.class, dateParams.toArray());
-
-        Long failedOnHold = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM portal_payout_requests WHERE status IN ('FAILED', 'ON_HOLD')",
-                Long.class);
+        BigDecimal totalPayable = payoutRepository.sumAmountByStatus("PENDING");
+        long pendingCount = payoutRepository.countByStatus("PENDING");
+        long processingCount = payoutRepository.countByStatus("PROCESSING");
+        BigDecimal totalCompleted = payoutRepository.sumCompletedAmountInPeriod(start, end);
+        long failedOnHold = payoutRepository.countByStatuses(List.of("FAILED", "ON_HOLD"));
 
         return AdminPayoutSummaryResponse.builder()
-                .totalPayable(totalPayable != null ? totalPayable : BigDecimal.ZERO)
-                .pendingCount(pendingCount != null ? pendingCount : 0L)
-                .processingCount(processingCount != null ? processingCount : 0L)
-                .totalCompletedInPeriod(totalCompleted != null ? totalCompleted : BigDecimal.ZERO)
-                .failedOnHoldCount(failedOnHold != null ? failedOnHold : 0L)
+                .totalPayable(totalPayable)
+                .pendingCount(pendingCount)
+                .processingCount(processingCount)
+                .totalCompletedInPeriod(totalCompleted)
+                .failedOnHoldCount(failedOnHold)
                 .currency(CURRENCY)
                 .build();
     }
@@ -74,70 +61,24 @@ public class AdminPayoutService {
     @Transactional(readOnly = true)
     public Page<AdminPayoutResponse> listPayouts(int page, int size, String status, String providerId,
                                                   String start, String end, String q) {
-        List<Object> params = new ArrayList<>();
-        StringBuilder where = new StringBuilder(" WHERE 1=1");
+        UUID providerIdUUID = providerId != null && !providerId.isBlank() ? UUID.fromString(providerId) : null;
+        long total = payoutRepository.countFiltered(status, providerIdUUID, start, end, q);
+        List<PortalPayoutRequest> requests = payoutRepository.findFiltered(
+                status, providerIdUUID, start, end, q, size, (long) page * size);
 
-        if (status != null && !status.isBlank()) {
-            where.append(" AND r.status = ?");
-            params.add(status.toUpperCase());
-        }
-        if (providerId != null && !providerId.isBlank()) {
-            where.append(" AND r.provider_id = ?::uuid");
-            params.add(providerId);
-        }
-        if (start != null && !start.isBlank()) {
-            where.append(" AND r.requested_at >= ?::timestamptz");
-            params.add(start);
-        }
-        if (end != null && !end.isBlank()) {
-            where.append(" AND r.requested_at <= ?::timestamptz");
-            params.add(end);
-        }
-        if (q != null && !q.isBlank()) {
-            where.append(" AND (LOWER(sp.company_name) LIKE LOWER(?) OR CAST(r.id AS TEXT) LIKE LOWER(?))");
-            String likeQ = "%" + q.toLowerCase() + "%";
-            params.add(likeQ);
-            params.add(likeQ);
-        }
+        Map<UUID, ServiceProvider> providerMap = loadProviders(requests);
+        List<AdminPayoutResponse> content = requests.stream()
+                .map(r -> toResponse(r, providerMap.get(r.getProviderId())))
+                .collect(Collectors.toList());
 
-        String baseQuery = "FROM portal_payout_requests r" +
-                " LEFT JOIN hotel_service_providers sp ON sp.id = r.provider_id";
-
-        Long total = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*)" + baseQuery + where, Long.class, params.toArray());
-
-        List<Object> pageParams = new ArrayList<>(params);
-        pageParams.add(size);
-        pageParams.add((long) page * size);
-
-        String selectQuery = "SELECT r.id, r.provider_id, r.amount, r.currency, r.notes, r.status," +
-                " r.requested_at, r.processed_at, r.processed_by, r.rejection_reason, r.transaction_id," +
-                " r.scheduled_at, r.is_manual," +
-                " sp.company_name AS provider_name, sp.contact_email AS provider_email" +
-                " " + baseQuery + where +
-                " ORDER BY r.requested_at DESC LIMIT ? OFFSET ?";
-
-        List<AdminPayoutResponse> content = jdbcTemplate.query(selectQuery, PAYOUT_ROW_MAPPER, pageParams.toArray());
-
-        return new PageImpl<>(content, PageRequest.of(page, size), total != null ? total : 0L);
+        return new PageImpl<>(content, PageRequest.of(page, size), total);
     }
 
     @Transactional(readOnly = true)
     public AdminPayoutResponse getById(UUID id) {
-        List<AdminPayoutResponse> results = jdbcTemplate.query(
-                "SELECT r.id, r.provider_id, r.amount, r.currency, r.notes, r.status," +
-                " r.requested_at, r.processed_at, r.processed_by, r.rejection_reason, r.transaction_id," +
-                " r.scheduled_at, r.is_manual," +
-                " sp.company_name AS provider_name, sp.contact_email AS provider_email" +
-                " FROM portal_payout_requests r" +
-                " LEFT JOIN hotel_service_providers sp ON sp.id = r.provider_id" +
-                " WHERE r.id = ?",
-                PAYOUT_ROW_MAPPER, id);
-
-        if (results.isEmpty()) {
-            throw new ResourceNotFoundException("Payout request not found: " + id);
-        }
-        return results.get(0);
+        PortalPayoutRequest req = findOrThrow(id);
+        ServiceProvider provider = serviceProviderRepository.findById(req.getProviderId()).orElse(null);
+        return toResponse(req, provider);
     }
 
     // -------------------------------------------------------------------------
@@ -147,70 +88,73 @@ public class AdminPayoutService {
     @Audited(action = "PAYOUT_APPROVE", entityType = "Payout", entityIdArgIndex = 0)
     @Transactional
     public AdminPayoutResponse approve(UUID id, AdminPayoutActionRequest req, UUID actorId) {
-        requireStatus(id, "PENDING", "SCHEDULED");
-        jdbcTemplate.update(
-                "UPDATE portal_payout_requests SET status='PROCESSING', processed_at=?, processed_by=?, notes=? WHERE id=?",
-                Timestamp.from(Instant.now()), actorId, req != null ? req.getNotes() : null, id);
+        PortalPayoutRequest payout = findOrThrow(id);
+        payout.approve(actorId, req != null ? req.getNotes() : null);
+        payoutRepository.save(payout);
         return getById(id);
     }
 
     @Audited(action = "PAYOUT_HOLD", entityType = "Payout", entityIdArgIndex = 0)
     @Transactional
     public AdminPayoutResponse hold(UUID id) {
-        requireStatus(id, "PENDING");
-        jdbcTemplate.update("UPDATE portal_payout_requests SET status='ON_HOLD' WHERE id=?", id);
+        PortalPayoutRequest payout = findOrThrow(id);
+        payout.hold();
+        payoutRepository.save(payout);
         return getById(id);
     }
 
     @Audited(action = "PAYOUT_RELEASE_HOLD", entityType = "Payout", entityIdArgIndex = 0)
     @Transactional
     public AdminPayoutResponse releaseHold(UUID id) {
-        requireStatus(id, "ON_HOLD");
-        jdbcTemplate.update("UPDATE portal_payout_requests SET status='PENDING' WHERE id=?", id);
+        PortalPayoutRequest payout = findOrThrow(id);
+        payout.releaseHold();
+        payoutRepository.save(payout);
         return getById(id);
     }
 
     @Audited(action = "PAYOUT_CANCEL", entityType = "Payout", entityIdArgIndex = 0)
     @Transactional
     public AdminPayoutResponse cancel(UUID id) {
-        requireStatus(id, "PENDING", "ON_HOLD", "SCHEDULED");
-        jdbcTemplate.update("UPDATE portal_payout_requests SET status='CANCELLED' WHERE id=?", id);
+        PortalPayoutRequest payout = findOrThrow(id);
+        payout.cancel();
+        payoutRepository.save(payout);
         return getById(id);
     }
 
     @Audited(action = "PAYOUT_RETRY", entityType = "Payout", entityIdArgIndex = 0)
     @Transactional
     public AdminPayoutResponse retry(UUID id) {
-        requireStatus(id, "FAILED", "REJECTED");
-        jdbcTemplate.update("UPDATE portal_payout_requests SET status='PENDING' WHERE id=?", id);
+        PortalPayoutRequest payout = findOrThrow(id);
+        payout.retry();
+        payoutRepository.save(payout);
         return getById(id);
     }
 
     @Audited(action = "PAYOUT_MARK_PAID", entityType = "Payout", entityIdArgIndex = 0)
     @Transactional
     public AdminPayoutResponse markPaid(UUID id, AdminPayoutActionRequest req, UUID actorId) {
-        jdbcTemplate.update(
-                "UPDATE portal_payout_requests SET status='COMPLETED', processed_at=?, processed_by=?," +
-                " transaction_id=?, notes=? WHERE id=?",
-                Timestamp.from(Instant.now()), actorId,
+        PortalPayoutRequest payout = findOrThrow(id);
+        payout.markPaid(actorId,
                 req != null ? req.getTransactionId() : null,
-                req != null ? req.getNotes() : null, id);
+                req != null ? req.getNotes() : null);
+        payoutRepository.save(payout);
         return getById(id);
     }
 
     @Audited(action = "PAYOUT_SCHEDULE", entityType = "Payout", entityIdArgIndex = 0)
     @Transactional
     public AdminPayoutResponse schedule(UUID id, AdminPayoutActionRequest req) {
-        requireStatus(id, "PENDING");
-        jdbcTemplate.update(
-                "UPDATE portal_payout_requests SET status='SCHEDULED', scheduled_at=?::timestamptz WHERE id=?",
-                req != null ? req.getScheduledAt() : null, id);
+        PortalPayoutRequest payout = findOrThrow(id);
+        payout.schedule(req != null ? req.getScheduledAt() : null);
+        payoutRepository.save(payout);
         return getById(id);
     }
 
     @Transactional
     public AdminPayoutResponse updateNotes(UUID id, String notes) {
-        jdbcTemplate.update("UPDATE portal_payout_requests SET notes=? WHERE id=?", notes, id);
+        PortalPayoutRequest payout = findOrThrow(id);
+        payout.setNotes(notes);
+        payoutRepository.save(payout);
         return getById(id);
     }
 
@@ -221,15 +165,13 @@ public class AdminPayoutService {
     @Audited(action = "PAYOUT_BULK_APPROVE", entityType = "Payout")
     @Transactional
     public Map<String, Object> bulkApprove(BulkPayoutActionRequest req, UUID actorId) {
-        Instant now = Instant.now();
         int count = 0;
         List<String> failed = new ArrayList<>();
         for (UUID id : req.getIds()) {
             try {
-                requireStatus(id, "PENDING", "SCHEDULED");
-                jdbcTemplate.update(
-                        "UPDATE portal_payout_requests SET status='PROCESSING', processed_at=?, processed_by=? WHERE id=?",
-                        Timestamp.from(now), actorId, id);
+                PortalPayoutRequest payout = findOrThrow(id);
+                payout.approve(actorId, null);
+                payoutRepository.save(payout);
                 count++;
             } catch (Exception e) {
                 failed.add(id.toString());
@@ -246,9 +188,14 @@ public class AdminPayoutService {
     public Map<String, Object> bulkHold(BulkPayoutActionRequest req) {
         int count = 0;
         for (UUID id : req.getIds()) {
-            int rows = jdbcTemplate.update(
-                    "UPDATE portal_payout_requests SET status='ON_HOLD' WHERE id=? AND status='PENDING'", id);
-            count += rows;
+            try {
+                PortalPayoutRequest payout = findOrThrow(id);
+                payout.hold();
+                payoutRepository.save(payout);
+                count++;
+            } catch (Exception e) {
+                // skip if status is not PENDING
+            }
         }
         return Map.of("processed", count);
     }
@@ -258,9 +205,14 @@ public class AdminPayoutService {
     public Map<String, Object> bulkReleaseHold(BulkPayoutActionRequest req) {
         int count = 0;
         for (UUID id : req.getIds()) {
-            int rows = jdbcTemplate.update(
-                    "UPDATE portal_payout_requests SET status='PENDING' WHERE id=? AND status='ON_HOLD'", id);
-            count += rows;
+            try {
+                PortalPayoutRequest payout = findOrThrow(id);
+                payout.releaseHold();
+                payoutRepository.save(payout);
+                count++;
+            } catch (Exception e) {
+                // skip if status is not ON_HOLD
+            }
         }
         return Map.of("processed", count);
     }
@@ -272,13 +224,18 @@ public class AdminPayoutService {
     @Audited(action = "PAYOUT_CREATE_MANUAL", entityType = "Payout")
     @Transactional
     public AdminPayoutResponse createManual(CreateManualPayoutRequest req, UUID actorId) {
-        UUID id = UUID.randomUUID();
-        String status = req.isExecuteImmediately() ? "PROCESSING" : "PENDING";
-        jdbcTemplate.update(
-                "INSERT INTO portal_payout_requests (id, provider_id, amount, currency, notes, status, requested_at, is_manual, processed_by)" +
-                " VALUES (?, ?, ?, 'USD', ?, ?, NOW(), TRUE, ?)",
-                id, req.getProviderId(), req.getAmount(), req.getMemo(), status, actorId);
-        return getById(id);
+        PortalPayoutRequest payout = new PortalPayoutRequest();
+        payout.setId(UUID.randomUUID());
+        payout.setProviderId(req.getProviderId());
+        payout.setAmount(req.getAmount());
+        payout.setCurrency(CURRENCY);
+        payout.setNotes(req.getMemo());
+        payout.setStatus(req.isExecuteImmediately() ? "PROCESSING" : "PENDING");
+        payout.setRequestedAt(Instant.now());
+        payout.setManual(true);
+        payout.setProcessedBy(actorId);
+        payoutRepository.save(payout);
+        return getById(payout.getId());
     }
 
     // -------------------------------------------------------------------------
@@ -287,37 +244,29 @@ public class AdminPayoutService {
 
     @Transactional(readOnly = true)
     public byte[] exportCsv(String status, String start, String end) {
-        List<Object> params = new ArrayList<>();
-        String dateFilter = buildDateFilter(start, end, "r.requested_at", params);
-        String where = "WHERE 1=1" + dateFilter;
-        if (status != null && !status.isBlank()) {
-            where += " AND r.status = ?";
-            params.add(status.toUpperCase());
-        }
-        String sql = "SELECT r.id, sp.company_name AS provider_name, sp.contact_email AS provider_email, " +
-                     "r.amount, r.currency, r.status, r.requested_at, r.processed_at, " +
-                     "r.transaction_id, r.notes, r.is_manual " +
-                     "FROM portal_payout_requests r " +
-                     "LEFT JOIN hotel_service_providers sp ON sp.id = r.provider_id " +
-                     where + " ORDER BY r.requested_at DESC";
+        List<PortalPayoutRequest> rows = payoutRepository.findForExport(status, start, end);
+        Set<UUID> providerIds = rows.stream()
+                .map(PortalPayoutRequest::getProviderId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<UUID, ServiceProvider> providerMap = serviceProviderRepository.findAllById(providerIds).stream()
+                .collect(Collectors.toMap(ServiceProvider::getId, Function.identity(), (a, b) -> a));
+
         StringBuilder csv = new StringBuilder();
         csv.append("ID,Provider,Email,Amount,Currency,Status,Requested At,Processed At,Transaction ID,Notes,Manual\n");
-        jdbcTemplate.query(sql, params.toArray(), rs -> {
-            csv.append('"').append(rs.getString("id")).append('"').append(',');
-            csv.append('"').append(safe(rs.getString("provider_name"))).append('"').append(',');
-            csv.append('"').append(safe(rs.getString("provider_email"))).append('"').append(',');
-            csv.append(rs.getBigDecimal("amount")).append(',');
-            csv.append(safe(rs.getString("currency"))).append(',');
-            csv.append(safe(rs.getString("status"))).append(',');
-            Timestamp ra = rs.getTimestamp("requested_at");
-            csv.append(ra != null ? ra.toInstant().toString() : "").append(',');
-            Timestamp pa = rs.getTimestamp("processed_at");
-            csv.append(pa != null ? pa.toInstant().toString() : "").append(',');
-            csv.append('"').append(safe(rs.getString("transaction_id"))).append('"').append(',');
-            csv.append('"').append(safe(rs.getString("notes"))).append('"').append(',');
-            csv.append(rs.getBoolean("is_manual")).append('\n');
-        });
-        return csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        for (PortalPayoutRequest r : rows) {
+            ServiceProvider sp = providerMap.get(r.getProviderId());
+            csv.append('"').append(r.getId()).append('"').append(',');
+            csv.append('"').append(safe(sp != null ? sp.getCompanyName() : null)).append('"').append(',');
+            csv.append('"').append(safe(sp != null ? sp.getContactEmail() : null)).append('"').append(',');
+            csv.append(r.getAmount()).append(',');
+            csv.append(safe(r.getCurrency())).append(',');
+            csv.append(safe(r.getStatus())).append(',');
+            csv.append(r.getRequestedAt() != null ? r.getRequestedAt().toString() : "").append(',');
+            csv.append(r.getProcessedAt() != null ? r.getProcessedAt().toString() : "").append(',');
+            csv.append('"').append(safe(r.getTransactionId())).append('"').append(',');
+            csv.append('"').append(safe(r.getNotes())).append('"').append(',');
+            csv.append(r.isManual()).append('\n');
+        }
+        return csv.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     private static String safe(String s) {
@@ -328,53 +277,37 @@ public class AdminPayoutService {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private void requireStatus(UUID id, String... allowedStatuses) {
-        String current = jdbcTemplate.queryForObject(
-                "SELECT status FROM portal_payout_requests WHERE id=?", String.class, id);
-        if (current == null) throw new ResourceNotFoundException("Payout request not found: " + id);
-        for (String s : allowedStatuses) {
-            if (s.equals(current)) return;
-        }
-        throw new IllegalStateException(
-                "Cannot perform action on payout in status " + current +
-                ". Allowed: " + Arrays.toString(allowedStatuses));
+    private PortalPayoutRequest findOrThrow(UUID id) {
+        return payoutRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Payout request not found: " + id));
     }
 
-    private String buildDateFilter(String start, String end, String col, List<Object> params) {
-        StringBuilder sb = new StringBuilder();
-        if (start != null && !start.isBlank()) {
-            sb.append(" AND ").append(col).append(" >= ?::date");
-            params.add(start);
-        }
-        if (end != null && !end.isBlank()) {
-            sb.append(" AND ").append(col).append(" <= ?::date + interval '1 day'");
-            params.add(end);
-        }
-        return sb.toString();
+    private Map<UUID, ServiceProvider> loadProviders(List<PortalPayoutRequest> requests) {
+        Set<UUID> ids = requests.stream()
+                .map(PortalPayoutRequest::getProviderId).filter(Objects::nonNull).collect(Collectors.toSet());
+        if (ids.isEmpty()) return Map.of();
+        return serviceProviderRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(ServiceProvider::getId, Function.identity(), (a, b) -> a));
     }
 
-    private static final RowMapper<AdminPayoutResponse> PAYOUT_ROW_MAPPER = (rs, rowNum) -> {
-        Timestamp reqAt = rs.getTimestamp("requested_at");
-        Timestamp procAt = rs.getTimestamp("processed_at");
-        Timestamp schedAt = rs.getTimestamp("scheduled_at");
-
+    private AdminPayoutResponse toResponse(PortalPayoutRequest r, ServiceProvider sp) {
         return AdminPayoutResponse.builder()
-                .id(UUID.fromString(rs.getString("id")))
-                .providerId(UUID.fromString(rs.getString("provider_id")))
-                .providerName(rs.getString("provider_name"))
-                .providerEmail(rs.getString("provider_email"))
-                .amount(rs.getBigDecimal("amount"))
-                .currency(rs.getString("currency") != null ? rs.getString("currency") : "USD")
-                .notes(rs.getString("notes"))
-                .status(rs.getString("status"))
-                .requestedAt(reqAt != null ? reqAt.toInstant() : null)
-                .processedAt(procAt != null ? procAt.toInstant() : null)
-                .processedBy(rs.getString("processed_by"))
-                .rejectionReason(rs.getString("rejection_reason"))
-                .transactionId(rs.getString("transaction_id"))
-                .scheduledAt(schedAt != null ? schedAt.toInstant() : null)
-                .manual(rs.getBoolean("is_manual"))
+                .id(r.getId())
+                .providerId(r.getProviderId())
+                .providerName(sp != null ? sp.getCompanyName() : null)
+                .providerEmail(sp != null ? sp.getContactEmail() : null)
+                .amount(r.getAmount())
+                .currency(r.getCurrency() != null ? r.getCurrency() : CURRENCY)
+                .notes(r.getNotes())
+                .status(r.getStatus())
+                .requestedAt(r.getRequestedAt())
+                .processedAt(r.getProcessedAt())
+                .processedBy(r.getProcessedBy() != null ? r.getProcessedBy().toString() : null)
+                .rejectionReason(r.getRejectionReason())
+                .transactionId(r.getTransactionId())
+                .scheduledAt(r.getScheduledAt() != null ? Instant.parse(r.getScheduledAt()) : null)
+                .manual(r.isManual())
                 .statusHistory(List.of())
                 .build();
-    };
+    }
 }

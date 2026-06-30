@@ -50,4 +50,7 @@ public interface UserRepository {
 
     /** Active (non-deleted) users with any of the given roles and status. */
     List<UUID> findActiveDirectoryUserIdsByRoles(Collection<UserRole> roles, UserStatus status);
+
+    /** Active STAFF users not yet linked to any provider (as owner or staff member). Used by portal staff picker. */
+    List<User> findUnlinkedActiveStaff();
 }

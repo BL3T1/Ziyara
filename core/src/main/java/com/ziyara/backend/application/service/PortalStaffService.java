@@ -20,7 +20,6 @@ import com.ziyara.backend.modules.subscription.api.SubscriptionServiceApi;
 import com.ziyara.backend.application.exception.BusinessException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +44,6 @@ public class PortalStaffService {
     private final PasswordPolicyService passwordPolicyService;
     private final SubscriptionServiceApi subscriptionService;
     private final RoleRepository roleRepository;
-    private final JdbcTemplate jdbcTemplate;
 
     @Transactional(readOnly = true)
     public List<PortalAssignableRoleResponse> listAssignableRoles() {
@@ -60,20 +58,13 @@ public class PortalStaffService {
 
     @Transactional(readOnly = true)
     public List<LinkableUserResponse> listLinkableUsers() {
-        String sql =
-            "SELECT u.id, u.email, u.phone " +
-            "FROM sys_users u " +
-            "WHERE u.role = 'STAFF' " +
-            "  AND u.status = 'ACTIVE' " +
-            "  AND u.id NOT IN (SELECT user_id FROM hotel_provider_staff) " +
-            "  AND u.id NOT IN (SELECT user_id FROM hotel_service_providers WHERE user_id IS NOT NULL) " +
-            "ORDER BY u.email LIMIT 100";
-        return jdbcTemplate.query(sql,
-            (rs, rowNum) -> LinkableUserResponse.builder()
-                .id(UUID.fromString(rs.getString("id")))
-                .email(rs.getString("email"))
-                .phone(rs.getString("phone"))
-                .build());
+        return userRepository.findUnlinkedActiveStaff().stream()
+                .map(u -> LinkableUserResponse.builder()
+                        .id(u.getId())
+                        .email(u.getEmail())
+                        .phone(u.getPhone())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)

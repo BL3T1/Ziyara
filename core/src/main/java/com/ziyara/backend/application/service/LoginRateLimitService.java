@@ -1,17 +1,15 @@
 package com.ziyara.backend.application.service;
 
+import com.ziyara.backend.domain.repository.RateLimitRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import org.springframework.scheduling.annotation.Scheduled;
 
-import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -25,7 +23,7 @@ import java.time.temporal.ChronoUnit;
 @Slf4j
 public class LoginRateLimitService {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final RateLimitRepository rateLimitRepository;
     private final ObjectProvider<StringRedisTemplate> redisTemplate;
 
     @Value("${ziyara.rate-limit.login.enabled:true}")
@@ -66,38 +64,16 @@ public class LoginRateLimitService {
     }
 
     private boolean allowPostgres(String clientIp, String endpointKey) {
-        try {
-            Instant windowStart = Instant.now().truncatedTo(ChronoUnit.MINUTES);
-            Instant windowEnd = windowStart.plus(1, ChronoUnit.MINUTES);
-            String identifier = "ip:" + clientIp;
-            // Single UPSERT+RETURNING replaces the previous DELETE + INSERT + SELECT (3 round-trips).
-            Integer cnt = jdbcTemplate.queryForObject(
-                    """
-                    INSERT INTO sys_rate_limit_counters
-                      (id, identifier, identifier_type, endpoint, request_count, window_start, window_end)
-                    VALUES (gen_random_uuid(), ?, 'IP', ?, 1, ?, ?)
-                    ON CONFLICT (identifier, identifier_type, endpoint, window_start)
-                    DO UPDATE SET request_count = sys_rate_limit_counters.request_count + 1
-                    RETURNING request_count
-                    """,
-                    Integer.class,
-                    identifier, endpointKey, Timestamp.from(windowStart), Timestamp.from(windowEnd));
-            return cnt == null || cnt <= maxPerMinutePerIp;
-        } catch (DataAccessException e) {
-            // Fail open: older DBs without sys_rate_limit_counters (033) must not block login entirely.
-            log.warn("Login rate limit DB check skipped (allowing request): {}", e.getMessage());
-            return true;
-        }
+        Instant windowStart = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        Instant windowEnd = windowStart.plus(1, ChronoUnit.MINUTES);
+        // Fail open: null return means transient DB failure
+        Integer cnt = rateLimitRepository.incrementAndGet("ip:" + clientIp, "IP", endpointKey, windowStart, windowEnd);
+        return cnt == null || cnt <= maxPerMinutePerIp;
     }
 
     // Cleanup moved out of the hot path — runs every 10 minutes in the background.
     @Scheduled(fixedDelay = 600_000)
     public void cleanupExpiredCounters() {
-        try {
-            jdbcTemplate.update(
-                    "DELETE FROM sys_rate_limit_counters WHERE window_end < NOW() - INTERVAL '2 days'");
-        } catch (DataAccessException e) {
-            log.warn("Rate limit counter cleanup failed: {}", e.getMessage());
-        }
+        rateLimitRepository.deleteExpired();
     }
 }
