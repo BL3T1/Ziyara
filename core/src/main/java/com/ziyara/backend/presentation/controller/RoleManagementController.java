@@ -164,7 +164,7 @@ public class RoleManagementController {
         return ResponseEntity.ok(ApiResponse.success("Role updated", updated));
     }
 
-    @PutMapping("/{id}/navigation")
+    @PatchMapping("/{id}/navigation")
     @PreAuthorize(ApiAuthorizationExpressions.ROLES_WRITE)
     @Operation(summary = "Update role sidebar navigation", description = "Ordered dashboard nav item IDs (system and custom roles)")
     public ResponseEntity<ApiResponse<RoleResponse>> updateRoleNavigation(

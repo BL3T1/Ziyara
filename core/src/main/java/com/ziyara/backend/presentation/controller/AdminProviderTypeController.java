@@ -29,7 +29,7 @@ public class AdminProviderTypeController {
     private final ServiceProviderService providerService;
     private final ProviderTypeConfigService typeConfigService;
 
-    @PutMapping("/{providerId}/type")
+    @PatchMapping("/{providerId}/type")
     @Operation(summary = "Change a provider's type (HOTEL, APARTMENT, EVENT_SPACE, TOUR_OPERATOR)")
     public ResponseEntity<ApiResponse<ProviderTypeConfigService.ProviderFeatureSet>> updateType(
             @PathVariable UUID providerId,

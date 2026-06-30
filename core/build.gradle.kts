@@ -127,6 +127,7 @@ dependencies {
 	testImplementation("org.testcontainers:junit-jupiter:1.19.8")
 	testImplementation("org.testcontainers:postgresql:1.19.8")
 	testImplementation("org.testcontainers:kafka:1.19.8")
+	testImplementation("net.ttddyy:datasource-proxy:1.10")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
 	// H2 is only used during AOT build-time processing (processAot forks a JVM with an in-process DB).

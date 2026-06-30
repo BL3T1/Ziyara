@@ -530,7 +530,7 @@ export const rolesAPI = {
   delete: (id: string, body?: { targetRoleId?: string }) =>
     client.delete<unknown>(`/roles/${id}`, { data: body }),
   updateNavigation: (id: string, body: { visibleItemIds: string[] }) =>
-    client.put<unknown>(`/roles/${id}/navigation`, body),
+    client.patch<unknown>(`/roles/${id}/navigation`, body),
   getRoleMembers: (roleId: string, params?: { page?: number; size?: number }) =>
     client.get<unknown>(`/roles/${roleId}/users`, { params: { page: 0, size: 20, ...params } }),
 }
@@ -934,7 +934,7 @@ export const portalRestaurantAPI = {
   create: (body: { name: string; nameAr?: string; description?: string; logoUrl?: string; openingHours?: Record<string, string> }) =>
     client.post<ProviderRestaurantDto>('/portal/restaurant', body),
   update: (body: { name?: string; nameAr?: string; description?: string; logoUrl?: string; openingHours?: Record<string, string> }) =>
-    client.put<ProviderRestaurantDto>('/portal/restaurant', body),
+    client.patch<ProviderRestaurantDto>('/portal/restaurant', body),
 }
 
 // --- Walk-in conflict ---
@@ -965,7 +965,7 @@ export const adminIdentityAPI = {
 // --- Admin provider type ---
 export const adminProviderTypeAPI = {
   updateType: (providerId: string, providerType: string) =>
-    client.put<ProviderFeatureSetDto>(`/admin/providers/${providerId}/type`, { providerType }),
+    client.patch<ProviderFeatureSetDto>(`/admin/providers/${providerId}/type`, { providerType }),
   getFeatures: (providerId: string) =>
     client.get<ProviderFeatureSetDto>(`/admin/providers/${providerId}/features`),
 }

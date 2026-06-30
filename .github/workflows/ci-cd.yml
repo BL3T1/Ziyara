@@ -187,32 +187,32 @@ jobs:
           retention-days: 30
 
 # ─────────────────────────────────────────────────────────────────
-# JOB 5 — Deploy: SSH to VPS (DISABLED — no deploy host yet)
-#          Uncomment when DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY
-#          secrets are added in repo Settings → Secrets → Actions.
+# JOB 5 — Deploy: SSH to VPS
+#          Requires secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY
+#          Optional secret: DEPLOY_PORT (defaults to 22)
 # ─────────────────────────────────────────────────────────────────
-#  deploy:
-#    name: Deploy to VPS
-#    needs: [backend, frontend]
-#    runs-on: ubuntu-latest
-#    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-#
-#    steps:
-#      - name: Deploy via SSH
-#        uses: appleboy/ssh-action@v1.0.3
-#        with:
-#          host: ${{ secrets.DEPLOY_HOST }}
-#          username: ${{ secrets.DEPLOY_USER }}
-#          key: ${{ secrets.DEPLOY_SSH_KEY }}
-#          port: ${{ secrets.DEPLOY_PORT || 22 }}
-#          script: |
-#            set -e
-#            cd /opt/ziyara
-#            echo "==> Pulling latest code"
-#            git pull origin master
-#            echo "==> Rebuilding and restarting containers"
-#            docker compose --profile portmode up -d --build --remove-orphans
-#            echo "==> Pruning dangling images"
-#            docker image prune -f
-#            echo "==> Deploy complete"
-#            docker compose ps
+  deploy:
+    name: Deploy to VPS
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            set -e
+            cd /opt/ziyara
+            echo "==> Pulling latest code"
+            git pull origin master
+            echo "==> Rebuilding and restarting containers"
+            docker compose --profile portmode up -d --build --remove-orphans
+            echo "==> Pruning dangling images"
+            docker image prune -f
+            echo "==> Deploy complete"
+            docker compose ps
