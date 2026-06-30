@@ -8,6 +8,7 @@ import { useLanguage } from '../../context/LanguageContext'
 import { currencyAPI, getApiErrorMessage } from '../../services/api'
 import type { ExchangeRateRowDto } from '../../types/api'
 import { Modal } from '../../components/Modal'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { FormField } from '../../components/FormField'
 import { formatDate } from '../../utils/formatDate'
 import { usePermission } from '../../hooks/usePermission'
@@ -24,6 +25,7 @@ export function CurrencyRatesPage() {
   const [detailRow, setDetailRow] = useState<ExchangeRateRowDto | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteRateTarget, setDeleteRateTarget] = useState<string | null>(null)
   const [form, setForm] = useState({ fromCurrency: '', toCurrency: '', rate: '', effectiveDate: '' })
   const [submitting, setSubmitting] = useState(false)
   const [detailEditing, setDetailEditing] = useState(false)
@@ -134,8 +136,13 @@ export function CurrencyRatesPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm(t('currencyRatesPage.confirmDelete'))) return
+  const handleDelete = (id: string) => {
+    setDeleteRateTarget(id)
+  }
+
+  const doDeleteRate = async () => {
+    if (!deleteRateTarget) return
+    const id = deleteRateTarget
     setDeletingId(id)
     setError(null)
     try {
@@ -146,6 +153,7 @@ export function CurrencyRatesPage() {
       setError(getApiErrorMessage(e))
     } finally {
       setDeletingId(null)
+      setDeleteRateTarget(null)
     }
   }
 
@@ -414,6 +422,14 @@ export function CurrencyRatesPage() {
           </FormField>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleteRateTarget}
+        onClose={() => setDeleteRateTarget(null)}
+        title={t('currencyRatesPage.confirmDelete')}
+        variant="danger"
+        onConfirm={doDeleteRate}
+      />
     </>
   )
 }

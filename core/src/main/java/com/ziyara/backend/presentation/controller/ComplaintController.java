@@ -22,6 +22,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.ziyara.backend.application.annotation.RateLimit;
 
 import java.util.List;
 import java.util.UUID;
@@ -65,6 +66,7 @@ public class ComplaintController {
                 .orElseThrow(() -> new ResourceNotFoundException("Complaint not found"));
     }
 
+    @RateLimit(key = "complaint-create", maxPerMinute = 10)
     @PostMapping
     @Operation(summary = "Create complaint", description = "Create a new complaint (ticket number auto-generated)")
     public ResponseEntity<ApiResponse<ComplaintResponse>> create(

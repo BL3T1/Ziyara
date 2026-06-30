@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getApiErrorMessage, portalServicesAPI, servicesAPI } from '../../services/api'
 import { Card } from '../../components/Card'
 import { usePermission } from '../../hooks/usePermission'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type {
   CreateMenuItemPayload,
   CreateHotelRoomPayload,
@@ -92,6 +93,10 @@ export function ServiceDetailMediaEditor({
   })
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null)
   const [editRoomForm, setEditRoomForm] = useState<UpdateHotelRoomPayload>({})
+  const [confirmDeleteImage, setConfirmDeleteImage] = useState<string | null>(null)
+  const [confirmDeleteSection, setConfirmDeleteSection] = useState<string | null>(null)
+  const [confirmDeleteItem, setConfirmDeleteItem] = useState<string | null>(null)
+  const [confirmDeleteRoom, setConfirmDeleteRoom] = useState<string | null>(null)
   const roomFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -139,8 +144,7 @@ export function ServiceDetailMediaEditor({
   }
 
   const deleteImage = (imageId: string) => {
-    if (!window.confirm('Remove this image?')) return
-    void run(() => api.deleteImage(serviceId, imageId))
+    setConfirmDeleteImage(imageId)
   }
 
   const uploadImageFile = () => {
@@ -201,8 +205,7 @@ export function ServiceDetailMediaEditor({
   }
 
   const deleteSection = (sectionId: string) => {
-    if (!window.confirm('Delete this section and all its items?')) return
-    void run(() => api.deleteMenuSection(serviceId, sectionId))
+    setConfirmDeleteSection(sectionId)
   }
 
   const getNewItem = (sectionId: string): CreateMenuItemPayload =>
@@ -278,8 +281,7 @@ export function ServiceDetailMediaEditor({
   }
 
   const deleteItem = (itemId: string) => {
-    if (!window.confirm('Remove this menu item?')) return
-    void run(() => api.deleteMenuItem(serviceId, itemId))
+    setConfirmDeleteItem(itemId)
   }
 
   const addRoom = () => {
@@ -336,11 +338,7 @@ export function ServiceDetailMediaEditor({
   }
 
   const deleteRoom = (roomId: string) => {
-    if (!window.confirm('Delete this room type?')) return
-    void run(async () => {
-      await api.deleteRoom(serviceId, roomId)
-      await refreshRooms()
-    }).catch(() => {})
+    setConfirmDeleteRoom(roomId)
   }
 
   const uploadRoomImage = (roomId: string) => {
@@ -885,6 +883,40 @@ export function ServiceDetailMediaEditor({
           )}
         </Card>
       )}
+      <ConfirmDialog
+        open={!!confirmDeleteImage}
+        onClose={() => setConfirmDeleteImage(null)}
+        title="Remove this image?"
+        variant="danger"
+        onConfirm={() => run(() => api.deleteImage(serviceId, confirmDeleteImage!)).then(() => setConfirmDeleteImage(null)).catch(() => setConfirmDeleteImage(null))}
+      />
+      <ConfirmDialog
+        open={!!confirmDeleteSection}
+        onClose={() => setConfirmDeleteSection(null)}
+        title="Delete this section and all its items?"
+        variant="danger"
+        onConfirm={() => run(() => api.deleteMenuSection(serviceId, confirmDeleteSection!)).then(() => setConfirmDeleteSection(null)).catch(() => setConfirmDeleteSection(null))}
+      />
+      <ConfirmDialog
+        open={!!confirmDeleteItem}
+        onClose={() => setConfirmDeleteItem(null)}
+        title="Remove this menu item?"
+        variant="danger"
+        onConfirm={() => run(() => api.deleteMenuItem(serviceId, confirmDeleteItem!)).then(() => setConfirmDeleteItem(null)).catch(() => setConfirmDeleteItem(null))}
+      />
+      <ConfirmDialog
+        open={!!confirmDeleteRoom}
+        onClose={() => setConfirmDeleteRoom(null)}
+        title="Delete this room type?"
+        variant="danger"
+        onConfirm={async () => {
+          await run(async () => {
+            await api.deleteRoom(serviceId, confirmDeleteRoom!)
+            await refreshRooms()
+          }).catch(() => {})
+          setConfirmDeleteRoom(null)
+        }}
+      />
     </div>
   )
 }

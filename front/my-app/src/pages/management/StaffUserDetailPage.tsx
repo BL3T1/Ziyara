@@ -7,6 +7,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { Modal } from '../../components/Modal'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { PasswordInput } from '../../components/PasswordInput'
 import { auditLogsAPI, usersAPI, getApiErrorMessage } from '../../services/api'
 import { usePermissions } from '../../context/PermissionsContext'
@@ -41,6 +42,8 @@ export function StaffUserDetailPage() {
   const [actionBusy, setActionBusy] = useState(false)
   const [showResetModal, setShowResetModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [confirmFreeze, setConfirmFreeze] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
 
@@ -118,11 +121,14 @@ export function StaffUserDetailPage() {
     }
   }
 
-  const handleFreezeToggle = async () => {
+  const handleFreezeToggle = () => {
+    if (!userId || !profile) return
+    setConfirmFreeze(true)
+  }
+
+  const doFreezeToggle = async () => {
     if (!userId || !profile) return
     const frozen = profile.status === 'FROZEN'
-    const ok = window.confirm(frozen ? t('staffUserPage.confirmUnfreeze') : t('staffUserPage.confirmFreeze'))
-    if (!ok) return
     setActionBusy(true)
     setError('')
     setMsg('')
@@ -138,10 +144,13 @@ export function StaffUserDetailPage() {
     }
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!userId) return
-    const ok = window.confirm(t('staffUserPage.confirmDelete'))
-    if (!ok) return
+    setConfirmDelete(true)
+  }
+
+  const doDelete = async () => {
+    if (!userId) return
     setActionBusy(true)
     setError('')
     setMsg('')
@@ -446,6 +455,22 @@ export function StaffUserDetailPage() {
           onError={setError}
         />
       )}
+      {profile && (
+        <ConfirmDialog
+          open={confirmFreeze}
+          onClose={() => setConfirmFreeze(false)}
+          title={profile.status === 'FROZEN' ? t('staffUserPage.confirmUnfreeze') : t('staffUserPage.confirmFreeze')}
+          variant="danger"
+          onConfirm={doFreezeToggle}
+        />
+      )}
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title={t('staffUserPage.confirmDelete')}
+        variant="danger"
+        onConfirm={doDelete}
+      />
     </>
   )
 }

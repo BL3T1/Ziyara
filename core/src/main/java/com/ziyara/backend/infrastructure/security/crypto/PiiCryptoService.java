@@ -1,6 +1,8 @@
 package com.ziyara.backend.infrastructure.security.crypto;
 
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.Cipher;
@@ -10,6 +12,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Base64;
 
 /**
@@ -26,8 +29,12 @@ public class PiiCryptoService {
 
     private final SecretKey secretKey;
     private final SecureRandom random = new SecureRandom();
+    private final Environment env;
 
-    public PiiCryptoService(@Value("${ziyara.pii.encryption-key-base64:}") String keyBase64) {
+    public PiiCryptoService(
+            @Value("${ziyara.pii.encryption-key-base64:}") String keyBase64,
+            Environment env) {
+        this.env = env;
         if (keyBase64 == null || keyBase64.isBlank()) {
             this.secretKey = null;
             return;
@@ -37,6 +44,15 @@ public class PiiCryptoService {
             throw new IllegalStateException("ziyara.pii.encryption-key-base64 must decode to 32 bytes for AES-256");
         }
         this.secretKey = new SecretKeySpec(raw, AES);
+    }
+
+    @PostConstruct
+    void validateProdKey() {
+        if (secretKey == null && Arrays.asList(env.getActiveProfiles()).contains("prod")) {
+            throw new IllegalStateException(
+                    "ZIYARA_PII_ENCRYPTION_KEY_BASE64 is required in the prod profile. " +
+                    "MFA secrets would be stored in plaintext without it.");
+        }
     }
 
     public boolean isConfigured() {

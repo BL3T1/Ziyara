@@ -11,6 +11,7 @@ import { usePermission } from '../../hooks/usePermission'
 import { adminSuperAPI, getApiErrorMessage } from '../../services/api'
 import type { DeletedItemDto } from '../../types/api'
 import { isUuid } from '../../utils/isUuid'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 
 type TabId = 'all' | 'company' | 'providers' | 'app_users'
 
@@ -33,6 +34,7 @@ export function DeletedItemsPage() {
   const [loading, setLoading] = useState(false)
   const [restoring, setRestoring] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<DeletedItemDto | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [listSource, setListSource] = useState<'recent' | 'search'>('recent')
@@ -89,14 +91,24 @@ export function DeletedItemsPage() {
   }
 
   const permanentDelete = (row: DeletedItemDto) => {
-    if (!window.confirm(`Permanently delete ${row.entityType} "${row.label}"? This cannot be undone.`)) return
+    setDeleteTarget(row)
+  }
+
+  const doDelete = async () => {
+    if (!deleteTarget) return
+    const row = deleteTarget
     const key = `${row.entityType}:${row.id}`
     setDeleting(key); setError(null); setInfo(null)
-    adminSuperAPI
-      .permanentDelete({ entityType: row.entityType, id: row.id })
-      .then(() => { setInfo(`Permanently deleted ${row.entityType}: ${row.label ?? row.id}`); setRows((p) => p.filter((r) => r.id !== row.id)) })
-      .catch((e) => setError(getApiErrorMessage(e, 'Permanent delete failed')))
-      .finally(() => setDeleting(null))
+    try {
+      await adminSuperAPI.permanentDelete({ entityType: row.entityType, id: row.id })
+      setInfo(`Permanently deleted ${row.entityType}: ${row.label ?? row.id}`)
+      setRows((p) => p.filter((r) => r.id !== row.id))
+    } catch (e) {
+      setError(getApiErrorMessage(e, 'Permanent delete failed'))
+    } finally {
+      setDeleting(null)
+      setDeleteTarget(null)
+    }
   }
 
   const restore = (row: DeletedItemDto) => {
@@ -238,6 +250,15 @@ export function DeletedItemsPage() {
           </table>
         )}
       </div>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title={`Permanently delete ${deleteTarget?.entityType ?? ''} "${deleteTarget?.label ?? ''}"?`}
+        description={t('deletedItemsPage.permanentDeleteWarning')}
+        confirmLabel="Delete permanently"
+        variant="danger"
+        onConfirm={doDelete}
+      />
     </>
   )
 }

@@ -10,6 +10,7 @@ import { usePermission } from '../../hooks/usePermission'
 import { rolesAPI, usersAPI, getApiErrorMessage } from '../../services/api'
 import type { GroupDto, GroupSummaryDto, RoleDto, StaffDirectoryRoleOptionDto } from '../../types/api'
 import { Modal } from '../../components/Modal'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { FormField } from '../../components/FormField'
 import { PasswordInput } from '../../components/PasswordInput'
 import {
@@ -123,6 +124,7 @@ export function UsersPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [editingGroup, setEditingGroup] = useState<GroupSummaryDto | null>(null)
+  const [deleteGroupTarget, setDeleteGroupTarget] = useState<GroupSummaryDto | null>(null)
   const [error, setError] = useState('')
   const [, setActionLoading] = useState(false)
   const [staffRoleOptions, setStaffRoleOptions] = useState<StaffDirectoryRoleOptionDto[]>([])
@@ -275,21 +277,9 @@ export function UsersPage() {
                           <button
                             type="button"
                             disabled={!canDeleteGroup}
-                            onClick={async () => {
+                            onClick={() => {
                               if (!canDeleteGroup) return
-                              const hasMembers = (g.roleCount ?? 0) > 0 || (g.userCount ?? 0) > 0
-                              const msg = hasMembers
-                                ? t('usersPage.deleteGroupConfirmWithMembers', { name: g.name, roles: g.roleCount ?? 0, users: g.userCount ?? 0 })
-                                : t('usersPage.deleteGroupConfirm', { name: g.name })
-                              const ok = window.confirm(msg)
-                              if (!ok) return
-                              setError('')
-                              try {
-                                await rolesAPI.deleteGroup(g.id)
-                                load()
-                              } catch (err) {
-                                setError(getApiErrorMessage(err, t('usersPage.deleteGroupFailed')))
-                              }
+                              setDeleteGroupTarget(g)
                             }}
                             className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-500 dark:text-slate-400 dark:hover:bg-red-950/40 dark:hover:text-red-400 dark:disabled:hover:bg-transparent"
                             title={t('usersPage.deleteGroupAria')}
@@ -388,6 +378,29 @@ export function UsersPage() {
           setError={setError}
         />
       )}
+      <ConfirmDialog
+        open={!!deleteGroupTarget}
+        onClose={() => setDeleteGroupTarget(null)}
+        title={
+          deleteGroupTarget
+            ? ((deleteGroupTarget.roleCount ?? 0) > 0 || (deleteGroupTarget.userCount ?? 0) > 0)
+              ? t('usersPage.deleteGroupConfirmWithMembers', { name: deleteGroupTarget.name, roles: deleteGroupTarget.roleCount ?? 0, users: deleteGroupTarget.userCount ?? 0 })
+              : t('usersPage.deleteGroupConfirm', { name: deleteGroupTarget.name })
+            : ''
+        }
+        variant="danger"
+        onConfirm={async () => {
+          setError('')
+          try {
+            await rolesAPI.deleteGroup(deleteGroupTarget!.id)
+            load()
+          } catch (err) {
+            setError(getApiErrorMessage(err, t('usersPage.deleteGroupFailed')))
+          } finally {
+            setDeleteGroupTarget(null)
+          }
+        }}
+      />
     </>
   )
 }

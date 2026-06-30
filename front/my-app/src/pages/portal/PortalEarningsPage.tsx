@@ -7,6 +7,7 @@ import { useLanguage } from '../../context/LanguageContext'
 import { getApiErrorMessage, portalAPI } from '../../services/api'
 import type { PortalEarningsDto } from '../../types/api'
 import { Card } from '../../components/Card'
+import { Modal } from '../../components/Modal'
 
 export function PortalEarningsPage() {
   const { t } = useLanguage()
@@ -15,6 +16,13 @@ export function PortalEarningsPage() {
   const [data, setData] = useState<PortalEarningsDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // ── Payout modal ──────────────────────────────────────────────────────────
+  const [payoutOpen, setPayoutOpen] = useState(false)
+  const [payoutAmount, setPayoutAmount] = useState('')
+  const [payoutNotes, setPayoutNotes] = useState('')
+  const [payoutSubmitting, setPayoutSubmitting] = useState(false)
+  const [payoutError, setPayoutError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -34,7 +42,34 @@ export function PortalEarningsPage() {
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
+
+  function openPayoutModal() {
+    setPayoutAmount('')
+    setPayoutNotes('')
+    setPayoutError(null)
+    setPayoutOpen(true)
+  }
+
+  async function handlePayoutSubmit() {
+    if (payoutSubmitting) return
+    const amount = parseFloat(payoutAmount)
+    if (!amount || amount <= 0) {
+      setPayoutError(t('portalPages.payoutAmountRequired'))
+      return
+    }
+    setPayoutSubmitting(true)
+    setPayoutError(null)
+    try {
+      await portalAPI.requestPayout({ amount, notes: payoutNotes.trim() || undefined })
+      setPayoutOpen(false)
+      load()
+    } catch (e) {
+      setPayoutError(getApiErrorMessage(e))
+    } finally {
+      setPayoutSubmitting(false)
+    }
+  }
 
   return (
     <>
@@ -100,6 +135,15 @@ export function PortalEarningsPage() {
                 )}
               </div>
             )}
+            {data.availableForPayout != null && data.availableForPayout > 0 && (
+              <button
+                type="button"
+                onClick={openPayoutModal}
+                className="mt-4 dashboard-btn-primary"
+              >
+                {t('portalPages.requestPayout')}
+              </button>
+            )}
           </div>
         )}
 
@@ -107,6 +151,61 @@ export function PortalEarningsPage() {
           <p className="mt-6 text-sm text-slate-500 dark:text-slate-400">{t('portalPages.earningsHint')}</p>
         )}
       </Card>
+
+      <Modal
+        open={payoutOpen}
+        onClose={payoutSubmitting ? () => {} : () => setPayoutOpen(false)}
+        title={t('portalPages.requestPayoutTitle')}
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setPayoutOpen(false)}
+              disabled={payoutSubmitting}
+              className="dashboard-btn-secondary disabled:opacity-50"
+            >
+              {t('ui.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={handlePayoutSubmit}
+              disabled={payoutSubmitting || !payoutAmount}
+              className="dashboard-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {payoutSubmitting ? t('ui.submitting') : t('portalPages.submitPayout')}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+              {t('portalPages.payoutAmount')} ({data?.currency ?? 'USD'})
+            </label>
+            <input
+              type="number"
+              min="1"
+              step="0.01"
+              value={payoutAmount}
+              onChange={(e) => setPayoutAmount(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+              {t('portalPages.payoutNotes')}
+            </label>
+            <textarea
+              rows={2}
+              value={payoutNotes}
+              onChange={(e) => setPayoutNotes(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </div>
+          {payoutError && <p className="text-sm text-red-600 dark:text-red-400">{payoutError}</p>}
+        </div>
+      </Modal>
     </>
   )
 }

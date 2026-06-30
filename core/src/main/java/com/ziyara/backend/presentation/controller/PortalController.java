@@ -30,11 +30,14 @@ import com.ziyara.backend.application.dto.response.RestaurantMenuSectionResponse
 import com.ziyara.backend.application.dto.response.ProviderMapPinResponse;
 import com.ziyara.backend.application.dto.response.ServiceImageResponse;
 import com.ziyara.backend.application.dto.response.ServiceResponse;
+import com.ziyara.backend.application.dto.request.MarkRoomOccupiedRequest;
 import com.ziyara.backend.application.service.MapService;
 import com.ziyara.backend.application.service.PortalPaymentService;
 import com.ziyara.backend.application.service.PortalService;
 import com.ziyara.backend.application.service.ServiceProviderService;
+import com.ziyara.backend.application.service.WalkInConflictService;
 import com.ziyara.backend.domain.enums.ServiceImageCategory;
+import com.ziyara.backend.infrastructure.media.MediaStorageService;
 import com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -49,6 +52,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.ziyara.backend.application.annotation.RateLimit;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.ziyara.backend.application.exception.BusinessException;
@@ -74,6 +78,8 @@ public class PortalController {
     private final PortalPaymentService portalPaymentService;
     private final ServiceProviderService providerService;
     private final MapService mapService;
+    private final WalkInConflictService walkInConflictService;
+    private final MediaStorageService mediaStorageService;
 
     @GetMapping("/map/pins")
     @PreAuthorize(ApiAuthorizationExpressions.PROVIDER_PORTAL)
@@ -162,6 +168,7 @@ public class PortalController {
         return ResponseEntity.ok(ApiResponse.success("Image deleted", null));
     }
 
+    @RateLimit(key = "portal-image-upload", maxPerMinute = 20)
     @PostMapping(value = "/services/{id}/images/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload image to own service", description = "Multipart image (JPEG/PNG/WebP/GIF, max 10MB)")
     public ResponseEntity<ApiResponse<ServiceImageResponse>> uploadServiceImage(
@@ -419,6 +426,7 @@ public class PortalController {
         return ResponseEntity.ok(ApiResponse.success(portalService.listPayoutRequests(providerId, page, size)));
     }
 
+    @RateLimit(key = "portal-payout-request", maxPerMinute = 3)
     @PostMapping("/payout-request")
     @PreAuthorize(ApiAuthorizationExpressions.PORTAL_FINANCE)
     @Operation(summary = "Submit a payout request")
@@ -449,6 +457,7 @@ public class PortalController {
         return ResponseEntity.ok(ApiResponse.success(portalService.listProviderDiscounts(providerId, page, size)));
     }
 
+    @RateLimit(key = "portal-discount-create", maxPerMinute = 10)
     @PostMapping("/discounts")
     @PreAuthorize(ApiAuthorizationExpressions.PORTAL_FINANCE)
     @Operation(summary = "Create a provider-funded discount code")
@@ -466,6 +475,86 @@ public class PortalController {
         UUID providerId = requireCurrentProviderId();
         portalService.deactivateProviderDiscount(providerId, id);
         return ResponseEntity.ok(ApiResponse.success("Discount deactivated", null));
+    }
+
+    // ── Walk-in conflict / room filters ─────────────────────────────────────
+
+    @PostMapping("/services/{id}/rooms/{roomId}/mark-occupied")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_BOOKINGS_MANAGE)
+    @Operation(summary = "Mark a room as occupied by a walk-in guest, cancelling overlapping bookings")
+    public ResponseEntity<ApiResponse<WalkInConflictService.WalkInResult>> markRoomOccupied(
+            @PathVariable UUID id,
+            @PathVariable UUID roomId,
+            @Valid @RequestBody MarkRoomOccupiedRequest request) {
+        UUID providerId = requireCurrentProviderId();
+        UUID userId = getCurrentUserId();
+        var result = walkInConflictService.markRoomOccupied(
+                roomId, id, providerId,
+                request.getCheckInDate(), request.getCheckOutDate(),
+                request.getReason(), userId);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @GetMapping("/services/{id}/rooms/floors")
+    @Operation(summary = "List distinct floor numbers for a service's rooms")
+    public ResponseEntity<ApiResponse<List<Integer>>> getRoomFloors(@PathVariable UUID id) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(portalService.getRoomFloors(providerId, id)));
+    }
+
+    @GetMapping("/services/{id}/rooms/filtered")
+    @Operation(summary = "List rooms with optional floor/category/status filters")
+    public ResponseEntity<ApiResponse<List<HotelRoomResponse>>> getFilteredRooms(
+            @PathVariable UUID id,
+            @RequestParam(required = false) Integer floor,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String status) {
+        UUID providerId = requireCurrentProviderId();
+        return ResponseEntity.ok(ApiResponse.success(
+                portalService.getFilteredRooms(providerId, id, floor, category, status)));
+    }
+
+    // ── Provider profile edit (approval workflow) ──────────────────────────
+
+    @PutMapping("/profile")
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
+    @Operation(summary = "Submit profile edit request (goes through approval workflow)")
+    public ResponseEntity<ApiResponse<com.ziyara.backend.domain.entity.ProviderProfileEditRequest>> submitProfileEdit(
+            @RequestBody java.util.Map<String, Object> newValues) {
+        UUID providerId = requireCurrentProviderId();
+        UUID userId = getCurrentUserId();
+        var editRequest = portalService.submitProfileEditRequest(providerId, userId, newValues);
+        return ResponseEntity.ok(ApiResponse.success("Profile edit submitted for approval", editRequest));
+    }
+
+    @GetMapping("/profile/edit-status")
+    @Operation(summary = "Check pending edit request status")
+    public ResponseEntity<ApiResponse<com.ziyara.backend.domain.entity.ProviderProfileEditRequest>> getEditStatus() {
+        UUID providerId = requireCurrentProviderId();
+        var pending = portalService.getPendingEditRequest(providerId);
+        if (pending == null) {
+            return ResponseEntity.ok(ApiResponse.success("No pending edit request", null));
+        }
+        return ResponseEntity.ok(ApiResponse.success(pending));
+    }
+
+    // ── Provider logo upload ────────────────────────────────────────────────
+
+    @PostMapping(value = "/profile/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize(ApiAuthorizationExpressions.PORTAL_SERVICES_MANAGE)
+    @Operation(summary = "Upload provider logo")
+    public ResponseEntity<ApiResponse<String>> uploadLogo(@RequestParam("file") MultipartFile file) {
+        UUID providerId = requireCurrentProviderId();
+        final byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BusinessException("Could not read uploaded file");
+        }
+        String url = mediaStorageService.storeProviderImage(providerId, bytes,
+                file.getContentType(), file.getOriginalFilename());
+        portalService.updateProviderLogo(providerId, url);
+        return ResponseEntity.ok(ApiResponse.success("Logo uploaded", url));
     }
 
     private UUID requireCurrentProviderId() {

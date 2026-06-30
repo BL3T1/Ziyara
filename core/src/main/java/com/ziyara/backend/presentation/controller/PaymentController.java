@@ -22,6 +22,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import com.ziyara.backend.application.annotation.RateLimit;
 
 import java.util.UUID;
 
@@ -38,6 +39,7 @@ public class PaymentController {
     
     private final PaymentServiceApi paymentService;
     
+    @RateLimit(key = "payment-initiate", maxPerMinute = 20)
     @PostMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Process payment", description = "Initiate payment (idempotent when idempotencyKey is provided). For card, use token from gateway SDK.")

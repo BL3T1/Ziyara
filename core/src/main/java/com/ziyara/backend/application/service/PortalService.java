@@ -33,6 +33,8 @@ import com.ziyara.backend.modules.notification.api.NotificationServiceApi;
 import com.ziyara.backend.modules.service.api.ServiceServiceApi;
 import com.ziyara.backend.modules.webhook.api.WebhookEventPublisher;
 import com.ziyara.backend.domain.entity.Booking;
+import com.ziyara.backend.domain.entity.ProviderProfileEditRequest;
+import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.enums.BookingStatus;
 import com.ziyara.backend.domain.enums.NotificationChannel;
 import com.ziyara.backend.domain.enums.NotificationType;
@@ -87,6 +89,7 @@ public class PortalService {
     private final UserRepository userRepository;
     private final DiscountCodeService discountCodeService;
     private final WebhookEventPublisher webhookEventPublisher;
+    private final ProviderProfileEditService profileEditService;
 
     @Transactional(readOnly = true)
     public PortalDashboardResponse getDashboard(UUID providerId) {
@@ -352,6 +355,23 @@ public class PortalService {
     public List<HotelRoomResponse> getHotelRooms(UUID providerId, UUID serviceId) {
         assertProviderOwnsService(providerId, serviceId);
         return hotelRoomService.listByService(serviceId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<HotelRoomResponse> getFilteredRooms(UUID providerId, UUID serviceId,
+                                                      Integer floor, String category, String status) {
+        assertProviderOwnsService(providerId, serviceId);
+        com.ziyara.backend.domain.enums.HotelRoomStatus statusEnum = null;
+        if (status != null && !status.isBlank()) {
+            statusEnum = com.ziyara.backend.domain.enums.HotelRoomStatus.valueOf(status.trim().toUpperCase());
+        }
+        return hotelRoomService.listFiltered(serviceId, floor, category, statusEnum);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Integer> getRoomFloors(UUID providerId, UUID serviceId) {
+        assertProviderOwnsService(providerId, serviceId);
+        return hotelRoomService.getDistinctFloors(serviceId);
     }
 
     @Transactional
@@ -625,17 +645,29 @@ public class PortalService {
     public DiscountResponse createProviderDiscount(UUID providerId, CreatePortalDiscountRequest req) {
         ensureProviderExists(providerId);
         BigDecimal debitAmount = req.getValue();
-        // Atomic balance debit: succeeds only if available >= debitAmount
-        int updated = jdbcTemplate.update(
-                "UPDATE provider_discount_balance SET spent_amount = spent_amount + ?, updated_at = CURRENT_TIMESTAMP " +
-                "WHERE provider_id = ? AND (allocated_amount - spent_amount) >= ?",
-                debitAmount, providerId, debitAmount
-        );
-        if (updated == 0) {
-            PortalDiscountBalanceResponse bal = getDiscountBalance(providerId);
+        // Pessimistic lock: prevents two concurrent requests from both reading sufficient balance
+        List<PortalDiscountBalanceResponse> rows = jdbcTemplate.query(
+                "SELECT currency, allocated_amount, spent_amount, " +
+                "(allocated_amount - spent_amount) AS available_amount " +
+                "FROM provider_discount_balance WHERE provider_id = ? FOR UPDATE",
+                (rs, r) -> PortalDiscountBalanceResponse.builder()
+                        .providerId(providerId)
+                        .currency(rs.getString("currency"))
+                        .allocatedAmount(rs.getBigDecimal("allocated_amount"))
+                        .spentAmount(rs.getBigDecimal("spent_amount"))
+                        .availableAmount(rs.getBigDecimal("available_amount"))
+                        .build(),
+                providerId);
+        if (rows.isEmpty() || rows.get(0).getAvailableAmount().compareTo(debitAmount) < 0) {
+            String available = rows.isEmpty() ? "0" : rows.get(0).getAvailableAmount().toPlainString();
+            String currency  = rows.isEmpty() ? "" : " " + rows.get(0).getCurrency();
             throw new com.ziyara.backend.application.exception.BusinessException(
-                    "Insufficient discount balance. Available: " + bal.getAvailableAmount() + " " + bal.getCurrency());
+                    "Insufficient discount balance. Available: " + available + currency);
         }
+        jdbcTemplate.update(
+                "UPDATE provider_discount_balance SET spent_amount = spent_amount + ?, " +
+                "updated_at = CURRENT_TIMESTAMP WHERE provider_id = ?",
+                debitAmount, providerId);
         CreateDiscountRequest createReq = CreateDiscountRequest.builder()
                 .code(req.getCode().trim().toUpperCase())
                 .type(req.getType())
@@ -689,6 +721,27 @@ public class PortalService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+
+    @Transactional
+    public ProviderProfileEditRequest submitProfileEditRequest(UUID providerId, UUID requestedBy,
+                                                                 java.util.Map<String, Object> newValues) {
+        ensureProviderExists(providerId);
+        return profileEditService.submitEditRequest(providerId, requestedBy, newValues);
+    }
+
+    @Transactional(readOnly = true)
+    public ProviderProfileEditRequest getPendingEditRequest(UUID providerId) {
+        ensureProviderExists(providerId);
+        return profileEditService.getLatestForProvider(providerId);
+    }
+
+    @Transactional
+    public void updateProviderLogo(UUID providerId, String logoUrl) {
+        ServiceProvider provider = serviceProviderRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
+        provider.setLogoUrl(logoUrl);
+        serviceProviderRepository.save(provider);
+    }
 
     private void ensureProviderExists(UUID providerId) {
         if (serviceProviderRepository.findById(providerId).isEmpty()) {

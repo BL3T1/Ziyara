@@ -57,6 +57,7 @@ export function ProvidersPage() {
   const [pendingSuspend, setPendingSuspend] = useState<{ id: string; name: string } | null>(null)
   const [pendingDelete, setPendingDelete] = useState<{ id: string } | null>(null)
   const [pendingReset, setPendingReset] = useState<{ id: string; name: string } | null>(null)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
   const load = useCallback(() => {
     setLoading(true)
     providersAPI
@@ -84,6 +85,8 @@ export function ProvidersPage() {
   }, [load])
 
   const handleApprove = async (id: string) => {
+    if (actionLoading) return
+    setActionLoading(id)
     setError(null)
     try {
       await providersAPI.approve(id)
@@ -93,10 +96,14 @@ export function ProvidersPage() {
       load()
     } catch (e) {
       setError(getApiErrorMessage(e))
+    } finally {
+      setActionLoading(null)
     }
   }
 
   const handleReject = async (id: string) => {
+    if (actionLoading) return
+    setActionLoading(id)
     setError(null)
     try {
       await providersAPI.reject(id)
@@ -106,6 +113,8 @@ export function ProvidersPage() {
       load()
     } catch (e) {
       setError(getApiErrorMessage(e))
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -382,17 +391,19 @@ export function ProvidersPage() {
                             <button
                               type="button"
                               onClick={() => handleApprove(p.id)}
-                              className="text-green-600 hover:underline dark:text-green-400"
+                              disabled={actionLoading === p.id}
+                              className="text-green-600 hover:underline dark:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              {t('providersPage.approve')}
+                              {actionLoading === p.id ? t('ui.processing') : t('providersPage.approve')}
                             </button>
                             <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
                             <button
                               type="button"
                               onClick={() => handleReject(p.id)}
-                              className="text-red-600 hover:underline dark:text-red-400"
+                              disabled={actionLoading === p.id}
+                              className="text-red-600 hover:underline dark:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              {t('providersPage.reject')}
+                              {actionLoading === p.id ? t('ui.processing') : t('providersPage.reject')}
                             </button>
                           </>
                         )}

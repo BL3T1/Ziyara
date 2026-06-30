@@ -8,6 +8,7 @@ import { usePermission } from '../../hooks/usePermission'
 import { getApiErrorMessage, integrationsAPI } from '../../services/api'
 import { Card } from '../../components/Card'
 import { Modal } from '../../components/Modal'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { FeatureFlagDto, IntegrationApiKeyCreatedDto, IntegrationApiKeySummaryDto } from '../../types/api'
 
 export function IntegrationsPage() {
@@ -28,6 +29,7 @@ export function IntegrationsPage() {
   const [keyCreating, setKeyCreating] = useState(false)
   const [createdSecret, setCreatedSecret] = useState<IntegrationApiKeyCreatedDto | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [revokeTarget, setRevokeTarget] = useState<string | null>(null)
 
   const loadFlags = useCallback(() => {
     setFlagsLoading(true)
@@ -118,17 +120,22 @@ export function IntegrationsPage() {
     }
   }
 
-  const revokeKey = async (id: string) => {
-    if (!window.confirm(t('integrationsPage.confirmRevoke'))) return
-    setRevokingId(id)
+  const revokeKey = (id: string) => {
+    setRevokeTarget(id)
+  }
+
+  const doRevoke = async () => {
+    if (!revokeTarget) return
+    setRevokingId(revokeTarget)
     setError(null)
     try {
-      await integrationsAPI.revokeApiKey(id)
+      await integrationsAPI.revokeApiKey(revokeTarget)
       loadKeys()
     } catch (err) {
       setError(getApiErrorMessage(err))
     } finally {
       setRevokingId(null)
+      setRevokeTarget(null)
     }
   }
 
@@ -296,6 +303,14 @@ export function IntegrationsPage() {
           className="modal-textarea font-mono text-xs"
         />
       </Modal>
+
+      <ConfirmDialog
+        open={!!revokeTarget}
+        onClose={() => setRevokeTarget(null)}
+        title={t('integrationsPage.confirmRevoke')}
+        variant="danger"
+        onConfirm={doRevoke}
+      />
     </>
   )
 }

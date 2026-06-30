@@ -8,6 +8,7 @@ import { useLanguage } from '../../context/LanguageContext'
 import { usersAPI, providersAPI, portalStaffAPI, getApiErrorMessage } from '../../services/api'
 import { Card } from '../../components/Card'
 import { Modal } from '../../components/Modal'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { PasswordInput } from '../../components/PasswordInput'
 import type { LinkableUserDto, PortalStaffMemberDto, ServiceProviderDto } from '../../types/api'
 
@@ -48,6 +49,7 @@ export function PortalStaffPage() {
   const [editTitle, setEditTitle] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [removeTarget, setRemoveTarget] = useState<PortalStaffMemberDto | null>(null)
   const [resetPwMember, setResetPwMember] = useState<PortalStaffMemberDto | null>(null)
   const [editEmailMember, setEditEmailMember] = useState<PortalStaffMemberDto | null>(null)
 
@@ -168,18 +170,23 @@ export function PortalStaffPage() {
     }
   }
 
-  const handleRemove = async (member: PortalStaffMemberDto) => {
+  const handleRemove = (member: PortalStaffMemberDto) => {
     if (member.owner) return
-    if (!window.confirm(t('portalStaffPage.confirmRemove'))) return
-    setRemovingId(member.userId)
+    setRemoveTarget(member)
+  }
+
+  const doRemove = async () => {
+    if (!removeTarget) return
+    setRemovingId(removeTarget.userId)
     setError(null)
     try {
-      await portalStaffAPI.remove(member.userId)
+      await portalStaffAPI.remove(removeTarget.userId)
       loadTeam()
     } catch (e) {
       setError(getApiErrorMessage(e))
     } finally {
       setRemovingId(null)
+      setRemoveTarget(null)
     }
   }
 
@@ -450,6 +457,13 @@ export function PortalStaffPage() {
           onError={(msg) => { setEditEmailMember(null); setError(msg); }}
         />
       )}
+      <ConfirmDialog
+        open={!!removeTarget}
+        onClose={() => setRemoveTarget(null)}
+        title={t('portalStaffPage.confirmRemove')}
+        variant="danger"
+        onConfirm={doRemove}
+      />
     </>
   )
 }

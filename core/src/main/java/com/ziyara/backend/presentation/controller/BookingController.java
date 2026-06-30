@@ -26,6 +26,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import com.ziyara.backend.application.annotation.RateLimit;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -108,6 +109,7 @@ public class BookingController {
                 bookingService.getBookingByReference(reference, extractUserId(authHeader), isCompanyStaff())));
     }
 
+    @RateLimit(key = "booking-create", maxPerMinute = 30)
     @PostMapping
     @Operation(summary = "Create booking", description = "Create a new booking")
     public ResponseEntity<ApiResponse<BookingResponse>> createBooking(

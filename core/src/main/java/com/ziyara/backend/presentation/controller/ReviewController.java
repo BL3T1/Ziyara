@@ -22,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import com.ziyara.backend.application.annotation.RateLimit;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -62,6 +63,7 @@ public class ReviewController {
         return ResponseEntity.ok(ApiResponse.success(reviewService.getServiceReviews(serviceId)));
     }
     
+    @RateLimit(key = "review-create", maxPerMinute = 10)
     @PostMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Submit review", description = "Add a new review for a completed booking")
