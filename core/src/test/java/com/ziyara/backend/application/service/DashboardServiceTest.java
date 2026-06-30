@@ -4,7 +4,6 @@ import com.ziyara.backend.domain.entity.AuditLog;
 import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.repository.AuditLogRepository;
 import com.ziyara.backend.domain.repository.BookingRepository;
-import com.ziyara.backend.domain.repository.InternalTicketRepository;
 import com.ziyara.backend.domain.repository.PaymentRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
@@ -40,8 +39,6 @@ class DashboardServiceTest {
     @Mock
     private ServiceProviderRepository serviceProviderRepository;
     @Mock
-    private InternalTicketRepository internalTicketRepository;
-    @Mock
     private AuditLogRepository auditLogRepository;
     @Mock
     private UserRepository userRepository;
@@ -57,7 +54,6 @@ class DashboardServiceTest {
                 paymentRepository,
                 bookingRepository,
                 serviceProviderRepository,
-                internalTicketRepository,
                 auditLogRepository,
                 userRepository,
                 sameThreadExecutor

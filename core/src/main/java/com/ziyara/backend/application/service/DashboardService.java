@@ -5,11 +5,8 @@ import com.ziyara.backend.application.dto.response.DashboardKpiResponse;
 import com.ziyara.backend.domain.entity.AuditLog;
 import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.enums.BookingStatus;
-import com.ziyara.backend.domain.enums.TicketStatus;
 import com.ziyara.backend.domain.repository.AuditLogRepository;
 import com.ziyara.backend.domain.repository.BookingRepository;
-import com.ziyara.backend.domain.repository.ComplaintRepository;
-import com.ziyara.backend.domain.repository.InternalTicketRepository;
 import com.ziyara.backend.domain.repository.PaymentRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
@@ -49,25 +46,19 @@ public class DashboardService {
     private final PaymentRepository paymentRepository;
     private final BookingRepository bookingRepository;
     private final ServiceProviderRepository serviceProviderRepository;
-    private final InternalTicketRepository internalTicketRepository;
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
     private final Executor dashboardExecutor;
 
-    @Autowired(required = false)
-    private ComplaintRepository complaintRepository;
-
     public DashboardService(PaymentRepository paymentRepository,
                             BookingRepository bookingRepository,
                             ServiceProviderRepository serviceProviderRepository,
-                            InternalTicketRepository internalTicketRepository,
                             AuditLogRepository auditLogRepository,
                             UserRepository userRepository,
                             @Qualifier(DashboardExecutorConfig.DASHBOARD_EXECUTOR) Executor dashboardExecutor) {
         this.paymentRepository = paymentRepository;
         this.bookingRepository = bookingRepository;
         this.serviceProviderRepository = serviceProviderRepository;
-        this.internalTicketRepository = internalTicketRepository;
         this.auditLogRepository = auditLogRepository;
         this.userRepository = userRepository;
         this.dashboardExecutor = dashboardExecutor;
@@ -111,39 +102,13 @@ public class DashboardService {
                 }
             }, dashboardExecutor);
 
-            CompletableFuture<Long> ticketsFut = CompletableFuture.supplyAsync(() -> {
-                try {
-                    List<TicketStatus> openStatuses = Arrays.asList(
-                            TicketStatus.SUBMITTED, TicketStatus.ACKNOWLEDGED, TicketStatus.ASSIGNED,
-                            TicketStatus.IN_PROGRESS, TicketStatus.PENDING_INFO, TicketStatus.TESTING, TicketStatus.REOPENED);
-                    return internalTicketRepository.countByStatusIn(openStatuses);
-                } catch (RuntimeException e) {
-                    log.debug("countByStatusIn failed: {}", e.getMessage());
-                    return 0L;
-                }
-            }, dashboardExecutor);
-
-            CompletableFuture<Long> complaintsFut = CompletableFuture.supplyAsync(() -> {
-                if (complaintRepository == null) {
-                    return 0L;
-                }
-                try {
-                    return complaintRepository.countOpenComplaints();
-                } catch (RuntimeException e) {
-                    log.debug("countOpenComplaints failed: {}", e.getMessage());
-                    return 0L;
-                }
-            }, dashboardExecutor);
-
-            CompletableFuture.allOf(revenueFut, bookingsFut, providersFut, ticketsFut, complaintsFut).join();
+            CompletableFuture.allOf(revenueFut, bookingsFut, providersFut).join();
 
             BigDecimal totalRevenue = revenueFut.join();
             long[] bookings = bookingsFut.join();
             long totalBookings = bookings[0];
             long activeBookings = bookings[1];
             long totalProviders = providersFut.join();
-            long openTickets = ticketsFut.join();
-            long pendingComplaints = complaintsFut.join();
 
             return DashboardKpiResponse.builder()
                     .totalRevenue(totalRevenue)
@@ -151,8 +116,6 @@ public class DashboardService {
                     .activeBookings(activeBookings)
                     .totalBookings(totalBookings)
                     .totalProviders(totalProviders)
-                    .pendingComplaints(pendingComplaints)
-                    .openTickets(openTickets)
                     .build();
         } catch (RuntimeException e) {
             log.warn("getKpis failed: {}", e.getMessage());
@@ -162,8 +125,6 @@ public class DashboardService {
                     .activeBookings(0)
                     .totalBookings(0)
                     .totalProviders(0)
-                    .pendingComplaints(0)
-                    .openTickets(0)
                     .build();
         }
     }

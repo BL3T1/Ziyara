@@ -32,10 +32,4 @@ public class DashboardKpiResponse {
 
     @Schema(description = "Total service providers")
     private long totalProviders;
-
-    @Schema(description = "Pending/open complaints count")
-    private long pendingComplaints;
-
-    @Schema(description = "Open internal tickets count")
-    private long openTickets;
 }

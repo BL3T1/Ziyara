@@ -58,7 +58,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         PaymentController.class,
         AdminPayoutController.class,
         RoleManagementController.class,
-        ComplaintController.class,
         ServiceController.class,
         ServiceProviderController.class,
         DiscountController.class,
@@ -82,7 +81,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         UserConsentController.class,
         UserDataExportController.class,
         PublicContactController.class,
-        InternalTicketController.class,
         DepartmentController.class,
         EmployeeController.class,
         PricingController.class
@@ -128,11 +126,6 @@ class AllEndpointsSecurityWebMvcTest {
 
     // ── Payouts ────────────────────────────────────────────────────────────────
     @MockBean AdminPayoutService adminPayoutService;
-
-    // ── Complaints ─────────────────────────────────────────────────────────────
-    @MockBean ComplaintService complaintService;
-    @MockBean ComplaintCommentService commentService;
-    @MockBean ComplaintQueryHandler complaintQueryHandler;
 
     // ── Services / Providers ───────────────────────────────────────────────────
     @MockBean ServiceService serviceService;
@@ -190,7 +183,6 @@ class AllEndpointsSecurityWebMvcTest {
 
     // ── Misc ───────────────────────────────────────────────────────────────────
     @MockBean ContactLeadService contactLeadService;
-    @MockBean InternalTicketService ticketService;
     @MockBean DepartmentService departmentService;
     @MockBean EmployeeService employeeService;
     @MockBean PricingEngineApi pricingService;
@@ -732,40 +724,6 @@ class AllEndpointsSecurityWebMvcTest {
                             .contentType("application/json").content("{\"name\":\"Test\"}"))
                     .andExpect(status().is(not(401)))
                     .andExpect(status().is(not(403)));
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // COMPLAINT CONTROLLER
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    @Nested
-    class Complaints {
-
-        @Test void list_anonymous_401() throws Exception {
-            mvc.perform(get("/complaints")).andExpect(status().isUnauthorized());
-        }
-
-        @Test void getById_anonymous_401() throws Exception {
-            mvc.perform(get("/complaints/{id}", "00000000-0000-0000-0000-000000000001"))
-                    .andExpect(status().isUnauthorized());
-        }
-
-        @Test void create_anonymous_401() throws Exception {
-            mvc.perform(post("/complaints").with(csrf()).contentType("application/json").content("{}"))
-                    .andExpect(status().isUnauthorized());
-        }
-
-        @Test void resolve_anonymous_401() throws Exception {
-            mvc.perform(post("/complaints/{id}/resolve", "00000000-0000-0000-0000-000000000001").with(csrf()))
-                    .andExpect(status().isUnauthorized());
-        }
-
-        @Test
-        @WithMockUser(roles = "CUSTOMER")
-        void list_customerRole_403() throws Exception {
-            mvc.perform(get("/complaints").header("Authorization", "Bearer t"))
-                    .andExpect(status().isForbidden());
         }
     }
 
@@ -1360,14 +1318,6 @@ class AllEndpointsSecurityWebMvcTest {
         @Test void request_anonymous_401() throws Exception {
             mvc.perform(post("/user-data-export").with(csrf()).contentType("application/json").content("{}"))
                     .andExpect(status().isUnauthorized());
-        }
-    }
-
-    @Nested
-    class InternalTickets {
-
-        @Test void list_anonymous_401() throws Exception {
-            mvc.perform(get("/internal-tickets")).andExpect(status().isUnauthorized());
         }
     }
 
