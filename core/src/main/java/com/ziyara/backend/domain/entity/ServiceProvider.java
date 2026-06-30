@@ -118,4 +118,21 @@ public class ServiceProvider {
         LocalDate today = LocalDate.now();
         return !expiryDate.isBefore(today) && !expiryDate.isAfter(today.plusDays(warningDays));
     }
+
+    public void approve(UUID reviewedBy) {
+        if (this.status != ProviderStatus.PENDING_APPROVAL)
+            throw new IllegalStateException("Cannot approve provider in status: " + this.status);
+        this.status = ProviderStatus.ACTIVE;
+        this.verified = true;
+        this.approvedBy = reviewedBy;
+        this.approvedAt = LocalDateTime.now();
+    }
+
+    public void suspend() {
+        this.status = ProviderStatus.INACTIVE;
+    }
+
+    public void verify() {
+        this.verified = true;
+    }
 }

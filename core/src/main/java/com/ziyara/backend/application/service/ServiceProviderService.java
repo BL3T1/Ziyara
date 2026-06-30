@@ -19,6 +19,7 @@ import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
 import com.ziyara.backend.domain.repository.ProviderSubscriptionRepository;
 import com.ziyara.backend.domain.repository.RoleRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
+import com.ziyara.backend.domain.repository.ServiceRepository;
 import com.ziyara.backend.domain.repository.UserRepository;
 import com.ziyara.backend.domain.repository.UserRoleAssignmentRepository;
 import com.ziyara.backend.modules.notification.api.StaffNotificationCommandPublisher;
@@ -61,14 +62,14 @@ public class ServiceProviderService {
     private final AuthEmailNotificationService authEmailNotificationService;
     private final RoleRepository roleRepository;
     private final UserRoleAssignmentRepository userRoleAssignmentRepository;
+    private final ServiceRepository serviceRepository;
 
     /**
      * Creates a provider; activation vs pending depends on whether the creator
      * holds {@code providers:approve} (immediate activation) or not (pending review).
      */
     @Transactional
-    public ServiceProviderResponse createProvider(CreateServiceProviderRequest request, UUID actorUserId) {
-        boolean canApprove = SecurityRoleUtils.canApproveProviders();
+    public ServiceProviderResponse createProvider(CreateServiceProviderRequest request, UUID actorUserId, boolean canApprove) {
 
         boolean mgrEmailOk = request.getManagerEmail() != null && !request.getManagerEmail().isBlank();
         boolean hasManagerPassword = request.getManagerPassword() != null && !request.getManagerPassword().isBlank();
@@ -239,6 +240,21 @@ public class ServiceProviderService {
                 .map(this::mapToResponse);
     }
 
+    @Transactional
+    public void updateProviderType(UUID providerId, com.ziyara.backend.domain.enums.ProviderType type) {
+        ServiceProvider provider = serviceProviderRepository.findById(providerId)
+                .orElseThrow(() -> new com.ziyara.backend.application.exception.ResourceNotFoundException("Provider not found"));
+        provider.setType(type.name());
+        serviceProviderRepository.save(provider);
+    }
+
+    @Transactional(readOnly = true)
+    public com.ziyara.backend.domain.enums.ProviderType getProviderType(UUID providerId) {
+        ServiceProvider provider = serviceProviderRepository.findById(providerId)
+                .orElseThrow(() -> new com.ziyara.backend.application.exception.ResourceNotFoundException("Provider not found"));
+        return com.ziyara.backend.domain.enums.ProviderType.valueOf(provider.getType());
+    }
+
     @Transactional(readOnly = true)
     public List<ServiceProviderResponse> getAllProviders() {
         return serviceProviderRepository.findAll().stream()
@@ -285,9 +301,36 @@ public class ServiceProviderService {
             });
         }
 
+        createDefaultListingIfMissing(saved);
+
         auditLogService.logAction("PROVIDER_APPROVE", "ServiceProvider", providerId.toString(), approverUserId,
                 "PENDING_APPROVAL", "ACTIVE", null, null);
         return mapToResponse(saved);
+    }
+
+    private void createDefaultListingIfMissing(ServiceProvider provider) {
+        List<com.ziyara.backend.domain.entity.Service> existing =
+                serviceRepository.findByProviderId(provider.getId());
+        if (!existing.isEmpty()) return;
+
+        ServiceType type;
+        try {
+            type = ServiceType.valueOf(provider.getType());
+        } catch (IllegalArgumentException e) {
+            type = ServiceType.HOTEL;
+        }
+
+        com.ziyara.backend.domain.entity.Service listing = new com.ziyara.backend.domain.entity.Service();
+        listing.setProviderId(provider.getId());
+        listing.setType(type);
+        listing.setName(provider.getName());
+        listing.setDescription(provider.getDescription());
+        listing.setAddress(provider.getAddress());
+        listing.setBasePrice(BigDecimal.ZERO);
+        listing.setCurrency("USD");
+        listing.setStatus(com.ziyara.backend.domain.enums.ServiceStatus.ACTIVE);
+        serviceRepository.save(listing);
+        log.info("Auto-created default listing for provider {}", provider.getId());
     }
 
     /**

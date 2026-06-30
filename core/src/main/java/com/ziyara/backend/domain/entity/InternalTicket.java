@@ -5,6 +5,7 @@ import com.ziyara.backend.domain.enums.TicketStatus;
 import com.ziyara.backend.domain.enums.TicketType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 /**
@@ -238,4 +239,10 @@ public class InternalTicket {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public static String generateTicketNumber() {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String random = String.format("%04d", (int) (Math.random() * 10000));
+        return "ITK" + timestamp + random;
+    }
 }

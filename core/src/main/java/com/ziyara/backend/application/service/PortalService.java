@@ -681,7 +681,7 @@ public class PortalService {
                 .sponsor("PROVIDER")
                 .providerId(providerId)
                 .build();
-        DiscountResponse created = discountCodeService.create(createReq);
+        DiscountResponse created = discountCodeService.create(createReq, null, false);
         jdbcTemplate.update(
                 "INSERT INTO provider_discount_debits (provider_id, discount_code_id, amount, description) VALUES (?, ?, ?, ?)",
                 providerId, created.getId(), debitAmount, "Code: " + created.getCode()

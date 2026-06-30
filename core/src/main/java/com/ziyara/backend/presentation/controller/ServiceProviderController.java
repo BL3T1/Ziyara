@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -106,7 +107,7 @@ public class ServiceProviderController {
         if (actorId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Not authenticated"));
         }
-        ServiceProviderResponse response = providerService.createProvider(request, actorId);
+        ServiceProviderResponse response = providerService.createProvider(request, actorId, SecurityRoleUtils.canApproveProviders());
         String message = response.getStatus() != null && "PENDING_APPROVAL".equals(response.getStatus().name())
                 ? "Provider submitted for approval"
                 : "Provider created and activated";

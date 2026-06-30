@@ -11,6 +11,8 @@ import com.ziyara.backend.application.query.DiscountQueryHandler;
 import com.ziyara.backend.application.service.DiscountCodeService;
 import com.ziyara.backend.domain.enums.DiscountStatus;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
+import com.ziyara.backend.infrastructure.security.SecurityContextUserId;
+import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -65,7 +67,9 @@ public class DiscountController {
             summary = "Create discount",
             description = "Create a discount. Managers and sales submit as PENDING_APPROVAL until Super Admin or CEO approves; Super Admin and CEO may create as ACTIVE.")
     public ResponseEntity<ApiResponse<DiscountResponse>> create(@Valid @RequestBody CreateDiscountRequest request) {
-        DiscountResponse response = discountService.create(request);
+        UUID actorId = SecurityContextUserId.currentUserId().orElse(null);
+        boolean canApprove = SecurityRoleUtils.canActivateOrApproveDiscounts();
+        DiscountResponse response = discountService.create(request, actorId, canApprove);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Discount created", response));
     }
 
@@ -75,7 +79,7 @@ public class DiscountController {
     public ResponseEntity<ApiResponse<DiscountResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateDiscountRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(discountService.update(id, request)));
+        return ResponseEntity.ok(ApiResponse.success(discountService.update(id, request, SecurityRoleUtils.canActivateOrApproveDiscounts())));
     }
 
     @DeleteMapping("/{id}")
@@ -90,7 +94,8 @@ public class DiscountController {
     @PreAuthorize(DISCOUNT_APPROVE)
     @Operation(summary = "Approve discount", description = "Super Admin or CEO only: activate a pending discount")
     public ResponseEntity<ApiResponse<DiscountResponse>> approve(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(discountService.approve(id)));
+        UUID reviewerId = SecurityContextUserId.currentUserId().orElse(null);
+        return ResponseEntity.ok(ApiResponse.success(discountService.approve(id, reviewerId)));
     }
 
     @PostMapping("/{id}/deactivate")

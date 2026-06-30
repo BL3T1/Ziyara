@@ -13,8 +13,6 @@ import com.ziyara.backend.domain.repository.BookingRepository;
 import com.ziyara.backend.domain.repository.DiscountCodeRepository;
 import com.ziyara.backend.domain.repository.ServiceRepository;
 import com.ziyara.backend.domain.usecase.discount.ApproveDiscountCodeUseCase;
-import com.ziyara.backend.infrastructure.security.SecurityContextUserId;
-import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
 import com.ziyara.backend.application.annotation.Audited;
 import com.ziyara.backend.application.exception.BusinessException;
 import com.ziyara.backend.application.exception.ResourceNotFoundException;
@@ -51,7 +49,7 @@ public class DiscountCodeService {
 
     @Audited(action = "DISCOUNT_CREATE", entityType = "Discount")
     @Transactional
-    public DiscountResponse create(CreateDiscountRequest request) {
+    public DiscountResponse create(CreateDiscountRequest request, UUID createdBy, boolean canApprove) {
         if (discountCodeRepository.existsByCode(request.getCode())) {
             throw new IllegalArgumentException("Discount code already exists: " + request.getCode());
         }
@@ -86,8 +84,8 @@ public class DiscountCodeService {
         dc.setApplicableMenuItemIds(emptyToNull(request.getApplicableMenuItemIds()));
         dc.setApplicableRoomTypeIds(emptyToNull(request.getApplicableRoomTypeIds()));
         validateScopeOnWrite(dc.getProviderId(), dc.getApplicableServiceIds());
-        SecurityContextUserId.currentUserId().ifPresent(dc::setCreatedBy);
-        if (SecurityRoleUtils.canActivateOrApproveDiscounts()) {
+        dc.setCreatedBy(createdBy);
+        if (canApprove) {
             dc.setStatus(request.getStatus() != null ? request.getStatus() : DiscountStatus.ACTIVE);
         } else {
             dc.setStatus(DiscountStatus.PENDING_APPROVAL);
@@ -98,7 +96,7 @@ public class DiscountCodeService {
 
     @Audited(action = "DISCOUNT_UPDATE", entityType = "Discount", entityIdArgIndex = 0)
     @Transactional
-    public DiscountResponse update(UUID id, UpdateDiscountRequest request) {
+    public DiscountResponse update(UUID id, UpdateDiscountRequest request, boolean canApprove) {
         DiscountCode dc = discountCodeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Discount not found"));
         if (request.getDescription() != null) dc.setDescription(request.getDescription());
@@ -138,7 +136,7 @@ public class DiscountCodeService {
             dc.setApplicableRoomTypeIds(emptyToNull(request.getApplicableRoomTypeIds()));
         }
         if (request.getStatus() != null) {
-            if (request.getStatus() == DiscountStatus.ACTIVE && !SecurityRoleUtils.canActivateOrApproveDiscounts()) {
+            if (request.getStatus() == DiscountStatus.ACTIVE && !canApprove) {
                 throw new IllegalArgumentException("Only Super Admin or CEO can set a discount to active");
             }
             dc.setStatus(request.getStatus());
@@ -158,11 +156,7 @@ public class DiscountCodeService {
 
     @Audited(action = "DISCOUNT_APPROVE", entityType = "Discount", entityIdArgIndex = 0)
     @Transactional
-    public DiscountResponse approve(UUID id) {
-        if (!SecurityRoleUtils.canActivateOrApproveDiscounts()) {
-            throw new IllegalArgumentException("Only Super Admin or CEO can approve discounts");
-        }
-        UUID reviewerId = SecurityContextUserId.currentUserId().orElse(null);
+    public DiscountResponse approve(UUID id, UUID reviewerId) {
         var result = new ApproveDiscountCodeUseCase(discountCodeRepository)
                 .execute(new ApproveDiscountCodeUseCase.Input(id, true, reviewerId));
         if (!result.success()) throw new BusinessException(result.error());

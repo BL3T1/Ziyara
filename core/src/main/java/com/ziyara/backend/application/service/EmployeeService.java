@@ -46,14 +46,9 @@ public class EmployeeService {
      */
     @Transactional(readOnly = true)
     public List<EmployeeResponse> getAllEmployees() {
-        try {
-            return employeeRepository.findAll().stream()
-                    .map(this::mapToResponse)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            log.warn("getAllEmployees failed: {}", e.getMessage());
-            return List.of();
-        }
+        return employeeRepository.findAll().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)

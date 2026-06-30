@@ -7,6 +7,7 @@ import com.ziyara.backend.application.dto.request.CreateManualPayoutRequest;
 import com.ziyara.backend.application.dto.response.AdminPayoutResponse;
 import com.ziyara.backend.application.dto.response.AdminPayoutSummaryResponse;
 import com.ziyara.backend.application.service.AdminPayoutService;
+import com.ziyara.backend.infrastructure.security.SecurityContextUserId;
 import static com.ziyara.backend.infrastructure.security.ApiAuthorizationExpressions.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -74,7 +75,8 @@ public class AdminPayoutController {
     public ResponseEntity<ApiResponse<AdminPayoutResponse>> approve(
             @PathVariable UUID id,
             @RequestBody(required = false) AdminPayoutActionRequest req) {
-        return ResponseEntity.ok(ApiResponse.success("Payment initiated", adminPayoutService.approve(id, req)));
+        UUID actorId = SecurityContextUserId.currentUserId().orElse(null);
+        return ResponseEntity.ok(ApiResponse.success("Payment initiated", adminPayoutService.approve(id, req, actorId)));
     }
 
     @PostMapping("/{id}/hold")
@@ -111,7 +113,8 @@ public class AdminPayoutController {
     public ResponseEntity<ApiResponse<AdminPayoutResponse>> markPaid(
             @PathVariable UUID id,
             @RequestBody(required = false) AdminPayoutActionRequest req) {
-        return ResponseEntity.ok(ApiResponse.success("Marked as paid", adminPayoutService.markPaid(id, req)));
+        UUID actorId = SecurityContextUserId.currentUserId().orElse(null);
+        return ResponseEntity.ok(ApiResponse.success("Marked as paid", adminPayoutService.markPaid(id, req, actorId)));
     }
 
     @PostMapping("/{id}/schedule")
@@ -137,7 +140,8 @@ public class AdminPayoutController {
     @Operation(summary = "Bulk approve/pay", description = "Initiates payment for multiple PENDING payouts")
     public ResponseEntity<ApiResponse<Map<String, Object>>> bulkApprove(
             @Valid @RequestBody BulkPayoutActionRequest req) {
-        return ResponseEntity.ok(ApiResponse.success(adminPayoutService.bulkApprove(req)));
+        UUID actorId = SecurityContextUserId.currentUserId().orElse(null);
+        return ResponseEntity.ok(ApiResponse.success(adminPayoutService.bulkApprove(req, actorId)));
     }
 
     @PostMapping("/bulk/hold")
@@ -175,6 +179,7 @@ public class AdminPayoutController {
     @Operation(summary = "Create manual payout", description = "Off-cycle payment that enters the ledger immediately")
     public ResponseEntity<ApiResponse<AdminPayoutResponse>> createManual(
             @Valid @RequestBody CreateManualPayoutRequest req) {
-        return ResponseEntity.ok(ApiResponse.success("Manual payout created", adminPayoutService.createManual(req)));
+        UUID actorId = SecurityContextUserId.currentUserId().orElse(null);
+        return ResponseEntity.ok(ApiResponse.success("Manual payout created", adminPayoutService.createManual(req, actorId)));
     }
 }

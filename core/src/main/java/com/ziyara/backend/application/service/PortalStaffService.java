@@ -12,7 +12,6 @@ import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.entity.User;
 import com.ziyara.backend.domain.enums.UserRole;
 import com.ziyara.backend.domain.enums.UserStatus;
-import com.ziyara.backend.infrastructure.security.SecurityRoleUtils;
 import com.ziyara.backend.domain.repository.ProviderStaffRepository;
 import com.ziyara.backend.domain.repository.RoleRepository;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
@@ -141,10 +140,10 @@ public class PortalStaffService {
 
     @Transactional
     public PortalStaffMemberResponse createStaffUser(UUID providerId, UUID actorUserId,
-                                                      CreatePortalStaffUserRequest request) {
+                                                      CreatePortalStaffUserRequest request, boolean canManage) {
         ServiceProvider provider = serviceProviderRepository.findById(providerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
-        if (!SecurityRoleUtils.hasPortalManage()) {
+        if (!canManage) {
             throw new BusinessException("Only users with portal management permission can create portal staff users");
         }
         UUID ownerId = provider.getUserId();

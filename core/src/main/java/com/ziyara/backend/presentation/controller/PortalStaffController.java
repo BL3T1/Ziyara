@@ -67,7 +67,7 @@ public class PortalStaffController {
         if (actorUserId == null) {
             throw new org.springframework.security.access.AccessDeniedException("Not authenticated");
         }
-        PortalStaffMemberResponse created = portalStaffService.createStaffUser(providerId, actorUserId, request);
+        PortalStaffMemberResponse created = portalStaffService.createStaffUser(providerId, actorUserId, request, SecurityRoleUtils.hasPortalManage());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Staff user created", created));
     }
 

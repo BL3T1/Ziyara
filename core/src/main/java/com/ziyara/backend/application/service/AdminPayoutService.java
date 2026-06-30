@@ -14,7 +14,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,7 +39,8 @@ public class AdminPayoutService {
 
     @Transactional(readOnly = true)
     public AdminPayoutSummaryResponse getSummary(String start, String end) {
-        String dateFilter = buildDateFilter(start, end, "r.requested_at");
+        List<Object> dateParams = new ArrayList<>();
+        String dateFilter = buildDateFilter(start, end, "r.requested_at", dateParams);
 
         BigDecimal totalPayable = jdbcTemplate.queryForObject(
                 "SELECT COALESCE(SUM(amount), 0) FROM portal_payout_requests WHERE status = 'PENDING'",
@@ -55,7 +55,7 @@ public class AdminPayoutService {
                 Long.class);
 
         String completedQuery = "SELECT COALESCE(SUM(r.amount), 0) FROM portal_payout_requests r WHERE r.status = 'COMPLETED'" + dateFilter;
-        BigDecimal totalCompleted = jdbcTemplate.queryForObject(completedQuery, BigDecimal.class);
+        BigDecimal totalCompleted = jdbcTemplate.queryForObject(completedQuery, BigDecimal.class, dateParams.toArray());
 
         Long failedOnHold = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM portal_payout_requests WHERE status IN ('FAILED', 'ON_HOLD')",
@@ -146,12 +146,11 @@ public class AdminPayoutService {
 
     @Audited(action = "PAYOUT_APPROVE", entityType = "Payout", entityIdArgIndex = 0)
     @Transactional
-    public AdminPayoutResponse approve(UUID id, AdminPayoutActionRequest req) {
+    public AdminPayoutResponse approve(UUID id, AdminPayoutActionRequest req, UUID actorId) {
         requireStatus(id, "PENDING", "SCHEDULED");
-        UUID user = currentUser();
         jdbcTemplate.update(
                 "UPDATE portal_payout_requests SET status='PROCESSING', processed_at=?, processed_by=?, notes=? WHERE id=?",
-                Timestamp.from(Instant.now()), user, req != null ? req.getNotes() : null, id);
+                Timestamp.from(Instant.now()), actorId, req != null ? req.getNotes() : null, id);
         return getById(id);
     }
 
@@ -189,12 +188,11 @@ public class AdminPayoutService {
 
     @Audited(action = "PAYOUT_MARK_PAID", entityType = "Payout", entityIdArgIndex = 0)
     @Transactional
-    public AdminPayoutResponse markPaid(UUID id, AdminPayoutActionRequest req) {
-        UUID user = currentUser();
+    public AdminPayoutResponse markPaid(UUID id, AdminPayoutActionRequest req, UUID actorId) {
         jdbcTemplate.update(
                 "UPDATE portal_payout_requests SET status='COMPLETED', processed_at=?, processed_by=?," +
                 " transaction_id=?, notes=? WHERE id=?",
-                Timestamp.from(Instant.now()), user,
+                Timestamp.from(Instant.now()), actorId,
                 req != null ? req.getTransactionId() : null,
                 req != null ? req.getNotes() : null, id);
         return getById(id);
@@ -222,8 +220,7 @@ public class AdminPayoutService {
 
     @Audited(action = "PAYOUT_BULK_APPROVE", entityType = "Payout")
     @Transactional
-    public Map<String, Object> bulkApprove(BulkPayoutActionRequest req) {
-        UUID user = currentUser();
+    public Map<String, Object> bulkApprove(BulkPayoutActionRequest req, UUID actorId) {
         Instant now = Instant.now();
         int count = 0;
         List<String> failed = new ArrayList<>();
@@ -232,7 +229,7 @@ public class AdminPayoutService {
                 requireStatus(id, "PENDING", "SCHEDULED");
                 jdbcTemplate.update(
                         "UPDATE portal_payout_requests SET status='PROCESSING', processed_at=?, processed_by=? WHERE id=?",
-                        Timestamp.from(now), user, id);
+                        Timestamp.from(now), actorId, id);
                 count++;
             } catch (Exception e) {
                 failed.add(id.toString());
@@ -274,14 +271,13 @@ public class AdminPayoutService {
 
     @Audited(action = "PAYOUT_CREATE_MANUAL", entityType = "Payout")
     @Transactional
-    public AdminPayoutResponse createManual(CreateManualPayoutRequest req) {
+    public AdminPayoutResponse createManual(CreateManualPayoutRequest req, UUID actorId) {
         UUID id = UUID.randomUUID();
         String status = req.isExecuteImmediately() ? "PROCESSING" : "PENDING";
-        UUID user = currentUser();
         jdbcTemplate.update(
                 "INSERT INTO portal_payout_requests (id, provider_id, amount, currency, notes, status, requested_at, is_manual, processed_by)" +
                 " VALUES (?, ?, ?, 'USD', ?, ?, NOW(), TRUE, ?)",
-                id, req.getProviderId(), req.getAmount(), req.getMemo(), status, user);
+                id, req.getProviderId(), req.getAmount(), req.getMemo(), status, actorId);
         return getById(id);
     }
 
@@ -291,10 +287,12 @@ public class AdminPayoutService {
 
     @Transactional(readOnly = true)
     public byte[] exportCsv(String status, String start, String end) {
-        String dateFilter = buildDateFilter(start, end, "r.requested_at");
+        List<Object> params = new ArrayList<>();
+        String dateFilter = buildDateFilter(start, end, "r.requested_at", params);
         String where = "WHERE 1=1" + dateFilter;
         if (status != null && !status.isBlank()) {
-            where += " AND r.status = '" + status.replace("'", "''") + "'";
+            where += " AND r.status = ?";
+            params.add(status.toUpperCase());
         }
         String sql = "SELECT r.id, sp.company_name AS provider_name, sp.contact_email AS provider_email, " +
                      "r.amount, r.currency, r.status, r.requested_at, r.processed_at, " +
@@ -304,7 +302,7 @@ public class AdminPayoutService {
                      where + " ORDER BY r.requested_at DESC";
         StringBuilder csv = new StringBuilder();
         csv.append("ID,Provider,Email,Amount,Currency,Status,Requested At,Processed At,Transaction ID,Notes,Manual\n");
-        jdbcTemplate.query(sql, rs -> {
+        jdbcTemplate.query(sql, params.toArray(), rs -> {
             csv.append('"').append(rs.getString("id")).append('"').append(',');
             csv.append('"').append(safe(rs.getString("provider_name"))).append('"').append(',');
             csv.append('"').append(safe(rs.getString("provider_email"))).append('"').append(',');
@@ -342,21 +340,16 @@ public class AdminPayoutService {
                 ". Allowed: " + Arrays.toString(allowedStatuses));
     }
 
-    private UUID currentUser() {
-        try {
-            var auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getName() != null) {
-                return UUID.fromString(auth.getName());
-            }
-        } catch (Exception ignored) {}
-        return null;
-    }
-
-    private String buildDateFilter(String start, String end, String col) {
-        if ((start == null || start.isBlank()) && (end == null || end.isBlank())) return "";
+    private String buildDateFilter(String start, String end, String col, List<Object> params) {
         StringBuilder sb = new StringBuilder();
-        if (start != null && !start.isBlank()) sb.append(" AND ").append(col).append(" >= '").append(start).append("'::date");
-        if (end != null && !end.isBlank()) sb.append(" AND ").append(col).append(" <= '").append(end).append("'::date + interval '1 day'");
+        if (start != null && !start.isBlank()) {
+            sb.append(" AND ").append(col).append(" >= ?::date");
+            params.add(start);
+        }
+        if (end != null && !end.isBlank()) {
+            sb.append(" AND ").append(col).append(" <= ?::date + interval '1 day'");
+            params.add(end);
+        }
         return sb.toString();
     }
 

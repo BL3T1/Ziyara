@@ -4,7 +4,6 @@ import com.ziyara.backend.domain.entity.ServiceProvider;
 import com.ziyara.backend.domain.enums.ProviderStatus;
 import com.ziyara.backend.domain.repository.ServiceProviderRepository;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -30,12 +29,9 @@ public class ApproveProviderUseCase {
         }
 
         if (input.approve()) {
-            provider.setStatus(ProviderStatus.ACTIVE);
-            provider.setVerified(true);
-            provider.setApprovedBy(input.reviewedBy());
-            provider.setApprovedAt(LocalDateTime.now());
+            provider.approve(input.reviewedBy());
         } else {
-            provider.setStatus(ProviderStatus.INACTIVE);
+            provider.suspend();
         }
 
         ServiceProvider saved = providerRepository.save(provider);

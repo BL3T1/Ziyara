@@ -17,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -58,7 +57,7 @@ public class InternalTicketService {
         ticket.setEstimatedHours(request.getEstimatedHours());
         ticket.setDueDate(request.getDueDate());
         ticket.setRelatedTicketId(request.getRelatedTicketId());
-        ticket.setTicketNumber(generateTicketNumber());
+        ticket.setTicketNumber(InternalTicket.generateTicketNumber());
         return toResponse(ticketRepository.save(ticket));
     }
 
@@ -222,12 +221,6 @@ public class InternalTicketService {
     private InternalTicket requireTicket(UUID id) {
         return ticketRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found: " + id));
-    }
-
-    private static String generateTicketNumber() {
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String random = String.format("%04d", (int) (Math.random() * 10000));
-        return "ITK" + timestamp + random;
     }
 
     public TicketResponse toResponse(InternalTicket ticket) {
