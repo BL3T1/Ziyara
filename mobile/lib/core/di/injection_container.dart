@@ -18,6 +18,8 @@ import '../../features/payment/domain/repositories/payment_repository.dart';
 import '../../features/profile/data/repositories/profile_repository_impl.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/exchange_rate/data/repositories/exchange_rate_repository_impl.dart';
+import '../../features/journey/data/repositories/journey_repository_impl.dart';
+import '../../features/journey/domain/repositories/journey_repository.dart';
 
 /// Global service locator instance.
 final sl = GetIt.instance;
@@ -74,6 +76,11 @@ Future<void> initDependencies() async {
   // ── Profile ───────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<ProfileRepository>(
     () => ProfileRepositoryImpl(apiClient: sl<ApiClient>()),
+  );
+
+  // ── Journey ───────────────────────────────────────────────────────────────
+  sl.registerLazySingleton<JourneyRepository>(
+    () => JourneyRepositoryImpl(apiClient: sl<ApiClient>()),
   );
 
   // ── Exchange Rates ─────────────────────────────────────────────────────────

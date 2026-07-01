@@ -52,8 +52,17 @@ const LandingCheckoutPage = lazy(() =>
 const LandingMyBookingsPage = lazy(() =>
   import('./LandingMyBookingsPage').then((m) => ({ default: m.LandingMyBookingsPage })),
 )
+const LandingBookingConfirmationPage = lazy(() =>
+  import('./LandingBookingConfirmationPage').then((m) => ({ default: m.LandingBookingConfirmationPage })),
+)
+const LandingManageBookingPage = lazy(() =>
+  import('./LandingManageBookingPage').then((m) => ({ default: m.LandingManageBookingPage })),
+)
 const LandingAccountPage = lazy(() =>
   import('./LandingAccountPage').then((m) => ({ default: m.LandingAccountPage })),
+)
+const LandingJourneyPage = lazy(() =>
+  import('./LandingJourneyPage').then((m) => ({ default: m.LandingJourneyPage })),
 )
 
 export function AppLandingRoutes() {
@@ -64,6 +73,8 @@ export function AppLandingRoutes() {
       <Route path="/verify-email" element={<LandingVerifyEmailPage />} />
       <Route path="/forgot-password" element={<LandingForgotPasswordPage />} />
       <Route path="/reset-password" element={<LandingResetPasswordPage />} />
+      <Route path="/booking-confirmed" element={<LandingBookingConfirmationPage />} />
+      <Route path="/my-bookings/:ref" element={<LandingManageBookingPage />} />
       <Route element={<LandingShell />}>
         <Route path="/checkout" element={<LandingCheckoutPage />} />
         <Route path="/my-bookings" element={<LandingMyBookingsPage />} />
@@ -83,6 +94,7 @@ export function AppLandingRoutes() {
         <Route path="/restaurants/:id" element={<LandingServiceDetailPage />} />
         <Route path="/trips/:id" element={<LandingServiceDetailPage />} />
         <Route path="/taxis/:id" element={<LandingServiceDetailPage />} />
+        <Route path="/journey" element={<LandingJourneyPage />} />
         <Route path="/contact" element={<LandingContactPage />} />
         <Route path="/faq" element={<LandingFaqPage />} />
         <Route path="/privacy" element={<LandingPrivacyPage />} />

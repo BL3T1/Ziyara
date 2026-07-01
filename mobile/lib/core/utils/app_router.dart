@@ -17,6 +17,7 @@ import '../../features/notifications/presentation/pages/notifications_page.dart'
 import '../../features/payment/presentation/pages/payment_page.dart';
 import '../../features/payment/presentation/pages/booking_success_page.dart';
 import '../../features/intro/presentation/pages/onboarding_page.dart';
+import '../../features/journey/presentation/pages/journey_page.dart';
 
 class AppRouter {
   // هذه الدالة تنشئ الراوتر مع تحديد صفحة البداية
@@ -57,6 +58,7 @@ class AppRouter {
           },
         ),
         GoRoute(path: '/payment_success', builder: (context, state) => const BookingSuccessPage()),
+        GoRoute(path: '/journey', builder: (context, state) => const JourneyPage()),
       ],
     );
   }

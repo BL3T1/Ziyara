@@ -1,6 +1,12 @@
 import axios from 'axios'
 import type { PageDto, ServiceDto, ServiceImageDto } from '../../types/api'
 
+export type JourneyRecommendation = {
+  hotels: ServiceDto[]
+  taxis: ServiceDto[]
+  restaurants: ServiceDto[]
+}
+
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1'
 
 const publicClient = axios.create({
@@ -30,6 +36,11 @@ export const landingPublicApi = {
       return Array.isArray(payload) ? (payload as ServiceImageDto[]) : []
     }
     return []
+  },
+  async journeyRecommend(params: { city: string; guests: number; maxBudget?: string }): Promise<JourneyRecommendation> {
+    const res = await publicClient.get('/journeys/recommend', { params })
+    const body = res.data as { data?: JourneyRecommendation }
+    return body.data ?? { hotels: [], taxis: [], restaurants: [] }
   },
   async getPageContent(slug: string, lang: 'en' | 'ar') {
     const res = await publicClient.get(`/content-pages/${slug}`, { params: { lang } })

@@ -68,6 +68,7 @@ class HomeBody extends StatelessWidget {
               ServiceCard(title: 'المطاعم والكافيهات', icon: Icons.restaurant_menu_outlined, onTap: () => context.push('/restaurants')),
               ServiceCard(title: 'الرحلات السياحية', icon: Icons.landscape_outlined, onTap: () => context.push('/tours')),
               ServiceCard(title: 'خدمة التوصيل', icon: Icons.directions_car_filled_outlined, onTap: () => context.push('/transport')),
+              ServiceCard(title: 'خطط رحلتك', icon: Icons.flight_land_outlined, onTap: () => context.push('/journey')),
             ],
           ),
         ),
